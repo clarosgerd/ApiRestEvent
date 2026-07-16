@@ -15,7 +15,9 @@ return new class extends Migration
             $table->engine = 'InnoDB';
             $table->increments('id');
             $table->unsignedBigInteger('event_id');
+            $table->string('promo_code', 30)->unique();
             $table->decimal('price', 10, 2)->nullable();
+            $table->boolean('status')->default(0);   ;
         });
           Schema::table('promo_codes', function ($table) {
             $table->foreign('event_id')->references('id')->on('eventos');

@@ -5,6 +5,10 @@ namespace App\Http\Controllers;
 use App\Models\PromoCode;
 use App\Http\Requests\StorePromoCodeRequest;
 use App\Http\Requests\UpdatePromoCodeRequest;
+use Illuminate\Support\Arr;
+use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
+use App\Http\Resources\PromoCodeResource;
 
 class PromoCodeController extends Controller
 {
@@ -73,5 +77,36 @@ class PromoCodeController extends Controller
     public function destroy(PromoCode $promoCode)
     {
         //
+    }
+
+     public function promoCode(Request $request,string $id ,string $promocode):JsonResponse
+    {
+        //
+//SendWhatsappMessageJob::dispatch('+59175925001@c.us', 'Hola, tu pedido está listo 📦');
+
+
+    // dd($promocode);
+        
+        $promo = PromoCode::where([['event_id', '=', $id],['promo_code', '=', $promocode]])->get();
+       // $promo = $eventos->paginate()->appends($request->query());
+        //dd($eventos);
+       // $eventos = Evento::paginate(15);
+        $collection = PromoCodeResource::collection( $promo);
+//dd($collection);
+
+        if ($collection->isNotEmpty())
+            {
+            return response()->json([
+                'success' => true,
+                'data' => $collection,
+                
+            ]);
+            }else {
+                 return response()->json([
+                'success' =>false,
+                'error' => 'no existe la promo para ese evento',
+                
+            ]);
+            }
     }
 }

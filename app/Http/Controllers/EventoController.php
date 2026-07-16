@@ -11,7 +11,7 @@ use App\Http\Resources\EventoResource;
 use App\Filters\EventoFilter;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
-
+use App\Jobs\SendWhatsappMessageJob;
 
 class EventoController extends Controller
 {
@@ -23,6 +23,9 @@ class EventoController extends Controller
     public function index(Request $request):JsonResponse
     {
         //
+//SendWhatsappMessageJob::dispatch('+59175925001@c.us', 'Hola, tu pedido está listo 📦');
+
+
     // dd($request);
         $filter = new EventoFilter();
         $filterItems = $filter->transform($request); // [['column','operator','value']]
@@ -78,6 +81,17 @@ class EventoController extends Controller
 
         //dd($event);
        // $evento = Evento::findOrFail($eventos->id);
+// Envío inmediato (a la cola)
+//SendWhatsappMessageJob::dispatch('59175925001', 'Hola! Tu pedido está listo 📦');
+
+// Envío con retraso (ej: 5 minutos después)
+//SendWhatsappMessageJob::dispatch('59175925001', 'Recordatorio de tu cita')
+//    ->delay(now()->addMinutes(5));
+
+// Enviar a una cola específica (ej: "whatsapp")
+//SendWhatsappMessageJob::dispatch('59175925001', 'Mensaje urgente')
+//    ->onQueue('whatsapp');
+
 
         return response()->json([
             'success' => true,
@@ -110,4 +124,7 @@ class EventoController extends Controller
     {
         //
     }
+
+
+   
 }

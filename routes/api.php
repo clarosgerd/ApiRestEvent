@@ -5,7 +5,8 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\PersonaController;
 
 use App\Http\Controllers\RegistrationController;
-
+use App\Http\Controllers\EventoController;
+use App\Http\Controllers\PromoCodeController;
 
 Route::get('/user', function (Request $request) {
     return $request->user();
@@ -30,4 +31,6 @@ Route::group(['prefix' => 'v1','namespace' => 'App\Http\Controllers'], function 
     Route::patch('/registrations/{reference}/payment',[RegistrationController::class, 'updatePayment']);
     Route::delete('/registrations/{reference}',[RegistrationController::class, 'destroy']);
 
+
+    Route::get('/promo/{id}/code/{promocode}',[PromoCodeController::class, 'promoCode']);
 });

@@ -12,6 +12,7 @@ class PromoCode extends Model
       public $timestamps = false;
      protected $fillable = [
         'event_id',
+        'promo_code',
         'price',
     ];
 

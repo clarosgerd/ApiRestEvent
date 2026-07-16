@@ -14,6 +14,6 @@ class EventoSeeder extends Seeder
     public function run(): void
     {
         //
-            Evento::factory(100)->hasCoordinates(1)->hasRoutes(5)->hasCategories(3)->hasFormTypes(3)->hasSouvenirs(2)->hasPromoCodes(1)->create();
+            Evento::factory(50)->hasCoordinates(1)->hasRoutes(5)->hasCategories(3)->hasFormTypes(3)->hasSouvenirs(2)->hasPromoCodes(3)->create();
     }
 }

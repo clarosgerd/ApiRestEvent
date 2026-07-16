@@ -48,7 +48,7 @@ return new class extends Migration
                 $table->boolean('requiere_categoria', 1)->default(1);
                 $table->boolean('requiere_talla', 1)->default(1);
                 $table->boolean('requiere_distancia', 1)->default(1);
-                $table->boolean('requiere_fecha_nacim', 1)->default(1);
+                $table->boolean('hasshirt', 1)->default(1);
                 $table->boolean('permite_inscripcion_grupal', 1)->default(1);
                 $table->boolean('max_integrantes_grupo', 1)->default(1);
                 $table->boolean ('permite_inscripcion_tercero',1)->default(1);
@@ -56,7 +56,7 @@ return new class extends Migration
                 $table->unsignedBigInteger('tiempo_expiracion_min');
                 $table->string('texto_boton', 60)->default('Inscribirme');
                 $table->string('color', 7);               // Guarda el código HEX "#e67e22"
-            $table->timestamps();
+                $table->timestamps();
         });
 
          Schema::table('form_types', function ($table) {

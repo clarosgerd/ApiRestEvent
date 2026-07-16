@@ -55,7 +55,7 @@ class FormTypeFactory extends Factory
             'requiere_categoria' => $this->faker->boolean(),
             'requiere_talla' => $this->faker->boolean(),
             'requiere_distancia' => $this->faker->boolean(),
-            'requiere_fecha_nacim' => $this->faker->boolean(),
+            'hasshirt' => $this->faker->boolean(),
             'permite_inscripcion_grupal' => $this->faker->boolean(),
             'max_integrantes_grupo' => $this->faker->numberBetween(1, 60),
             'permite_inscripcion_tercero' => $this->faker->boolean(),

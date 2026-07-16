@@ -28,7 +28,7 @@ class EventoFactory extends Factory
 	   // $destacado=$this->faker->randomElement(['0', '1']);
       //  $hasDonation=$this->faker->randomElement(['0', '1']);
 	    //$contador_visitas=$this->faker->randomElement(['0', '1']);
-        $status=['Open', 'Closed', 'Coming Soon'];
+        $status=['open', 'closed', 'coming_soon'];
 
         $youtubeId = Str::random(11); 
         return [

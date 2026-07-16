@@ -26,7 +26,7 @@ class FormTypeResource extends JsonResource
             'color'           =>$this->color,
             'moneda'          =>$this->moneda,
             'permite_lista_espera' =>$this->permite_lista_espera,
-            'requiere_categoria'   =>$this->requiere_categoria,
+            'hasshirt'   =>$this->hasshirt,
             'requiere_talla'       =>$this->requiere_talla,
    
     ];

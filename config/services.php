@@ -34,5 +34,10 @@ return [
             'channel' => env('SLACK_BOT_USER_DEFAULT_CHANNEL'),
         ],
     ],
+    'openwa' => [
+    'base_url' => env('OPENWA_BASE_URL', 'http://localhost:2785'),
+    'api_key' => env('OPENWA_API_KEY'),
+    'session_id' => env('OPENWA_SESSION_ID'),
+    ],
 
 ];

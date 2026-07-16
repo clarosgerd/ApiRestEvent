@@ -20,6 +20,7 @@ class PromoCodeFactory extends Factory
         return [
             //
             'event_id' => \App\Models\Evento::factory(),
+           'promo_code' => strtoupper($this->faker->unique()->bothify('PROMO-#####')),
             'price' => $this->faker->randomFloat(2, 10, 100),
         ];
     }
