@@ -15,7 +15,23 @@ class FormType extends Model
         'name',
         'icon',
         'description',
+        'tipo',
+        'cupo_total',
+        'precio_base',
         'color',
+        'moneda',
+        'activo',
+        'permite_lista_espera',
+        'requiere_categoria',
+        'requiere_talla',
+        'requiere_distancia',
+        'hasshirt',
+        'permite_inscripcion_grupal',
+        'max_integrantes_grupo',
+        'permite_inscripcion_tercero',
+        'costo_edicion',
+        'tiempo_expiracion_min',
+        'texto_boton',
     ];
 
 

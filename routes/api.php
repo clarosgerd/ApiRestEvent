@@ -31,6 +31,10 @@ Route::group(['prefix' => 'v1','namespace' => 'App\Http\Controllers'], function 
     Route::patch('/registrations/{reference}/payment',[RegistrationController::class, 'updatePayment']);
     Route::delete('/registrations/{reference}',[RegistrationController::class, 'destroy']);
 
+    Route::get('/registrations/{reference}/generarToken',[RegistrationController::class, 'generarToken']);
+    Route::get('/registrations/{reference}/estadoTransaccion',[RegistrationController::class, 'estadoTransaccion']);
+    Route::get('/registrations/{reference}/generaQr',[RegistrationController::class, 'generaQr']);
+
 
     Route::get('/promo/{id}/code/{promocode}',[PromoCodeController::class, 'promoCode']);
 });

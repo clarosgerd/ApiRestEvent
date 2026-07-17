@@ -3,24 +3,26 @@
 namespace App\Http\Controllers;
 
 use App\DTOs\RegistrationDTO;
-use App\DTP\ParticipantDTO;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreRegistrationRequest;
 use App\Http\Resources\RegistrationResource;
 use App\Http\Resources\PaginatedRegistrationCollectionResource;
 use App\Http\Resources\RegistrationCollectionResource;
-
 use App\Models\Registration;
 use App\Models\Participante;
-
 use App\Services\RegistrationService;
+use App\Services\QrService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 
 class RegistrationController extends Controller
 {
     public function __construct(
-        private readonly RegistrationService $service
+        private readonly RegistrationService $service,
+        private readonly QrService $qrService
     ) {
     }
 
@@ -127,6 +129,59 @@ class RegistrationController extends Controller
         ]);
     }
 
+public function estadoTransaccion(
+        string $reference
+    ): JsonResponse {
+
+        $registration = Registration::where('referencia', $reference)->firstOrFail();
+
+        $tokenData = $this->qrService->generarToken();
+        $token = $tokenData['token'] ?? $tokenData['data']['token'] ?? $tokenData['access_token'] ?? '';
+
+        $estado = $this->qrService->estadoTransaccion($reference, $token);
+
+        return response()->json([
+            'success' => true,
+            'data'    => $estado,
+        ]);
+    }
+
+    /**
+     * Generar token de autenticación para pagos.
+     */
+    public function generarToken(): JsonResponse
+    {
+        $token = $this->qrService->generarToken();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Token generado correctamente.',
+            'data'    => $token,
+        ]);
+    }
+
+    /**
+     * Generar código QR para pago de una inscripción.
+     */
+    public function generaQr(string $reference): JsonResponse
+    {
+        $registration = Registration::with('totals')
+            ->where('referencia', $reference)
+            ->firstOrFail();
+
+        $tokenData = $this->qrService->generarToken();
+        $token = $tokenData['token'] ?? $tokenData['data']['token'] ?? $tokenData['access_token'] ?? '';
+
+        $qr = $this->qrService->generaQr($registration, $token);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Código QR generado correctamente.',
+            'data'    => $qr,
+        ]);
+    }
+
+    
     /**
      * Eliminar una inscripción.
      */

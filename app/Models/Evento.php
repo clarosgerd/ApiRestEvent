@@ -52,7 +52,9 @@ class Evento extends Model
         'tiene_desafios',
         'publicado',
         'destacado',
-        'contador_visitas'
+        
+        'contador_visitas',
+        'longDescription'
     ];
 
 protected $casts = [

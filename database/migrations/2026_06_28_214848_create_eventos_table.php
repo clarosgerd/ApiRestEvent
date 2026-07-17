@@ -53,6 +53,7 @@ return new class extends Migration
             $table->boolean('publicado')->default(false);
             $table->boolean('destacado')->default(false);
             $table->boolean('hasDonation')->default(false);
+            $table->boolean('hasPromoCode')->default(false);
             $table->integer('contador_visitas')->unsigned()->default(0);
             $table->timestamps();
         });

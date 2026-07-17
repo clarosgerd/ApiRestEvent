@@ -13,9 +13,15 @@ class Category extends Model
 
     protected $fillable=[
       'event_id',
+      'formulario_id',
+      'sexo_id',
+      'color',
       'name',
       'price',
       'description',
+      'edad_min',
+      'edad_max',
+      'calculo_edad_id',
     ];
 
 

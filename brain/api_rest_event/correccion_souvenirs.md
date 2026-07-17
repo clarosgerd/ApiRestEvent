@@ -72,7 +72,29 @@ use App\Filters\SouvenirFilter;
 use Illuminate\Http\Request;
 ```
 
-### 4. `app/Http/Controllers/FormTypeController.php`
+### 4. `app/Http/Resources/FormTypeResource.php`
+
+**Cambio 1:** `SouvenirResource::make()` → `SouvenirResource::collection()`
+
+```php
+// ANTES
+'souvenirs' => SouvenirResource::make($this->whenLoaded('souvenirs')),
+
+// DESPUES
+'souvenirs' => SouvenirResource::collection($this->whenLoaded('souvenirs')),
+```
+
+**Cambio 2:** Corregir espacio en key de `SouvenirResource.php`
+
+```php
+// ANTES
+'form_types_id ' => $this->form_types_id,
+
+// DESPUES
+'form_types_id' => $this->form_types_id,
+```
+
+### 5. `app/Http/Controllers/FormTypeController.php`
 
 **Cambio 1:** Agregar imports faltantes
 

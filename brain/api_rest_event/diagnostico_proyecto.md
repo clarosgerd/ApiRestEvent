@@ -1,4 +1,6 @@
-# Diagnostico Tecnico - ApiRestEvent
+
+[[implementacion_registro_evento]]]
+#Diagnostico Tecnico - ApiRestEvent
 
 **Fecha:** 2026-07-16
 **Framework:** Laravel 12 + PHP 8.2

@@ -14,6 +14,7 @@ class PromoCode extends Model
         'event_id',
         'promo_code',
         'price',
+        'status',
     ];
 
     

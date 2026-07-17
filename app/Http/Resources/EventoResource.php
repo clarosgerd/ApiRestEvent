@@ -41,6 +41,8 @@ class EventoResource extends JsonResource
             'description'               =>$this->descripcion,
             'longDescription'           =>$this->longDescription,
             'hasDonation'                 =>$this->hasDonation,
+            'hasPromoCode'                 =>$this->hasPromoCode,
+            
             'categories'                =>CategoryResource::collection($this->whenLoaded('categories')),  // Categorías del evento
             'formTypes'                 =>FormTypeResource::collection($this->whenLoaded('formTypes')),  // Tipos de formulario del evento  
                  //     'reglamento'                =>$this->reglamento,
@@ -62,7 +64,7 @@ class EventoResource extends JsonResource
        //     'tiene_delivery'            =>$this->tiene_delivery,
        //     'tiene_punto_venta'         =>$this->tiene_punto_venta,
        //     'tiene_desafios'            =>$this->tiene_desafios,
-       //     'publicado'                 =>$this->publicado,
+            'publicado'                 =>$this->publicado,
        //     'destacado'                 =>$this->destacado,
        //   'hasDonation'                 =>$this->hasDonation,
             'promoCodes'                 =>PromoCodeResource::collection($this->whenLoaded('promoCodes')),  // Códigos promocionales del evento

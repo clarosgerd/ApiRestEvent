@@ -4,15 +4,17 @@ namespace App\Services;
 
 use App\DTOs\ParticipantDTO;
 use App\DTOs\RegistrationDTO;
-use App\Models\EmergencyContact;
 use App\Models\Participante;
+use App\Models\Persona;
 use App\Models\SouvenirParticipante;
 use App\Models\Registration;
 use App\Models\RegistrationTotal;
 use App\Models\ContactoEmergenciaParticipante;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\DB;
-
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Str;
 class RegistrationService
 {
     /**
@@ -63,6 +65,8 @@ class RegistrationService
                 $registration,
                 $dto
             );
+
+            $this->syncPersonas($registration);
             
             return $this->loadRelations(
                 $registration
@@ -267,5 +271,46 @@ private function validateParticipantRegistration(
         }
         $documents[$key] = true;
     }
-} 
+}
+
+    /**
+     * Sincronizar participantes como personas.
+     * Crea o actualiza una Persona por cada participante de la inscripción.
+     * El password es el número de documento.
+     */
+    private function syncPersonas(Registration $registration): void
+    {
+        $participants = $registration->load('participants')->participants;
+
+        foreach ($participants as $participante) {
+            $persona = Persona::where('numero_documento', $participante->numero_documento)
+                ->orWhere('email', $participante->correo)
+                ->first();
+
+            $data = [
+                'tipo_documento'   => $participante->tipo_documento,
+                'nombre'           => $participante->nombre,
+                'apellido'         => $participante->apellido,
+                'alias'            => $participante->alias,
+                'sexo'             => $participante->genero,
+                'email'            => $participante->correo,
+                'correo'           => $participante->correo,
+                'password'         => Hash::make($participante->numero_documento),
+                'direccion'        => $participante->direccion,
+                'ciudad'           => $participante->ciudad,
+                'telefono'         => $participante->telefono,
+                'celular'          => $participante->telefono,
+                'fecha_nacimiento' => $participante->fecha_nacimiento,
+            ];
+
+            if ($persona) {
+                $persona->update($data);
+            } else {
+                Persona::create(array_merge($data, [
+                    'numero_documento' => $participante->numero_documento,
+                    'token'            => Str::random(40),
+                ]));
+            }
+        }
+    }
 }

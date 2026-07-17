@@ -73,6 +73,7 @@ class EventoFactory extends Factory
             'publicado'=>fake()->randomElement(['0', '1']), // $publicado=$this->faker->randomElement(['0', '1'])
             'destacado'=>fake()->randomElement(['0', '1']), // $destacado=$this->faker->randomElement(['0', '1'])
             'hasDonation'=> $this->faker->boolean(), // $hasDonation=$this->faker->randomElement(['0', '1'])
+                'hasPromoCode'=> $this->faker->boolean(), // $hasDonation=$this->faker->randomElement(['0', '1'])
             'contador_visitas'=>fake()->randomElement(['0', '1']), // $contador_visitas=$this->faker->randomElement(['0', '1'])
         ];
     }

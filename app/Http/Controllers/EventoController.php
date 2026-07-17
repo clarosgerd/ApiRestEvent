@@ -3,11 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Models\Evento;
+use App\DTOs\EventoDTO;
 use App\Http\Requests\StoreEventosRequest;
 use App\Http\Requests\UpdateEventosRequest;
 use App\Http\Resources\EventoCollection;
 use App\Http\Resources\EventoResource;
-
+use App\Services\EventoService;
 use App\Filters\EventoFilter;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
@@ -15,6 +16,10 @@ use App\Jobs\SendWhatsappMessageJob;
 
 class EventoController extends Controller
 {
+    public function __construct(
+        private readonly EventoService $service
+    ) {}
+
     /**
      * Display a listing of the resource.
      */
@@ -67,9 +72,16 @@ class EventoController extends Controller
     /**
      * Store a newly created resource in storage.
      */
-    public function store(StoreEventosRequest $request)
+    public function store(StoreEventosRequest $request): JsonResponse
     {
-        //
+        $dto = EventoDTO::fromArray($request->validated());
+        $evento = $this->service->create($dto);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Evento registrado correctamente.',
+            'eventos' => new EventoResource($evento),
+        ], 201);
     }
 
     /**
