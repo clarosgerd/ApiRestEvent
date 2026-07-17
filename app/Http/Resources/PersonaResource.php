@@ -4,7 +4,7 @@ namespace App\Http\Resources;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
-
+use Carbon\Carbon;
 class PersonaResource extends JsonResource
 {
     /**
@@ -25,9 +25,12 @@ class PersonaResource extends JsonResource
             'sexo' => $this->sexo,
             'tipoDocumento' => $this->tipo_documento,
             'numeroDocumento' => $this->numero_documento,
-            'dia' => optional($this->fecha_nacimiento)->format('d'),
-            'mes' => optional($this->fecha_nacimiento)->format('m'),
-            'anio' => optional($this->fecha_nacimiento)->format('Y'),
+            'nacimiento'=>[
+            'age' => Carbon::parse($this->fecha_nacimiento)->age,
+            'anio' => Carbon::parse($this->fecha_nacimiento)->year,
+            'mes' => Carbon::parse($this->fecha_nacimiento)->month,
+            'dia' => Carbon::parse($this->fecha_nacimiento)->day,
+            ],
             'correo' => $this->correo,
             'direccion' => $this->direccion,
             'ciudad' => $this->ciudad,
