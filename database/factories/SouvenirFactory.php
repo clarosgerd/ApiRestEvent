@@ -20,7 +20,7 @@ class SouvenirFactory extends Factory
           $emoji = fake()->randomElement(['🧢','🍶','🎒','♿' ,'🏅','🎯']);
         return [
             //
-            'event_id' => \App\Models\Evento::factory(),
+            'form_types_id' => \App\Models\FormType::factory(),
             'name' => $this->faker->word(),
             'icon' => $emoji ,    
             'price' => $this->faker->randomFloat(2, 10, 100),

@@ -20,7 +20,12 @@ class FormType extends Model
 
 
     
-     public function evento()  {
+   public function evento()  {
         return $this->belongsTo('App\Models\Evento','id');
      }
+
+   public function souvenirs()
+   {
+      return $this->hasMany('App\Models\Souvenir', 'form_types_id');
+   }
 }

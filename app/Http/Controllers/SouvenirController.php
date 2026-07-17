@@ -5,6 +5,10 @@ namespace App\Http\Controllers;
 use App\Models\Souvenir;
 use App\Http\Requests\StoreSouvenirRequest;
 use App\Http\Requests\UpdateSouvenirRequest;
+use App\Http\Resources\SouvenirCollection;
+use App\Http\Resources\SouvenirResource;
+use App\Filters\SouvenirFilter;
+use Illuminate\Http\Request;
 
 class SouvenirController extends Controller
 {

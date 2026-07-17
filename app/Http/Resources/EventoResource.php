@@ -43,8 +43,7 @@ class EventoResource extends JsonResource
             'hasDonation'                 =>$this->hasDonation,
             'categories'                =>CategoryResource::collection($this->whenLoaded('categories')),  // Categorías del evento
             'formTypes'                 =>FormTypeResource::collection($this->whenLoaded('formTypes')),  // Tipos de formulario del evento  
-            'souvenirs'                  =>SouvenirResource::collection($this->whenLoaded('souvenirs')),  // Souvenirs del evento
-       //     'reglamento'                =>$this->reglamento,
+                 //     'reglamento'                =>$this->reglamento,
        //     'deslinde'                  =>$this->deslinde,
        //     'fecha_fin'                 =>$this->fecha_fin,
        //     'fecha_apertura_inscrip'    =>$this->fecha_apertura_inscrip,

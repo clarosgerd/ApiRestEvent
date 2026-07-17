@@ -75,10 +75,7 @@ protected $casts = [
    {
       return $this->hasMany('App\Models\FormType', 'event_id');
    }
-    public function souvenirs()
-   {
-      return $this->hasMany('App\Models\Souvenir', 'event_id');
-   }
+ 
     public function promoCodes()
    {
       return $this->hasMany('App\Models\PromoCode', 'event_id');

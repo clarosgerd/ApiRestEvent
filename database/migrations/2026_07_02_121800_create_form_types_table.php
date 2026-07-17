@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('form_types', function (Blueprint $table) {
             $table->engine = 'InnoDB';
-            $table->increments('id');
+            $table->id('id');
             $table->unsignedBigInteger('event_id'); // Para guardar "challenge"
             $table->string('name');                   // Para "Challenge Series"
             $table->string('icon');                   // Guarda el emoji "🎯"

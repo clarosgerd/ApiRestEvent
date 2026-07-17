@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\FormType;
 use App\Http\Requests\StoreFormTypeRequest;
 use App\Http\Requests\UpdateFormTypeRequest;
+use App\Http\Resources\FormTypeCollection;
+use App\Http\Resources\FormTypeResource;
 use Illuminate\Http\Request;
 use App\Filters\FormTypeFilter;
 
@@ -49,7 +51,7 @@ class FormTypeController extends Controller
 
           $includeFormType = request()->query('includeFormType');
         if ($includeFormType) {
-            return new FormTypeResource($formType->loadMissing('formTypes'));
+            return new FormTypeResource($formType->loadMissing('souvenirs'));
         }
 
         return new FormTypeResource($formType);

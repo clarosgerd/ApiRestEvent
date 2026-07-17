@@ -11,7 +11,7 @@ class Souvenir extends Model
     use HasFactory;
   public $timestamps = false;
      protected $fillable = [
-        'event_id',
+        'form_types_id',
         'name',
         'icon',
         'price',
@@ -19,8 +19,8 @@ class Souvenir extends Model
     ];
 
     
-     public function evento()  {
-        return $this->belongsTo('App\Models\Evento','id');
+     public function formType()  {
+        return $this->belongsTo('App\Models\FormType','form_types_id','id');
      }
 
 }

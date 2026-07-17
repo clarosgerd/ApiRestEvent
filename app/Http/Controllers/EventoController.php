@@ -34,7 +34,7 @@ class EventoController extends Controller
         $eventos = $eventos->with('routes');
         $eventos = $eventos->with('promoCodes');
         $eventos = $eventos->with('categories');
-        $eventos = $eventos->with('formTypes');
+        $eventos = $eventos->with('formTypes.souvenirs');
         $eventos = $eventos->paginate()->appends($request->query());
         //dd($eventos);
        // $eventos = Evento::paginate(15);
@@ -95,7 +95,7 @@ class EventoController extends Controller
 
         return response()->json([
             'success' => true,
-            'eventos' => new EventoResource($event->loadMissing(['coordinates', 'routes', 'promoCodes','categories','formTypes','souvenirs'])),
+            'eventos' => new EventoResource($event->loadMissing(['coordinates', 'routes', 'promoCodes','categories','formTypes.souvenirs'])),
         ]);
 
        // return   new EventoResource($event);
