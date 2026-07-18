@@ -48,6 +48,27 @@ class EventoController extends Controller
             });
         }
 
+        // Filtro por tipo de formulario: ?tipo[eq]=deportivo | ?tipo[li]=depor
+        $tipoFilter = $request->query('tipo');
+        if (isset($tipoFilter['eq'])) {
+            $eventos->whereHas('formTypes', function ($q) use ($tipoFilter) {
+                $q->where('tipo', '=', $tipoFilter['eq']);
+            });
+        } elseif (isset($tipoFilter['li'])) {
+            $eventos->whereHas('formTypes', function ($q) use ($tipoFilter) {
+                $q->where('tipo', 'like', '%' . $tipoFilter['li'] . '%');
+            });
+        }
+
+        // Filtro por rango de precio: ?price[gte]=100&price[lte]=500
+        $priceFilter = $request->query('price');
+        if (isset($priceFilter['gte']) || isset($priceFilter['lte'])) {
+            $eventos->whereHas('categories', function ($q) use ($priceFilter) {
+                if (isset($priceFilter['gte'])) $q->where('price', '>=', $priceFilter['gte']);
+                if (isset($priceFilter['lte'])) $q->where('price', '<=', $priceFilter['lte']);
+            });
+        }
+
         $eventos = $eventos->with('coordinates');
         $eventos = $eventos->with('routes');
         $eventos = $eventos->with('promoCodes');
