@@ -223,6 +223,122 @@ class RegistrationService
     }
 
     /**
+     * Actualizar inscripción completa (solo si no está pagada).
+     */
+    public function update(string $reference, array $data): Registration
+    {
+        return DB::transaction(function () use ($reference, $data) {
+
+            $registration = Registration::where('referencia', $reference)->firstOrFail();
+
+            if ($registration->pago_status === 'paid') {
+                throw new \DomainException(
+                    'No se puede modificar una inscripción ya pagada.'
+                );
+            }
+
+            $this->validateDuplicateParticipantsFromData($data);
+
+            $registration->participants()->delete();
+            $registration->totals()->delete();
+
+            foreach ($data['participantes'] as $participantData) {
+                $this->createParticipantFromData($registration, $participantData);
+            }
+
+            RegistrationTotal::create([
+                'registration_id' => $registration->id,
+                'inscripcion'     => $data['totales']['inscripcion'],
+                'donacion'        => $data['totales']['donacion'],
+                'souvenirs'       => $data['totales']['souvenirs'],
+                'fee'             => $data['totales']['fee'],
+                'descuento'       => $data['totales']['descuento'],
+                'grand_total'     => $data['totales']['grand_total'],
+            ]);
+
+            $this->syncPersonas($registration);
+
+            return $this->loadRelations($registration);
+        });
+    }
+
+    /**
+     * Crear participante desde array raw (para actualización).
+     */
+    private function createParticipantFromData(Registration $registration, array $data): void
+    {
+        $birth = $data['nacimiento'];
+
+        $participant = Participante::create([
+            'registration_id'  => $registration->id,
+            'nombre'           => $data['nombre'],
+            'apellido'         => $data['apellido'],
+            'alias'            => $data['alias'] ?? '',
+            'genero'           => $data['genero'] ?? 'Masculino',
+            'tipo_documento'   => $data['tipoDocumento'] ?? 'DNI',
+            'numero_documento' => $data['numeroDocumento'],
+            'polera'           => $data['polera'] ?? '',
+            'precio_polera'    => $data['precioPolera'] ?? 0,
+            'fecha_nacimiento' => sprintf('%04d-%02d-%02d', $birth['anio'], $birth['mes'], $birth['dia']),
+            'edad'             => $data['edad'],
+            'correo'           => $data['correo'],
+            'direccion'        => $data['direccion'] ?? '',
+            'ciudad'           => $data['ciudad'] ?? '',
+            'telefono'         => $data['telefono'] ?? '',
+            'categoria'        => $data['categoria'],
+            'precio_categoria' => $data['precioCategoria'],
+            'donacion'         => $data['donacion'] ?? 0,
+            'promo_descuento'  => $data['promoDescuento'] ?? 0,
+            'promo_codigo'     => $data['promoCodigo'] ?? '',
+            'subtotal'         => $data['subtotal'],
+        ]);
+
+        $emergency = $data['contacto_emergencia'];
+        ContactoEmergenciaParticipante::create([
+            'participante_id' => $participant->id,
+            'nombre'          => $emergency['nombre'],
+            'celular'         => $emergency['celular'],
+            'relacion'        => $emergency['relacion'],
+        ]);
+
+        foreach ($data['souvenirs'] ?? [] as $souvenir) {
+            SouvenirParticipante::create([
+                'participante_id' => $participant->id,
+                'souvenir_id'     => $souvenir['id'],
+                'nombre'          => $souvenir['nombre'],
+                'precio'          => $souvenir['precio'],
+            ]);
+        }
+
+        foreach ($data['answers'] ?? [] as $answer) {
+            Answer::create([
+                'form_types_id'   => $answer['form_types_id'],
+                'question_id'     => $answer['question_id'],
+                'participante_id' => $participant->id,
+                'value'           => $answer['value'],
+            ]);
+        }
+    }
+
+    /**
+     * Validar que no hayan documentos duplicados en el request de actualización.
+     */
+    private function validateDuplicateParticipantsFromData(array $data): void
+    {
+        $documents = [];
+
+        foreach ($data['participantes'] as $participant) {
+            $key = ($participant['tipoDocumento'] ?? 'DNI') . '-' . $participant['numeroDocumento'];
+            if (isset($documents[$key])) {
+                throw new \DomainException(
+                    "El participante con documento {$participant['numeroDocumento']} está repetido en la solicitud."
+                );
+            }
+            $documents[$key] = true;
+        }
+    }
+
+    /**
      * Cargar relaciones.
      */
     private function loadRelations(

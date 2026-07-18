@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\DTOs\RegistrationDTO;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreRegistrationRequest;
+use App\Http\Requests\UpdateRegistrationRequest;
 use App\Http\Resources\RegistrationResource;
 use App\Http\Resources\PaginatedRegistrationCollectionResource;
 use App\Http\Resources\RegistrationCollectionResource;
@@ -35,6 +36,7 @@ class RegistrationController extends Controller
             'totals',
             'participants.contactoEmergenciaParticipante',
             'participants.souvenirParticipante',
+            'participants.answers',
         ])
             ->when(
                 $request->filled('evento_id'),
@@ -85,7 +87,8 @@ class RegistrationController extends Controller
         $registration = Registration::with([
           'totals',
            'participants.contactoEmergenciaParticipante',
-           'participants.souvenirParticipante'
+           'participants.souvenirParticipante',
+           'participants.answers',
         ])
         ->where('referencia', $reference)
         ->firstOrFail();
@@ -195,6 +198,23 @@ public function estadoTransaccion(
         return response()->json([
             'success' => true,
             'message' => 'Inscripción eliminada correctamente.'
+        ]);
+    }
+
+    /**
+     * Actualizar una inscripción (solo si no está pagada).
+     */
+    public function update(UpdateRegistrationRequest $request, string $reference): JsonResponse
+    {
+        $registration = $this->service->update(
+            $reference,
+            $request->validated()
+        );
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Inscripción actualizada correctamente.',
+            'data' => new RegistrationCollectionResource($registration),
         ]);
     }
 }
