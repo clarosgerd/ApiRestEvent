@@ -1,0 +1,133 @@
+Necesitamos en registar el identificador del formulario al momento de registrar una inscripcion 
+luego tambien necesitamos registrar 'answers' que respondio el participante en preguntas adicionales se sabe que existe preguntas adicionales cuando en form_types el campo es hasQuestion=1
+antes teniamos el json de entrada 
+**ANTES**
+[
+    {
+        "referencia": "LA-9167800F",
+        "fecha": "2026-07-05 14:34:11",
+        "evento_id": "1",
+        "evento_nombre": "Margret Schultz Sr.",
+        "tipo_pago": "QR",
+        "pago_status": "pending",
+        "totales": {
+            "inscripcion": 5.82,
+            "donacion": 50,
+            "souvenirs": 69.6,
+            "fee": 0.29,
+            "descuento": 0,
+            "grand_total": 125.71
+        },
+        "participantes": [
+            {
+                "nombre": "Gerd",
+                "apellido": "Claros",
+                "alias": "g",
+                "genero": "Masculino",
+                "tipoDocumento": "DNI",
+                "numeroDocumento": "962633",
+                "polera": "No shirt",
+                "precioPolera": 0,
+                "nacimiento": {
+                    "dia": "8",
+                    "mes": "8",
+                    "anio": "1985"
+                },
+                "edad": 40,
+                "correo": "carlitos.gerd@gmail.com",
+                "direccion": "AV Dòrbigny, Depto 333",
+                "ciudad": "Cochabamba",
+                "telefono": "+59178441410",
+                "contacto_emergencia": {
+                    "nombre": "Gerd Claros",
+                    "celular": "+59178441410",
+                    "relacion": "LGN"
+                },
+                "donacion": 50,
+                "souvenirs": [
+                    {
+                        "id": "1",
+                        "nombre": "omnis",
+                        "precio": 69.6
+                    }
+                ],
+                "categoria": "1",
+                "precioCategoria": 5.82,
+                "promoDescuento": 0,
+                "promoCodigo": "",
+                "subtotal": 125.42
+            }
+        ]
+    }
+]
+
+
+**AHORA**
+
+
+[
+    {
+        "referencia": "LA-9167800F",
+        "fecha": "2026-07-05 14:34:11",
+        "evento_id": "1",
+        "form_types_id": "1",
+        "evento_nombre": "Margret Schultz Sr.",
+        "tipo_pago": "QR",
+        "pago_status": "pending",
+        "totales": {
+            "inscripcion": 5.82,
+            "donacion": 50,
+            "souvenirs": 69.6,
+            "fee": 0.29,
+            "descuento": 0,
+            "grand_total": 125.71
+        },
+        "participantes": [
+            {
+                "nombre": "Gerd",
+                "apellido": "Claros",
+                "alias": "g",
+                "genero": "Masculino",
+                "tipoDocumento": "DNI",
+                "numeroDocumento": "962633",
+                "polera": "No shirt",
+                "precioPolera": 0,
+                "nacimiento": {
+                    "dia": "8",
+                    "mes": "8",
+                    "anio": "1985"
+                },
+                "edad": 40,
+                "correo": "carlitos.gerd@gmail.com",
+                "direccion": "AV Dòrbigny, Depto 333",
+                "ciudad": "Cochabamba",
+                "telefono": "+59178441410",
+                "contacto_emergencia": {
+                    "nombre": "Gerd Claros",
+                    "celular": "+59178441410",
+                    "relacion": "LGN"
+                },
+                "donacion": 50,
+                "souvenirs": [
+                    {
+                        "id": "1",
+                        "nombre": "omnis",
+                        "precio": 69.6
+                    }
+                ],
+                "answers": [
+                    {
+                        "form_types_id": 1,
+                        "question_id": 1,
+                        "value": 69.6
+                    }
+                ],
+                "categoria": "1",
+                "precioCategoria": 5.82,
+                "promoDescuento": 0,
+                "promoCodigo": "",
+                "subtotal": 125.42
+            }
+        ]
+    }
+]

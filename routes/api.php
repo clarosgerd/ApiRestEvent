@@ -37,4 +37,9 @@ Route::group(['prefix' => 'v1','namespace' => 'App\Http\Controllers'], function 
 
 
     Route::get('/promo/{id}/code/{promocode}',[PromoCodeController::class, 'promoCode']);
+
+
+
+   // Route::post('/promo/{id}/code/{promocode}',[EventoController::class, 'store']);
+
 });

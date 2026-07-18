@@ -19,7 +19,9 @@ class DatabaseSeeder extends Seeder
         $this->call([
             EventoSeeder::class,
           //  FormTypeSeeder::class,
+          //  FormularioCamposSeeder::class,
             PersonaSeeder::class,
+           
         ]);
     }
 }

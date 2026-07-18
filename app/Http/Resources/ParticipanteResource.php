@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use App\Http\Resources\ContactoEmergenciaParticipanteResource;
 use App\Http\Resources\SouvenirParticipanteResource;
+use App\Http\Resources\AnswerResource;
 
 class ParticipanteResource extends JsonResource
 {
@@ -44,6 +45,10 @@ class ParticipanteResource extends JsonResource
 
             'souvenirs' => SouvenirParticipanteResource::collection(
                 $this->whenLoaded('souvenirParticipante')
+            ),
+
+            'answers' => AnswerResource::collection(
+                $this->whenLoaded('answers')
             ),
 
             'categoria' => (string)$this->categoria,

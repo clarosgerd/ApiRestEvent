@@ -33,9 +33,9 @@ class StoreEventosRequest extends FormRequest
             'route.*.lng'           => 'required_with:route|numeric',
             'route.*.label'         => 'nullable|string',
 
-            'categories'            => 'nullable|array',
-            'categories.*.name'     => 'required_with:categories|string|max:255',
-            'categories.*.price'    => 'required_with:categories|numeric',
+            'categories'            => 'required|array|min:1',
+            'categories.*.name'     => 'required|string|max:255',
+            'categories.*.price'    => 'required|numeric|min:0',
             'categories.*.description' => 'nullable|string',
             'categories.*.color'    => 'nullable|string|max:7',
 
@@ -56,6 +56,18 @@ class StoreEventosRequest extends FormRequest
             'formTypes.*.souvenirs.*.name'    => 'required_with:formTypes.*.souvenirs|string|max:255',
             'formTypes.*.souvenirs.*.icon'    => 'nullable|string',
             'formTypes.*.souvenirs.*.price'   => 'required_with:formTypes.*.souvenirs|numeric|min:0',
+
+            'formTypes.*.preguntas'                      => 'nullable|array',
+            'formTypes.*.preguntas.*.nombre_campo'       => 'required_with:formTypes.*.preguntas|string|max:255',
+            'formTypes.*.preguntas.*.seccion'            => 'nullable|string|in:personal,kit,encuesta,legal,otro',
+            'formTypes.*.preguntas.*.etiqueta'           => 'nullable|string|max:255',
+            'formTypes.*.preguntas.*.tipo_input'         => 'nullable|string|in:text,email,tel,date,number,select,checkbox,radio,textarea,file',
+            'formTypes.*.preguntas.*.placeholder'        => 'nullable|string|max:255',
+            'formTypes.*.preguntas.*.obligatorio'        => 'nullable|boolean',
+            'formTypes.*.preguntas.*.orden'              => 'nullable|integer',
+            'formTypes.*.preguntas.*.options'            => 'nullable|array',
+            'formTypes.*.preguntas.*.options.*.option_text' => 'required_with:formTypes.*.preguntas.*.options|string|max:255',
+            'formTypes.*.preguntas.*.options.*.order'    => 'nullable|integer',
 
             'promoCodes'            => 'nullable|array',
             'promoCodes.*.promo_code' => 'required_with:promoCodes|string|max:30',

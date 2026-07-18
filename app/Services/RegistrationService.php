@@ -10,6 +10,7 @@ use App\Models\SouvenirParticipante;
 use App\Models\Registration;
 use App\Models\RegistrationTotal;
 use App\Models\ContactoEmergenciaParticipante;
+use App\Models\Answer;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -34,14 +35,9 @@ class RegistrationService
             
             foreach ($dto->participants as $participant) {
                 $this->validateParticipantRegistration($dto, $participant);
-            //    $this->createParticipant($registration, $participant);
             }
 
             $this->validateDuplicateParticipants($dto);
-
-            foreach ($dto->participants as $participant) {
-                $this->validateParticipantRegistration($dto, $participant);
-            }
 
 
             
@@ -51,6 +47,7 @@ class RegistrationService
                 'fecha' => $dto->date,
                 'evento_id' => $dto->eventId,
                 'evento_nombre' => $dto->eventName,
+                'form_types_id' => $dto->formId,
                 'tipo_pago' => $dto->paymentType,
                 'pago_status' => $dto->paymentStatus,
             ]);
@@ -154,6 +151,15 @@ class RegistrationService
             ]);
 
         }
+
+        foreach ($dto->answers as $answer) {
+            Answer::create([
+                'form_types_id'   => $answer->formTypeId,
+                'question_id'     => $answer->questionId,
+                'participante_id' => $participant->id,
+                'value'           => $answer->value,
+            ]);
+        }
     }
 
     /**
@@ -226,7 +232,8 @@ class RegistrationService
         return $registration->load([
            'totals',
            'participants.contactoEmergenciaParticipante',
-           'participants.souvenirParticipante'
+           'participants.souvenirParticipante',
+           'participants.answers',
         ]);
     }
 

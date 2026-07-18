@@ -35,11 +35,25 @@ class EventoController extends Controller
         $filter = new EventoFilter();
         $filterItems = $filter->transform($request); // [['column','operator','value']]
         $eventos = Evento::where($filterItems);
+
+        // Filtro por nombre de categoría: ?category[eq]=3k
+        $categoryFilter = $request->query('category');
+        if (isset($categoryFilter['eq'])) {
+            $eventos->whereHas('categories', function ($q) use ($categoryFilter) {
+                $q->where('name', '=', $categoryFilter['eq']);
+            });
+        } elseif (isset($categoryFilter['li'])) {
+            $eventos->whereHas('categories', function ($q) use ($categoryFilter) {
+                $q->where('name', 'like', '%' . $categoryFilter['li'] . '%');
+            });
+        }
+
         $eventos = $eventos->with('coordinates');
         $eventos = $eventos->with('routes');
         $eventos = $eventos->with('promoCodes');
         $eventos = $eventos->with('categories');
         $eventos = $eventos->with('formTypes.souvenirs');
+        $eventos = $eventos->with('formTypes.formularioCampos.options');
         $eventos = $eventos->paginate()->appends($request->query());
         //dd($eventos);
        // $eventos = Evento::paginate(15);
@@ -107,7 +121,7 @@ class EventoController extends Controller
 
         return response()->json([
             'success' => true,
-            'eventos' => new EventoResource($event->loadMissing(['coordinates', 'routes', 'promoCodes','categories','formTypes.souvenirs'])),
+            'eventos' => new EventoResource($event->loadMissing(['coordinates', 'routes', 'promoCodes','categories','formTypes.souvenirs','formTypes.formularioCampos.options'])),
         ]);
 
        // return   new EventoResource($event);

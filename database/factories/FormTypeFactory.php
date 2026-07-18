@@ -3,6 +3,7 @@
 namespace Database\Factories;
 
 use App\Models\FormType;
+use App\Models\FormularioCampos;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -58,12 +59,20 @@ class FormTypeFactory extends Factory
             'hasshirt' => $this->faker->boolean(),
             'permite_inscripcion_grupal' => $this->faker->boolean(),
             'max_integrantes_grupo' => $this->faker->numberBetween(1, 60),
-            'permite_inscripcion_tercero' => $this->faker->boolean(),
+            'hasQuestion' => $this->faker->boolean(),
             'costo_edicion' => $this->faker->randomFloat(2, 0, 100),
             'tiempo_expiracion_min' => $this->faker->numberBetween(1, 60),
             'texto_boton' => $this->faker->word(),
             'color' => $this->faker->hexColor(),
              'activo' => $this->faker->boolean(),
         ];
+    }
+
+    public function hasFormularioCampos(int $count = 3): static
+    {
+        return $this->has(
+            FormularioCampos::factory()->hasQuestionOptions(3)->count($count),
+            'formularioCampos'
+        );
     }
 }

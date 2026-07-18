@@ -9,6 +9,8 @@ use App\Models\Route;
 use App\Models\Category;
 use App\Models\FormType;
 use App\Models\Souvenir;
+use App\Models\FormularioCampos;
+use App\Models\QuestionOptions;
 use App\Models\PromoCode;
 use Illuminate\Support\Facades\DB;
 
@@ -102,6 +104,7 @@ class EventoService
             ]);
 
             $this->createSouvenirs($formType, $formTypeDTO->souvenirs);
+            $this->createFormularioCampos($formType, $formTypeDTO->preguntas);
         }
     }
 
@@ -117,6 +120,39 @@ class EventoService
         ], $souvenirs);
 
         Souvenir::insert($data);
+    }
+
+    private function createFormularioCampos(FormType $formType, array $preguntas): void
+    {
+        if (empty($preguntas)) return;
+
+        foreach ($preguntas as $preguntaDTO) {
+            $question = FormularioCampos::create([
+                'form_types_id' => $formType->id,
+                'nombre_campo'  => $preguntaDTO->nombreCampo,
+                'seccion'       => $preguntaDTO->seccion,
+                'etiqueta'      => $preguntaDTO->etiqueta,
+                'tipo_input'    => $preguntaDTO->tipoInput,
+                'placeholder'   => $preguntaDTO->placeholder,
+                'obligatorio'   => $preguntaDTO->obligatorio,
+                'orden'         => $preguntaDTO->orden,
+            ]);
+
+            $this->createQuestionOptions($question, $preguntaDTO->options);
+        }
+    }
+
+    private function createQuestionOptions(FormularioCampos $question, array $options): void
+    {
+        if (empty($options)) return;
+
+        $data = array_map(fn($o) => [
+            'question_id' => $question->id,
+            'option_text' => $o->optionText,
+            'order'       => $o->order,
+        ], $options);
+
+        QuestionOptions::insert($data);
     }
 
     private function createPromoCodes(Evento $evento, EventoDTO $dto): void
@@ -139,6 +175,7 @@ class EventoService
             'routes',
             'categories',
             'formTypes.souvenirs',
+            'formTypes.formularioCampos.options',
             'promoCodes',
         ]);
     }

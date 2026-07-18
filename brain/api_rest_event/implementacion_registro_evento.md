@@ -129,7 +129,39 @@ Content-Type: application/json
       "souvenirs": [
         { "name": "Remera", "icon": "👕", "price": 25 },
         { "name": "Medalla", "icon": "🏅", "price": 10 }
-      ]
+      ],
+	  "preguntas": [
+	    { 
+		"form_types_id ": 1,
+		"nombre_campo": "Remera",
+		"etiqueta": "Remera",
+		"placeholder": "Remera", 
+		"obligatorio": true, 
+		"tipo_input": "text", 
+		"orden": 1 
+		},
+        { 
+		"form_types_id ": 1,
+		"nombre_campo": "Remera",
+		"etiqueta": "Remera",
+		"placeholder": "Remera",
+		"obligatorio":false,
+		"tipo_input": "radio", 
+		"orden": 2
+		"options": [
+		{
+		"question_id" :1
+		"option_text" :"Masculino"
+		"order" :1
+		},
+		{
+		"question_id" :2
+		"option_text" :"Femenino"
+		"order" :1
+		}
+		]
+		}
+	  ]
     }
   ],
   "promoCodes": [

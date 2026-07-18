@@ -64,4 +64,9 @@ class Participante extends Model
     {
         return $this->hasMany(SouvenirParticipante::class);
     }
+
+     public function answer(): HasMany
+    {
+        return $this->hasMany(Answer::class);
+    }
 }

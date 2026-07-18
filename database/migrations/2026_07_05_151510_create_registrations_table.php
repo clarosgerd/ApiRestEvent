@@ -16,6 +16,7 @@ return new class extends Migration
             $table->string('referencia', 30)->unique();
             $table->timestamp('fecha');
             $table->unsignedBigInteger('evento_id');
+            $table->unsignedBigInteger('form_types_id');
             $table->unsignedBigInteger('persona_id')->nullable();
             $table->string('evento_nombre');
             $table->enum('tipo_pago', [
@@ -32,6 +33,7 @@ return new class extends Migration
             ])->default('pending');
             $table->timestamps();
             $table->index('evento_id');
+            $table->index('form_types_id');
             $table->index('fecha');
             $table->index('pago_status');
         });

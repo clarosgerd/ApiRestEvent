@@ -18,6 +18,8 @@ class FormTypeDTO
         public int $requiereTalla,
         /** @var SouvenirFormDTO[] */
         public array $souvenirs,
+        /** @var FormularioCamposDTO[] */
+        public array $preguntas,
     ) {}
 
     public static function fromArray(array $data): self
@@ -37,6 +39,10 @@ class FormTypeDTO
             souvenirs: array_map(
                 fn(array $s) => SouvenirFormDTO::fromArray($s),
                 $data['souvenirs'] ?? []
+            ),
+            preguntas: array_map(
+                fn(array $p) => FormularioCamposDTO::fromArray($p),
+                $data['preguntas'] ?? []
             ),
         );
     }

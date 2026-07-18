@@ -61,8 +61,6 @@ class RegistrationController extends Controller
      */
     public function store(StoreRegistrationRequest $request): JsonResponse
     {
-//dd($request);
-
         $dto = RegistrationDTO::fromArray(
             $request->validated()[0]
         );

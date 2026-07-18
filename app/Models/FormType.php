@@ -28,7 +28,7 @@ class FormType extends Model
         'hasshirt',
         'permite_inscripcion_grupal',
         'max_integrantes_grupo',
-        'permite_inscripcion_tercero',
+        'hasQuestion',
         'costo_edicion',
         'tiempo_expiracion_min',
         'texto_boton',
@@ -44,4 +44,12 @@ class FormType extends Model
    {
       return $this->hasMany('App\Models\Souvenir', 'form_types_id');
    }
+
+    public function formularioCampos()
+   {
+      return $this->hasMany('App\Models\FormularioCampos', 'form_types_id');
+   }
+
+  
+
 }

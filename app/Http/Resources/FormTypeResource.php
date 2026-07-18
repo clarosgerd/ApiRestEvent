@@ -31,6 +31,7 @@ class FormTypeResource extends JsonResource
             //'souvenirs' => SouvenirResource::make($this->whenLoaded('souvenirs')),
        
             'souvenirs' =>SouvenirResource::collection($this->whenLoaded('souvenirs')),
+            'preguntas' =>FormularioCamposResource::collection($this->whenLoaded('formularioCampos')),
    
     ];
     }

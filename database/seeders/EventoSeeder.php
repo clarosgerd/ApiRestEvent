@@ -18,7 +18,7 @@ class EventoSeeder extends Seeder
             ->has(
                 // Por cada evento, crea 3 form_types relacionados automáticamente
                 //FormType::factory()->count(3),'formTypes' // Nombre de la relación en tu modelo Evento
-                 FormType::factory(3)->hasSouvenirs(3),'formTypes'
+                 FormType::factory(3)->hasSouvenirs(3)->hasFormularioCampos(3),'formTypes'
             )
             ->hasCoordinates(1)
             ->hasRoutes(5)

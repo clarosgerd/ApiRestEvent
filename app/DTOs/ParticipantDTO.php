@@ -23,6 +23,9 @@ class ParticipantDTO
         /** @var SouvenirDTO[] */
         public array $souvenirs,
 
+        /** @var AnswerDTO[] */
+        public array $answers,
+
         public int $category,
         public float $categoryPrice,
         public float $donation,
@@ -55,6 +58,10 @@ class ParticipantDTO
             souvenirs: array_map(
                 fn(array $souvenir) => SouvenirParticipanteDTO::fromArray($souvenir),
                 $data['souvenirs'] ?? []
+            ),
+            answers: array_map(
+                fn(array $a) => AnswerDTO::fromArray($a),
+                $data['answers'] ?? []
             ),
 
             category: (int) $data['categoria']  ? (int) $data['categoria'] : 0  ,

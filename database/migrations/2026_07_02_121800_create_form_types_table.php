@@ -51,7 +51,7 @@ return new class extends Migration
                 $table->boolean('hasshirt', 1)->default(1);
                 $table->boolean('permite_inscripcion_grupal', 1)->default(1);
                 $table->boolean('max_integrantes_grupo', 1)->default(1);
-                $table->boolean ('permite_inscripcion_tercero',1)->default(1);
+                $table->boolean ('hasQuestion',1)->default(0);
                 $table->decimal('costo_edicion', 10, 2);
                 $table->unsignedBigInteger('tiempo_expiracion_min');
                 $table->string('texto_boton', 60)->default('Inscribirme');

@@ -17,6 +17,7 @@ class Registration extends Model
         'referencia',
         'fecha',
         'evento_id',
+        'form_types_id',
         'evento_nombre',
         'tipo_pago',
         'pago_status',
