@@ -9,6 +9,7 @@ use App\Models\Participante;
 use App\Models\RegistrationTotal;
 use App\Models\ContactoEmergenciaParticipante;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
@@ -22,6 +23,7 @@ class RegistrationTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        Notification::fake();
         $this->event = Evento::factory()->create();
         $this->formType = FormType::factory()->create([
             'event_id' => $this->event->id,

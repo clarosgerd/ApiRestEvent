@@ -7,6 +7,7 @@ use App\Http\Controllers\PersonaController;
 use App\Http\Controllers\RegistrationController;
 use App\Http\Controllers\EventoController;
 use App\Http\Controllers\PromoCodeController;
+use App\Http\Controllers\NotificationController;
 
 Route::get('/user', function (Request $request) {
     return $request->user();
@@ -40,6 +41,9 @@ Route::group(['prefix' => 'v1','namespace' => 'App\Http\Controllers'], function 
 
 
     Route::get('/promo/{id}/code/{promocode}',[PromoCodeController::class, 'promoCode']);
+
+    Route::get('/notifications',[NotificationController::class, 'index'])->middleware('auth:sanctum');
+    Route::put('/notifications/{id}/read',[NotificationController::class, 'markAsRead'])->middleware('auth:sanctum');
 
 
 

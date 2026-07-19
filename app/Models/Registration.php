@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Notifications\Notifiable;
+use App\Models\Evento;
 
 
 class Registration extends Model
@@ -46,5 +47,10 @@ class Registration extends Model
     public function auditLogs(): HasMany
     {
         return $this->hasMany(AuditLog::class);
+    }
+
+    public function evento(): BelongsTo
+    {
+        return $this->belongsTo(Evento::class, 'evento_id');
     }
 }

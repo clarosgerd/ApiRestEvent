@@ -1616,6 +1616,129 @@ GET /api/v1/persona (vía apiResource)
 
 ---
 
+### Notificaciones
+
+#### Listar notificaciones del usuario
+
+```
+GET /api/v1/notifications
+```
+
+**Autenticación requerida:** Sí (Bearer Token via Sanctum)
+
+**Headers:**
+
+```
+Authorization: Bearer 1|aBcDeFgHiJkLmNoPqRsTuVwXyZ...
+```
+
+**Parámetros de query (opcionales):**
+
+| Parámetro | Tipo | Descripción |
+|-----------|------|-------------|
+| `page` | int | Número de página (default: 1) |
+| `per_page` | int | Elementos por página (default: 15) |
+
+**Respuesta 200:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "current_page": 1,
+    "data": [
+      {
+        "id": "uuid",
+        "type": "App\\Notifications\\RegistrationCreatedNotification",
+        "notifiable_type": "App\\Models\\Persona",
+        "notifiable_id": 1,
+        "data": {
+          "type": "registration_created",
+          "title": "Inscripción registrada",
+          "message": "Tu inscripción para Maratón Ciudad 2026 ha sido registrada.",
+          "referencia": "REF-2026-001",
+          "evento": "Maratón Ciudad 2026",
+          "total": 120.00
+        },
+        "read_at": null,
+        "created_at": "2026-07-19T10:30:00.000000Z",
+        "updated_at": "2026-07-19T10:30:00.000000Z"
+      }
+    ],
+    "per_page": 15,
+    "total": 3
+  }
+}
+```
+
+---
+
+#### Marcar notificación como leída
+
+```
+PUT /api/v1/notifications/{id}/read
+```
+
+**Autenticación requerida:** Sí (Bearer Token via Sanctum)
+
+**Parámetros:**
+
+| Parámetro | Tipo | Descripción |
+|-----------|------|-------------|
+| `id` | string | UUID de la notificación |
+
+**Respuesta 200:**
+
+```json
+{
+  "success": true,
+  "message": "Notificación marcada como leída."
+}
+```
+
+**Respuesta 404:**
+
+```json
+{
+  "success": false,
+  "error": "Notificación no encontrada."
+}
+```
+
+---
+
+### Sistema de notificaciones
+
+Las notificaciones se envían automáticamente en los siguientes eventos:
+
+| Evento | Canales | Descripción |
+|--------|---------|-------------|
+| Inscripción creada | mail, database, WhatsApp | Al crear una inscripción |
+| Pago confirmado | mail, database, WhatsApp | Al confirmar un pago (updatePaid) |
+| Inscripción cancelada | mail, database | Al eliminar una inscripción |
+| Código promocional válido | database, WhatsApp | Al validar un código promocional |
+| Recordatorio de evento | mail, database, WhatsApp | Job programado (configurable días antes) |
+| Pago pendiente | mail, database, WhatsApp | Job programado (configurable días antes) |
+
+**Configuración de canales en `.env`:**
+
+```env
+NOTIFICATION_MAIL_ENABLED=true
+NOTIFICATION_DATABASE_ENABLED=true
+NOTIFICATION_WHATSAPP_ENABLED=true
+EVENT_REMINDER_DAYS=1
+PENDING_PAYMENT_REMINDER_DAYS=3
+WHATSAPP_COUNTRY_CODE=591
+```
+
+**Jobs programados:**
+
+```bash
+php artisan schedule:run  # Ejecuta jobs de recordatorios
+```
+
+---
+
 ## Códigos de respuesta HTTP
 
 | Código | Descripción |

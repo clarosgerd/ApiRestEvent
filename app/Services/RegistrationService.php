@@ -12,10 +12,15 @@ use App\Models\RegistrationTotal;
 use App\Models\ContactoEmergenciaParticipante;
 use App\Models\Answer;
 use App\Models\AuditLog;
+use App\Models\Evento;
+use App\Notifications\RegistrationCreatedNotification;
+use App\Notifications\PaymentConfirmedNotification;
+use App\Notifications\RegistrationCancelledNotification;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Str;
 class RegistrationService
 {
@@ -65,7 +70,12 @@ class RegistrationService
             );
 
             $this->syncPersonas($registration);
-            
+
+            $this->notifyParticipants(
+                $registration,
+                new RegistrationCreatedNotification($registration)
+            );
+
             return $this->loadRelations(
                 $registration
             );
@@ -215,10 +225,14 @@ class RegistrationService
         string $reference
     ): void {
 
-        $registration = Registration::where(
-            'referencia',
-            $reference
-        )->firstOrFail();
+        $registration = Registration::with('participants')
+            ->where('referencia', $reference)
+            ->firstOrFail();
+
+        $this->notifyParticipants(
+            $registration,
+            new RegistrationCancelledNotification($registration)
+        );
 
         $registration->delete();
     }
@@ -484,6 +498,11 @@ private function validateParticipantRegistration(
                 'costo_adicion'   => $costoEdicion,
             ]);
 
+            $this->notifyParticipants(
+                $registration,
+                new PaymentConfirmedNotification($registration, $costoEdicion)
+            );
+
             return [
                 'registration'  => $this->loadRelations($registration),
                 'costo_adicion' => $costoEdicion,
@@ -537,5 +556,25 @@ private function validateParticipantRegistration(
             'data'   => $persona->load('contactoEmergencia'),
             'token'  => $token,
         ];
+    }
+
+    /**
+     * Notificar a todos los participantes de una inscripción.
+     */
+    private function notifyParticipants(Registration $registration, $notification): void
+    {
+        $participants = $registration->load('participants')->participants;
+
+        foreach ($participants as $participant) {
+            $persona = Persona::where('numero_documento', $participant->numero_documento)
+                ->orWhere('email', $participant->correo)
+                ->first();
+
+            if ($persona) {
+                Notification::send($persona, $notification);
+            }
+        }
+
+        Notification::send($registration, $notification);
     }
 }

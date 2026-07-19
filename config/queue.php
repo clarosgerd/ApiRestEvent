@@ -32,7 +32,7 @@ return [
     'connections' => [
 
         'sync' => [
-            'driver' => 'database',
+            'driver' => 'sync',
         ],
 
         'database' => [

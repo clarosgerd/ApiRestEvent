@@ -10,7 +10,10 @@ use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use App\Http\Resources\PromoCodeResource;
 use App\Http\Resources\PromoCodeCollection;
-use App\Filters\PromoCodeFilter;    
+use App\Filters\PromoCodeFilter;
+use App\Models\Persona;
+use App\Notifications\PromoCodeAppliedNotification;
+use Illuminate\Support\Facades\Notification;    
 class PromoCodeController extends Controller
 {
     /**
@@ -82,21 +85,20 @@ class PromoCodeController extends Controller
 
      public function promoCode(Request $request,string $id ,string $promocode):JsonResponse
     {
-        //
-//SendWhatsappMessageJob::dispatch('+59175925001@c.us', 'Hola, tu pedido está listo 📦');
 
-
-    // dd($promocode);
-        
         $promo = PromoCode::where([['event_id', '=', $id],['promo_code', '=', $promocode]])->get();
-       // $promo = $eventos->paginate()->appends($request->query());
-        //dd($eventos);
-       // $eventos = Evento::paginate(15);
+
         $collection = PromoCodeResource::collection( $promo);
-//dd($collection);
 
         if ($collection->isNotEmpty())
             {
+                $promoModel = $promo->first();
+                $persona = $request->user();
+
+                if ($persona instanceof Persona) {
+                    Notification::send($persona, new PromoCodeAppliedNotification($promoModel, 0));
+                }
+
             return response()->json([
                 'success' => true,
                 'data' => $collection,
