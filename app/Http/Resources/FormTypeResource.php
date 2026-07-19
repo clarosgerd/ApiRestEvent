@@ -22,6 +22,7 @@ class FormTypeResource extends JsonResource
             'tipo'            =>$this->tipo,
             'cupo_total'      =>$this->cupo_total,
             'precio_base'     =>$this->precio_base,
+            'costo_edicion'   =>$this->costo_edicion,
             'color'           =>$this->color,
             'moneda'          =>$this->moneda,
             'permite_lista_espera'  =>$this->permite_lista_espera,
