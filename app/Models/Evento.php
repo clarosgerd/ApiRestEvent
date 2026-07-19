@@ -25,9 +25,11 @@ class Evento extends Model
         'keyword',
         'descripcion',
         'hasDonation',
+        'hasPromoCode',
         'reglamento',
         'deslinde',
         'fecha_inicio',
+        'localTime',
         'fecha_fin',
         'fecha_apertura_inscrip',
         'fecha_cierre_inscrip',
@@ -58,7 +60,8 @@ class Evento extends Model
     ];
 
 protected $casts = [
-    'hasDonation' => 'boolean',
+    'hasDonation'  => 'boolean',
+    'hasPromoCode' => 'boolean',
 ];
       public function coordinates()
    {

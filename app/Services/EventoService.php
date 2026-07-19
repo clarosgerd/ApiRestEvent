@@ -13,6 +13,7 @@ use App\Models\FormularioCampos;
 use App\Models\QuestionOptions;
 use App\Models\PromoCode;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class EventoService
 {
@@ -21,14 +22,44 @@ class EventoService
         return DB::transaction(function () use ($dto) {
 
             $evento = Evento::create([
+                // Campos expuestos por la API (StoreEventosRequest / EventoResource)
                 'nombre'              => $dto->nombre,
                 'descripcion'         => $dto->descripcion,
-                'longDescription'     => $dto->longDescription,
+                'longDescription'     => $dto->longDescription ?? '',
                 'fecha_inicio'        => $dto->fechaInicio,
+                'localTime'           => $dto->localTime ?: null,
                 'direccion'           => $dto->direccion,
+                'estado_evento_id'    => $dto->status,
                 'hasDonation'         => $dto->hasDonation,
-                'video_url'           => $dto->videoUrl,
-                'imagen_portada_url'  => $dto->imagenPortadaUrl,
+                'hasPromoCode'        => !empty($dto->promoCodes),
+                'video_url'           => $dto->videoUrl ?? '',
+                'imagen_portada_url'  => $dto->imagenPortadaUrl ?? '',
+
+                // Columnas NOT NULL sin default en `eventos` que la API todavía no
+                // expone (ver migración 2026_06_28_214848_create_eventos_table) —
+                // se rellenan con valores neutros para que el INSERT no falle.
+                'organizador_id'         => 1,
+                'tipo_evento_id'         => 1,
+                'subtipo_evento_id'      => 1,
+                'pais_id'                => 1,
+                'ciudad_id'              => 1,
+                'nombre_corto'           => Str::limit($dto->nombre, 60, ''),
+                'url_slug'               => Str::slug($dto->nombre) . '-' . Str::lower(Str::random(6)),
+                'keyword'                => Str::slug($dto->nombre),
+                'reglamento'             => '',
+                'deslinde'               => '',
+                'fecha_fin'              => $dto->fechaInicio,
+                'fecha_apertura_inscrip' => now(),
+                'fecha_cierre_inscrip'   => $dto->fechaInicio,
+                'mensaje_cierre'         => '',
+                'lugar'                  => $dto->direccion,
+                'url_virtual'            => '',
+                'aforo_total'            => 0,
+                'color_id'               => 1,
+                'logo_url'               => '',
+                'icono_url'              => '',
+                'gpx_url'                => '',
+                'link_strava'            => '',
             ]);
 
             $this->createCoordinates($evento, $dto);
@@ -96,6 +127,8 @@ class EventoService
                 'tipo'                  => $formTypeDTO->tipo,
                 'cupo_total'            => $formTypeDTO->cupoTotal,
                 'precio_base'           => $formTypeDTO->precioBase,
+                'costo_edicion'         => $formTypeDTO->costoEdicion,
+                'tiempo_expiracion_min' => $formTypeDTO->tiempoExpiracionMin,
                 'color'                 => $formTypeDTO->color,
                 'moneda'                => $formTypeDTO->moneda,
                 'permite_lista_espera'  => $formTypeDTO->permiteListaEspera,

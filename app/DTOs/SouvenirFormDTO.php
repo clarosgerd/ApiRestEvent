@@ -14,7 +14,7 @@ class SouvenirFormDTO
     {
         return new self(
             name: $data['name'],
-            icon: $data['icon'],
+            icon: $data['icon'] ?? '🎁',
             price: (float) $data['price'],
         );
     }
