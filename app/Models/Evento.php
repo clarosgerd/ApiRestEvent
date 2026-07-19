@@ -62,6 +62,7 @@ class Evento extends Model
 protected $casts = [
     'hasDonation'  => 'boolean',
     'hasPromoCode' => 'boolean',
+    'publicado'    => 'boolean',
 ];
       public function coordinates()
    {

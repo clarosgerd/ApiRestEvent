@@ -24,7 +24,7 @@ class EventoFilter extends ApiFilter
     'fecha_cierre_inscrip'=>['eq', 'gte','lte'] ,
     'mensaje_cierre'=>['eq'] ,
     'lugar'=>['eq'] ,
-    'direccion'=>['eq'] ,
+    'direccion'=>['eq','li'] ,
     'modalidad'=>['eq'] ,
     'url_virtual'=>['eq'], 
     'aforo_total'=>['eq'] ,

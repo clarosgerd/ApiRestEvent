@@ -69,13 +69,30 @@ class EventoController extends Controller
             });
         }
 
+        // Búsqueda de texto libre: coincide por nombre del evento o nombre de categoría.
+        // ?search=texto
+        $search = $request->query('search');
+        if (!empty($search)) {
+            $eventos->where(function ($q) use ($search) {
+                $q->where('nombre', 'like', '%' . $search . '%')
+                  ->orWhereHas('categories', function ($qq) use ($search) {
+                      $qq->where('name', 'like', '%' . $search . '%');
+                  });
+            });
+        }
+
         $eventos = $eventos->with('coordinates');
         $eventos = $eventos->with('routes');
         $eventos = $eventos->with('promoCodes');
         $eventos = $eventos->with('categories');
         $eventos = $eventos->with('formTypes.souvenirs');
         $eventos = $eventos->with('formTypes.formularioCampos.options');
-        $eventos = $eventos->paginate()->appends($request->query());
+
+        // Tamaño de página configurable, acotado para evitar pedir el catálogo completo.
+        $perPage = (int) $request->query('per_page', 12);
+        $perPage = max(6, min(48, $perPage));
+
+        $eventos = $eventos->paginate($perPage)->appends($request->query());
         //dd($eventos);
        // $eventos = Evento::paginate(15);
         $collection = EventoResource::collection($eventos);

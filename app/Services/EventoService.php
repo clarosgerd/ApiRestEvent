@@ -30,6 +30,7 @@ class EventoService
                 'localTime'           => $dto->localTime ?: null,
                 'direccion'           => $dto->direccion,
                 'estado_evento_id'    => $dto->status,
+                'publicado'           => $dto->publicado,
                 'hasDonation'         => $dto->hasDonation,
                 'hasPromoCode'        => !empty($dto->promoCodes),
                 'video_url'           => $dto->videoUrl ?? '',
