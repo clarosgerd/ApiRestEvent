@@ -15,6 +15,7 @@ class FormTypeDTO
         public int $moneda,
         public int $permiteListaEspera,
         public int $hasshirt,
+        public int $hasQuestion,
         public int $requiereTalla,
         /** @var SouvenirFormDTO[] */
         public array $souvenirs,
@@ -35,6 +36,7 @@ class FormTypeDTO
             moneda: (int) ($data['moneda'] ?? 1),
             permiteListaEspera: (int) ($data['permite_lista_espera'] ?? 0),
             hasshirt: (int) ($data['hasshirt'] ?? 0),
+             hasQuestion: (int) ($data['hasQuestion'] ?? 0),
             requiereTalla: (int) ($data['requiere_talla'] ?? 0),
             souvenirs: array_map(
                 fn(array $s) => SouvenirFormDTO::fromArray($s),

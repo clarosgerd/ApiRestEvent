@@ -26,6 +26,7 @@ class FormTypeResource extends JsonResource
             'moneda'          =>$this->moneda,
             'permite_lista_espera'  =>$this->permite_lista_espera,
             'hasshirt'              =>$this->hasshirt,
+             'hasQuestion'              =>$this->hasQuestion,
             'requiere_talla'        =>$this->requiere_talla,
             //'souvenirs'             =>new SouvenirResource($this->form_types_id),  // Souvenirs del evento
             //'souvenirs' => SouvenirResource::make($this->whenLoaded('souvenirs')),
