@@ -6,9 +6,12 @@ use App\DTOs\RegistrationDTO;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreRegistrationRequest;
 use App\Http\Requests\UpdateRegistrationRequest;
+use App\Http\Requests\UpdatePaidRegistrationRequest;
+use App\Http\Requests\LookupRegistrationRequest;
 use App\Http\Resources\RegistrationResource;
 use App\Http\Resources\PaginatedRegistrationCollectionResource;
 use App\Http\Resources\RegistrationCollectionResource;
+use App\Http\Resources\PersonaResource;
 use App\Models\Registration;
 use App\Models\Participante;
 use App\Services\RegistrationService;
@@ -216,5 +219,61 @@ public function estadoTransaccion(
             'message' => 'Inscripción actualizada correctamente.',
             'data' => new RegistrationCollectionResource($registration),
         ]);
+    }
+
+    /**
+     * Actualizar inscripción pagada (con costo adicional).
+     */
+    public function updatePaid(UpdatePaidRegistrationRequest $request, string $reference): JsonResponse
+    {
+        $validated = $request->validated();
+        $validated['_usuario'] = $request->user()?->email ?? $request->ip();
+
+        $result = $this->service->updatePaidRegistration($reference, $validated);
+
+        return response()->json([
+            'success'       => true,
+            'message'       => 'Inscripción pagada actualizada correctamente.',
+            'costo_adicion' => $result['costo_adicion'],
+            'data'          => new RegistrationCollectionResource($result['registration']),
+        ]);
+    }
+
+    /**
+     * Buscar inscripción por credenciales, evento y form_type.
+     */
+    public function lookup(LookupRegistrationRequest $request): JsonResponse
+    {
+        $validated = $request->validated();
+
+        try {
+            $result = $this->service->lookupRegistration(
+                $validated['email'],
+                $validated['password'],
+                $validated['evento_id'],
+                $validated['form_type_id']
+            );
+        } catch (\DomainException $e) {
+            return response()->json([
+                'success' => false,
+                'error'   => $e->getMessage(),
+            ], 401);
+        }
+
+        $resource = $result['type'] === 'registration'
+            ? new RegistrationCollectionResource($result['data'])
+            : new PersonaResource($result['data']);
+
+        $response = [
+            'success' => true,
+            'type'    => $result['type'],
+            'data'    => $resource,
+        ];
+
+        if (isset($result['token'])) {
+            $response['token'] = $result['token'];
+        }
+
+        return response()->json($response);
     }
 }

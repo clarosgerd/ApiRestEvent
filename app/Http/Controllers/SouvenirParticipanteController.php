@@ -2,9 +2,9 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\SouverirParticipante;
-use App\Http\Requests\StoreSouverirParticipanteRequest;
-use App\Http\Requests\UpdateSouverirParticipanteRequest;
+use App\Models\SouvenirParticipante;
+use App\Http\Requests\StoreSouvenirParticipanteRequest;
+use App\Http\Requests\UpdateSouvenirParticipanteRequest;
 
 class SouvenirParticipanteController extends Controller
 {
@@ -27,7 +27,7 @@ class SouvenirParticipanteController extends Controller
     /**
      * Store a newly created resource in storage.
      */
-    public function store(StoreSouverirParticipanteRequest $request)
+    public function store(StoreSouvenirParticipanteRequest $request)
     {
         //
     }
@@ -35,7 +35,7 @@ class SouvenirParticipanteController extends Controller
     /**
      * Display the specified resource.
      */
-    public function show(SouverirParticipante $souverirParticipante)
+    public function show(SouvenirParticipante $souvenirParticipante)
     {
         //
     }
@@ -43,7 +43,7 @@ class SouvenirParticipanteController extends Controller
     /**
      * Show the form for editing the specified resource.
      */
-    public function edit(SouverirParticipante $souverirParticipante)
+    public function edit(SouvenirParticipante $souvenirParticipante)
     {
         //
     }
@@ -51,7 +51,7 @@ class SouvenirParticipanteController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(UpdateSouverirParticipanteRequest $request, SouverirParticipante $souverirParticipante)
+    public function update(UpdateSouvenirParticipanteRequest $request, SouvenirParticipante $souvenirParticipante)
     {
         //
     }
@@ -59,7 +59,7 @@ class SouvenirParticipanteController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(SouverirParticipante $souverirParticipante)
+    public function destroy(SouvenirParticipante $souvenirParticipante)
     {
         //
     }

@@ -101,10 +101,13 @@ class EventoTest extends TestCase
     public function test_event_show_loads_souvenirs(): void
     {
         $event = Evento::factory()->create();
+        $formType = \App\Models\FormType::factory()->create(['event_id' => $event->id]);
+        \App\Models\Souvenir::factory()->create(['form_types_id' => $formType->id]);
 
         $response = $this->getJson('/api/v1/event/' . $event->id)->assertOk();
         $evento = $response->json('eventos');
 
-        $this->assertArrayHasKey('souvenirs', $evento);
+        $this->assertNotEmpty($evento['formTypes']);
+        $this->assertArrayHasKey('souvenirs', $evento['formTypes'][0]);
     }
 }

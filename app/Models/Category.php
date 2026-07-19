@@ -26,6 +26,6 @@ class Category extends Model
 
 
      public function evento()  {
-        return $this->belongsTo('App\Models\Evento','id');
+        return $this->belongsTo('App\Models\Evento','event_id');
      }  
 }

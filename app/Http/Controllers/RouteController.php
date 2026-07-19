@@ -7,7 +7,8 @@ use App\Http\Requests\StoreRouteRequest;
 use App\Http\Requests\UpdateRouteRequest;
 use Illuminate\Http\Request;
 use App\Filters\RouteFilter;
-
+use App\Http\Resources\RouteCollection;
+use App\Http\Resources\RouteResource;
 
 class RouteController extends Controller
 {

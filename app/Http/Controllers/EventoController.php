@@ -151,7 +151,7 @@ class EventoController extends Controller
     /**
      * Show the form for editing the specified resource.
      */
-    public function edit(Eventos $eventos)
+    public function edit(Evento $evento)
     {
         //
     }
@@ -159,7 +159,7 @@ class EventoController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(UpdateEventosRequest $request, Eventos $eventos)
+    public function update(UpdateEventosRequest $request, Evento $evento)
     {
         //
     }
@@ -167,7 +167,7 @@ class EventoController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(Eventos $eventos)
+    public function destroy(Evento $evento)
     {
         //
     }

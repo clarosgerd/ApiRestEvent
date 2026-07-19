@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Evento;
+use App\Models\FormType;
 use App\Models\Registration;
 use App\Models\Participante;
 use App\Models\RegistrationTotal;
@@ -16,11 +17,15 @@ class RegistrationTest extends TestCase
     use RefreshDatabase;
 
     private Evento $event;
+    private FormType $formType;
 
     protected function setUp(): void
     {
         parent::setUp();
         $this->event = Evento::factory()->create();
+        $this->formType = FormType::factory()->create([
+            'event_id' => $this->event->id,
+        ]);
     }
 
     private function validPayload(array $overrides = []): array
@@ -64,6 +69,7 @@ class RegistrationTest extends TestCase
             'referencia' => $reference,
             'fecha' => now()->toDateTimeString(),
             'evento_id' => $this->event->id,
+            'form_types_id' => $this->formType->id,
             'evento_nombre' => $this->event->nombre,
             'tipo_pago' => 'QR',
             'pago_status' => 'pending',

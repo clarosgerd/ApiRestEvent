@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Evento;
+use App\Models\FormType;
 use App\Models\Persona;
 use App\Models\Registration;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -88,11 +89,13 @@ class ApiEndpointsTest extends TestCase
     public function test_registrations_endpoints_work(): void
     {
         $event = Evento::factory()->create();
+        $formType = FormType::factory()->create(['event_id' => $event->id]);
 
         $payload = [[
             'referencia' => 'REF-' . Str::random(6),
             'fecha' => now()->toDateTimeString(),
             'evento_id' => $event->id,
+            'form_types_id' => $formType->id,
             'evento_nombre' => $event->nombre,
             'tipo_pago' => 'QR',
             'pago_status' => 'pending',

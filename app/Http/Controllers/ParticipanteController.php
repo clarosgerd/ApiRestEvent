@@ -20,14 +20,14 @@ class ParticipanteController extends Controller
     {
         //
       //  dd($request);
-        /*$filter = new ParticipanteFilter();
+        $filter = new ParticipanteFilter();
         $filterItems = $filter->transform($request); // [['column','operator','value']]
-        $participante = Participante::where($filterItems);
-        return new ParticipanteCollection($participante->paginate()->appends($request->query()) );*/
+        $participante = Participante::where($filterItems)->with('contactoEmergencia');
+        return new ParticipanteCollection($participante->paginate()->appends($request->query()) );
 
-        $participantes = Participante::with('contactoEmergencia')->get();
+        /*$participantes = Participante::with('contactoEmergencia')->get();
 
-        return ParticipanteResource::collection($participantes);
+        return ParticipanteResource::collection($participantes);*/
 
 
 
@@ -57,8 +57,12 @@ class ParticipanteController extends Controller
     public function show(Participante $participante)
     {
         //
-          $participantes = Participante::with('contactoEmergencia')->get();
-        return ParticipanteResource::collection($participantes);
+
+        return response()->json([
+            'success' => true,
+            'participante' => new ParticipanteResource($participante->loadMissing('contactoEmergencia')),
+        ]);
+        
     }
 
     /**

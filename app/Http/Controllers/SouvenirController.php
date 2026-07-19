@@ -47,7 +47,7 @@ class SouvenirController extends Controller
     public function show(Souvenir $souvenir)
     {
         //
-          $includeSouvenir = request()->query('includeSouvenir');
+        $includeSouvenir = request()->query('includeSouvenir');
         if ($includeSouvenir) {
             return new SouvenirResource($souvenir->loadMissing('souvenirs'));
         }

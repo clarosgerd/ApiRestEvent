@@ -11,6 +11,7 @@ use App\Models\Registration;
 use App\Models\RegistrationTotal;
 use App\Models\ContactoEmergenciaParticipante;
 use App\Models\Answer;
+use App\Models\AuditLog;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -435,5 +436,106 @@ private function validateParticipantRegistration(
                 ]));
             }
         }
+    }
+
+    /**
+     * Actualizar inscripción pagada con costo adicional.
+     */
+    public function updatePaidRegistration(string $reference, array $data): array
+    {
+        return DB::transaction(function () use ($reference, $data) {
+
+            $registration = Registration::with('formType')
+                ->where('referencia', $reference)
+                ->firstOrFail();
+
+            if ($registration->pago_status !== 'paid') {
+                throw new \DomainException(
+                    'Esta operación solo aplica a inscripciones pagadas.'
+                );
+            }
+
+            $costoEdicion = $registration->formType->costo_edicion ?? 0;
+
+            $this->validateDuplicateParticipantsFromData($data);
+
+            $registration->participants()->delete();
+            $registration->totals()->delete();
+
+            foreach ($data['participantes'] as $participantData) {
+                $this->createParticipantFromData($registration, $participantData);
+            }
+
+            RegistrationTotal::create([
+                'registration_id' => $registration->id,
+                'inscripcion'     => $data['totales']['inscripcion'],
+                'donacion'        => $data['totales']['donacion'],
+                'souvenirs'       => $data['totales']['souvenirs'],
+                'fee'             => $data['totales']['fee'],
+                'descuento'       => $data['totales']['descuento'],
+                'grand_total'     => $data['totales']['grand_total'],
+            ]);
+
+            $this->syncPersonas($registration);
+
+            AuditLog::create([
+                'registration_id' => $registration->id,
+                'usuario'         => $data['_usuario'] ?? null,
+                'costo_adicion'   => $costoEdicion,
+            ]);
+
+            return [
+                'registration'  => $this->loadRelations($registration),
+                'costo_adicion' => $costoEdicion,
+            ];
+        });
+    }
+
+    /**
+     * Buscar inscripción por credenciales de persona, evento y form_type.
+     * Retorna la inscripción o solo los datos de la persona.
+     */
+    public function lookupRegistration(
+        string $email,
+        string $password,
+        int $eventoId,
+        int $formTypeId
+    ): array {
+
+        $persona = Persona::where('email', $email)->first();
+
+        if (!$persona || !Hash::check($password, $persona->password)) {
+            throw new \DomainException('Credenciales inválidas.');
+        }
+
+        $registration = Registration::with([
+                'totals',
+                'participants.contactoEmergenciaParticipante',
+                'participants.souvenirParticipante',
+                'participants.answers',
+            ])
+            ->where('evento_id', $eventoId)
+            ->where('form_types_id', $formTypeId)
+            ->whereHas('participants', function ($q) use ($persona) {
+                $q->where('numero_documento', $persona->numero_documento)
+                  ->orWhere('correo', $persona->email);
+            })
+            ->orderByDesc('fecha')
+            ->first();
+
+        if ($registration) {
+            return [
+                'type' => 'registration',
+                'data' => $registration,
+            ];
+        }
+
+        $token = $persona->createToken('auth-token')->plainTextToken;
+
+        return [
+            'type'   => 'persona',
+            'data'   => $persona->load('contactoEmergencia'),
+            'token'  => $token,
+        ];
     }
 }

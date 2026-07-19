@@ -5,7 +5,9 @@ namespace App\Http\Controllers;
 use App\Models\Category;
 use App\Http\Requests\StoreCategoryRequest;
 use App\Http\Requests\UpdateCategoryRequest;
-
+use Illuminate\Http\Request; 
+use App\Filters\CategoryFilter;
+use  App\Http\Resource\CategoryResource;
 class CategoryController extends Controller
 {
     /**

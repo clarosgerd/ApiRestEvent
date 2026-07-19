@@ -36,31 +36,31 @@ API REST para gestion de **eventos deportivos/culturales** con:
 
 ### Controllers parcialmente rotos (5)
 
-| Controller | Problema |
-|---|---|
-| `CategoryController` | Falta importar Request, CategoryFilter, CategoryResource. Index/show retornan 500 |
-| `FormTypeController` | Falta importar FormTypeCollection, FormTypeResource. Index/show retornan 500 |
-| `RouteController` | Falta importar RouteCollection, RouteResource. Index/show retornan 500 |
-| `PromoCodeController` | Falta importar PromoCodeFilter, PromoCodeCollection |
-| `SouvenirController` | Falta importar SouvenirFilter, SouvenirCollection, SouvenirResource |
+| Controller            | Problema                                                                              |
+| --------------------- | ------------------------------------------------------------------------------------- |
+| `CategoryController`  | ~~Falta importar Request, CategoryFilter, CategoryResource. Index/show retornan 500~~ |
+| `FormTypeController`  | ~~Falta importar FormTypeCollection, FormTypeResource. Index/show retornan 500~~      |
+| `RouteController`     | ~~Falta importar RouteCollection, RouteResource. Index/show retornan 500~~            |
+| `PromoCodeController` | ~~Falta importar PromoCodeFilter, PromoCodeCollection~~                               |
+| `SouvenirController`  | ~~Falta importar SouvenirFilter, SouvenirCollection, SouvenirResource~~               |
 
 ### Controllers totalmente rotos (2)
 
-| Controller | Problema |
-|---|---|
-| `SouvenirParticipanteController` | Typo en imports: `SouverirParticipante` en vez de `SouvenirParticipante` |
-| `ParticipanteController` | `show()` ignora parametro de ruta, retorna todos los participantes |
+| Controller                       | Problema                                                                     |
+| -------------------------------- | ---------------------------------------------------------------------------- |
+| `SouvenirParticipanteController` | ~~Typo en imports: `SouverirParticipante` en vez de `SouvenirParticipante`~~ |
+| `ParticipanteController`         | ~~`show()` ignora parametro de ruta, retorna todos los participantes~~       |
 
 ### Stubs vacios (6)
 
-| Controller | Estado |
-|---|---|
-| `ContactoEmergenciaController` | CRUD vacio |
-| `ContactoEmergenciaParticipanteController` | CRUD vacio |
-| `FormasPagoController` | CRUD vacio (tabla existe sin modelo/controller) |
-| `RegistrationTotalController` | CRUD vacio |
-| `EventoController` (store/update/destroy) | Vacio - type hint `Eventos` no existe |
-| `ParticipanteController` (store/update/destroy) | Vacio |
+| Controller                                      | Estado                                          |
+| ----------------------------------------------- | ----------------------------------------------- |
+| `ContactoEmergenciaController`                  | ~~CRUD vacio~~                                  |
+| `ContactoEmergenciaParticipanteController`      | ~~CRUD vacio~~                                  |
+| `FormasPagoController`                          | CRUD vacio (tabla existe sin modelo/controller) |
+| `RegistrationTotalController`                   | ~~CRUD vacio~~                                  |
+| `EventoController` (store/update/destroy)       | ~~Vacio - type hint `Eventos` no existe~~       |
+| `ParticipanteController` (store/update/destroy) | ~~Vacio~~                                       |
 
 ---
 
@@ -186,14 +186,14 @@ public function registration(): BelongsTo  // BelongsTo no importado
 
 ## 5. Seguridad
 
-| Riesgo | Detalle |
-|---|---|
-| **Sin auth en registrations** | Cualquiera puede crear/eliminar inscripciones |
-| **Sin auth en personas** | Index y show de personas son publicos |
-| **Sin rate limiting** | Login y register sin proteccion fuerza bruta |
-| **Tokens sin expiracion** | `config/sanctum.php` tiene `expiration: null` |
-| **Password sin minimo** | Register solo pide `required|string`, no minlength |
-| **CORS habilitado** | Configurado en HandleCors middleware |
+| Riesgo                        | Detalle                                       |                       |
+| ----------------------------- | --------------------------------------------- | --------------------- |
+| **Sin auth en registrations** | Cualquiera puede crear/eliminar inscripciones |                       |
+| **Sin auth en personas**      | Index y show de personas son publicos         |                       |
+| **Sin rate limiting**         | Login y register sin proteccion fuerza bruta  |                       |
+| **Tokens sin expiracion**     | `config/sanctum.php` tiene `expiration: null` |                       |
+| **Password sin minimo**       | Register solo pide `required                  | string`, no minlength |
+| **CORS habilitado**           | Configurado en HandleCors middleware          |                       |
 
 ---
 
@@ -212,23 +212,23 @@ public function registration(): BelongsTo  // BelongsTo no importado
 
 ### DB Schema (20 migraciones)
 
-| Tabla | Relacion | Estado |
-|---|---|---|
-| `eventos` | Padre de todo | OK |
-| `coordinates` | event_id FK | OK |
-| `routes` | event_id FK | OK |
-| `categories` | event_id FK | OK |
-| `form_types` | event_id FK | OK |
-| `souvenirs` | event_id FK | OK |
-| `promo_codes` | event_id FK, promo_code unique | OK |
-| `personas` | Con HasApiTokens | OK |
-| `contactos_emergencia` | persona_id FK | OK |
-| `registrations` | evento_id FK, referencia unique | OK |
-| `registration_totals` | registration_id FK cascade | OK |
-| `participantes` | registration_id FK cascade | OK |
-| `contacto_emergencia_participantes` | participante_id FK cascade | OK |
-| `souvenir_participantes` | participante_id FK cascade | OK |
-| `formas_pagos` | Sin controller ni modelo activo | Pendiente |
+| Tabla                               | Relacion                        | Estado    |
+| ----------------------------------- | ------------------------------- | --------- |
+| `eventos`                           | Padre de todo                   | OK        |
+| `coordinates`                       | event_id FK                     | OK        |
+| `routes`                            | event_id FK                     | OK        |
+| `categories`                        | event_id FK                     | OK        |
+| `form_types`                        | event_id FK                     | OK        |
+| `souvenirs`                         | event_id FK                     | OK        |
+| `promo_codes`                       | event_id FK, promo_code unique  | OK        |
+| `personas`                          | Con HasApiTokens                | OK        |
+| `contactos_emergencia`              | persona_id FK                   | OK        |
+| `registrations`                     | evento_id FK, referencia unique | OK        |
+| `registration_totals`               | registration_id FK cascade      | OK        |
+| `participantes`                     | registration_id FK cascade      | OK        |
+| `contacto_emergencia_participantes` | participante_id FK cascade      | OK        |
+| `souvenir_participantes`            | participante_id FK cascade      | OK        |
+| `formas_pagos`                      | Sin controller ni modelo activo | Pendiente |
 
 ---
 
@@ -260,21 +260,21 @@ public function registration(): BelongsTo  // BelongsTo no importado
 
 ### P0 - Inmediato (bugs que rompen funcionalidad)
 
-- [ ] Arreglar imports en `CategoryController` (agregar use statements)
-- [ ] Arreglar imports en `FormTypeController`
-- [ ] Arreglar imports en `RouteController`
-- [ ] Arreglar imports en `PromoCodeController`
-- [ ] Arreglar imports en `SouvenirController`
-- [ ] Corregir `Persona` para que extienda `Authenticatable` en vez de `Model`
-- [ ] Corregir relaciones `belongsTo` en Category, Coordinate, Route, FormType, PromoCode (FK `event_id`)
+- [x] Arreglar imports en `CategoryController` (agregar use statements)
+- [x] Arreglar imports en `FormTypeController`
+- [x] Arreglar imports en `RouteController`
+- [x] Arreglar imports en `PromoCodeController`
+- [x] Arreglar imports en `SouvenirController`
+- [x] Corregir `Persona` para que extienda `Authenticatable` en vez de `Model`
+- [x] Corregir relaciones `belongsTo` en Category, Coordinate, Route, FormType, PromoCode (FK `event_id`)
 
 ### P1 - Corto plazo
 
 - [ ] Completar CRUD de Eventos (store/update/destroy)
-- [ ] Corregir type hints en `EventoController` (`Eventos` -> `Evento`)
+- [x] Corregir type hints en `EventoController` (`Eventos` -> `Evento`)
 - [ ] Completar CRUD de Participantes
-- [ ] Corregir `ParticipanteController::show()` para usar el parametro de ruta
-- [ ] Arreglar `SouvenirParticipanteController` (imports con typo)
+- [x] Corregir `ParticipanteController::show()` para usar el parametro de ruta
+- [x] Arreglar `SouvenirParticipanteController` (imports con typo)
 - [ ] Eliminar imports muertos (`App\DTP\ParticipantDTO`)
 - [ ] Arreglar `EventoResource` (atributo `localTime` inexistente)
 

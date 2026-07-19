@@ -9,7 +9,8 @@ use Illuminate\Support\Arr;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use App\Http\Resources\PromoCodeResource;
-
+use App\Http\Resources\PromoCodeCollection;
+use App\Filters\PromoCodeFilter;    
 class PromoCodeController extends Controller
 {
     /**

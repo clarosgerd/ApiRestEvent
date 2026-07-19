@@ -11,7 +11,6 @@ use Illuminate\Http\Request;
 use App\Filters\FormTypeFilter;
 
 
-
 class FormTypeController extends Controller
 {
     /**

@@ -10,7 +10,10 @@ Esta aplicación expone endpoints para:
 - gestionar personas y autenticación con Sanctum;
 - registrar inscripciones con participantes, contactos de emergencia, souvenirs y totales;
 - consultar y filtrar registros con paginación;
-- actualizar el estado de pago de una inscripción.
+- actualizar el estado de pago de una inscripción;
+- actualizar inscripciones pagadas con costo adicional y confirmación del usuario;
+- generar códigos QR para pago y consultar estado de transacciones;
+- validar códigos promocionales por evento.
 
 ## Tecnologías utilizadas
 
@@ -156,11 +159,11 @@ GET /api/v1/event
           "moneda": 1,
           "permite_lista_espera": 1,
           "requiere_categoria": 1,
-          "requiere_talla": 1
+          "requiere_talla": 1,
+          "souvenirs": [
+            { "id": 1, "name": "Medalla", "icon": "🏅", "price": 15.00 }
+          ]
         }
-      ],
-      "souvenirs": [
-        { "id": 1, "name": "Medalla", "icon": "🏅", "price": 15.00 }
       ],
       "promoCodes": [
         { "id": 1, "event_id": 1, "price": 10.00 }
@@ -543,10 +546,11 @@ GET /api/v1/registrations
 {
   "items": [
     {
-      "referencia": "REF-2026-001",
-      "fecha": "2026-07-10 14:30:00",
-      "evento_id": "1",
-      "evento_nombre": "Maratón Ciudad 2026",
+    "referencia": "REF-2026-001",
+    "fecha": "2026-07-10 14:30:00",
+    "evento_id": "1",
+    "form_types_id": "1",
+    "evento_nombre": "Maratón Ciudad 2026",
       "tipo_pago": "QR",
       "pago_status": "paid",
       "totales": {
@@ -623,6 +627,7 @@ Se envía como un array con un objeto de inscripción:
 | `referencia` | string | Sí | Referencia única de la inscripción |
 | `fecha` | date | Sí | Fecha de la inscripción |
 | `evento_id` | int | Sí | ID del evento |
+| `form_types_id` | int | Sí | ID del tipo de formulario asociado |
 | `evento_nombre` | string | Sí | Nombre del evento |
 | `tipo_pago` | enum | Sí | Tipo de pago: `QR`, `TRANSFERENCIA`, `TIGO`, `EFECTIVO` |
 | `pago_status` | enum | Sí | Estado de pago: `pending`, `paid`, `failed`, `cancelled` |
@@ -691,6 +696,7 @@ curl -X POST http://127.0.0.1:8000/api/v1/registrations \
       "referencia": "REF-2026-001",
       "fecha": "2026-07-10T14:30:00",
       "evento_id": 1,
+      "form_types_id": 1,
       "evento_nombre": "Maratón Ciudad 2026",
       "tipo_pago": "QR",
       "pago_status": "pending",
@@ -949,6 +955,396 @@ DELETE /api/v1/registrations/{reference}
 {
   "success": true,
   "message": "Inscripción eliminada correctamente."
+}
+```
+
+---
+
+#### Actualizar inscripción (solo pendientes)
+
+```
+PUT /api/v1/registrations/{reference}
+```
+
+Actualiza una inscripción que **no** esté pagada. Si `pago_status` es `"paid"`, retorna error.
+
+**Parámetros:**
+
+| Parámetro | Tipo | Descripción |
+|-----------|------|-------------|
+| `reference` | string | Referencia de la inscripción |
+
+**Body:** Misma estructura que el endpoint de crear inscripción (participantes + totales).
+
+**Ejemplo:**
+
+```bash
+curl -X PUT http://127.0.0.1:8000/api/v1/registrations/REF-2026-001 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "participantes": [ ... ],
+    "totales": { ... }
+  }'
+```
+
+**Respuesta 200:**
+
+```json
+{
+  "success": true,
+  "message": "Inscripción actualizada correctamente.",
+  "data": { ... }
+}
+```
+
+**Errores posibles:**
+
+- `500` - Inscripción ya pagada:
+
+```json
+{
+  "message": "No se puede modificar una inscripción ya pagada.",
+  "exception": "DomainException"
+}
+```
+
+---
+
+#### Actualizar inscripción pagada (con costo adicional)
+
+```
+PATCH /api/v1/registrations/{reference}/update-paid
+```
+
+Permite modificar los datos de una inscripción que ya tiene `pago_status: "paid"`. Se aplica un **costo adicional** de edición definido en `form_types.costo_el usuario debe confirmar explícitamente el cambio.
+
+**Parámetros:**
+
+| Parámetro | Tipo | Descripción |
+|-----------|------|-------------|
+| `reference` | string | Referencia de la inscripción |
+
+**Body:**
+
+| Campo | Tipo | Obligatorio | Descripción |
+|-------|------|-------------|-------------|
+| `confirmacion` | boolean | Sí | Debe ser `true` para proceder. Si es `false`, la API rechaza la operación. |
+| `participantes` | array | Sí | Lista de participantes (misma estructura que actualización normal) |
+| `totales` | object | Sí | Totales de la inscripción (misma estructura que actualización normal) |
+
+**Ejemplo:**
+
+```bash
+curl -X PATCH http://127.0.0.1:8000/api/v1/registrations/REF-2026-001/update-paid \
+  -H "Content-Type: application/json" \
+  -d '{
+    "confirmacion": true,
+    "participantes": [
+      {
+        "nombre": "Juan",
+        "apellido": "Pérez",
+        "correo": "juan@example.com",
+        "numeroDocumento": "12345678",
+        "categoria": 1,
+        "precioCategoria": 80.00,
+        "edad": 36,
+        "nacimiento": { "dia": 15, "mes": 5, "anio": 1990 },
+        "polera": "M",
+        "precioPolera": 30.00,
+        "subtotal": 115.00,
+        "contacto_emergencia": {
+          "nombre": "María Pérez",
+          "celular": "76543211",
+          "relacion": "WIF"
+        }
+      }
+    ],
+    "totales": {
+      "inscripcion": 80.00,
+      "donacion": 20.00,
+      "souvenirs": 15.00,
+      "fee": 5.00,
+      "descuento": 0.00,
+      "grand_total": 120.00
+    }
+  }'
+```
+
+**Respuesta 200:**
+
+```json
+{
+  "success": true,
+  "message": "Inscripción pagada actualizada correctamente.",
+  "costo_adicion": 25.00,
+  "data": {
+    "referencia": "REF-2026-001",
+    "fecha": "2026-07-10 14:30:00",
+    "evento_id": "1",
+    "evento_nombre": "Maratón Ciudad 2026",
+    "tipo_pago": "QR",
+    "pago_status": "paid",
+    "totales": { "..." : "..." },
+    "participantes": [ "..." ]
+  }
+}
+```
+
+**Errores posibles:**
+
+- `422` - Confirmación no enviada:
+
+```json
+{
+  "message": "Debe confirmar que acepta el costo adicional de edición para proceder.",
+  "errors": {
+    "confirmacion": ["Debe confirmar que acepta el costo adicional de edición para proceder."]
+  }
+}
+```
+
+- `404` - Inscripción no encontrada o no pagada:
+
+```json
+{
+  "message": "No query results for model [App\\Models\\Registration]."
+}
+```
+
+- `422` - Dominio: inscripción no pagada:
+
+```json
+{
+  "message": "Esta operación solo aplica a inscripciones pagadas."
+}
+```
+
+---
+
+#### Buscar inscripción por credenciales
+
+```
+POST /api/v1/registrations/lookup
+```
+
+Busca la inscripción de un usuario en un evento y tipo de formulario específicos. Si el usuario tiene inscripción, devuelve los datos completos de la inscripción. Si el usuario está registrado pero no tiene inscripción en ese evento/formulario, devuelve solo los datos de la persona.
+
+**Content-Type:** `application/json`
+
+**Body:**
+
+| Campo | Tipo | Obligatorio | Descripción |
+|-------|------|-------------|-------------|
+| `email` | string | Sí | Correo electrónico de la persona |
+| `password` | string | Sí | Contraseña de la persona |
+| `evento_id` | int | Sí | ID del evento a buscar |
+| `form_type_id` | int | Sí | ID del tipo de formulario a buscar |
+
+**Ejemplo:**
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/registrations/lookup \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "daphne04@example.org",
+    "password": "123456",
+    "evento_id": 1,
+    "form_type_id": 1
+  }'
+```
+
+**Respuesta 200 — Con inscripción encontrada (`type: "registration"`):**
+
+```json
+{
+  "success": true,
+  "type": "registration",
+  "data": {
+    "referencia": "REF-2026-001",
+    "fecha": "2026-07-10 14:30:00",
+    "evento_id": "1",
+    "evento_nombre": "Maratón Ciudad 2026",
+    "tipo_pago": "QR",
+    "pago_status": "paid",
+    "totales": {
+      "inscripcion": 80.00,
+      "donacion": 20.00,
+      "souvenirs": 15.00,
+      "fee": 5.00,
+      "descuento": 0.00,
+      "grand_total": 120.00
+    },
+    "participantes": [
+      {
+        "nombre": "Daphne",
+        "apellido": "...",
+        "correo": "daphne04@example.org",
+        "numeroDocumento": "12345678",
+        "categoria": "1",
+        "precioCategoria": 80.00,
+        "contacto_emergencia": { ... },
+        "souvenirs": [ ... ]
+      }
+    ]
+  }
+}
+```
+
+**Respuesta 200 — Sin inscripción, solo persona (`type: "persona"`):**
+
+Se genera un token de autenticación (igual que el login) para que la persona pueda usar la API.
+
+```json
+{
+  "success": true,
+  "type": "persona",
+  "data": {
+    "email": "daphne04@example.org",
+    "nombre": "Daphne",
+    "apellido": "...",
+    "alias": "daphne",
+    "sexo": "Femenino",
+    "tipoDocumento": "CI",
+    "numeroDocumento": "12345678",
+    "nacimiento": { "dia": "15", "mes": "05", "anio": "1990" },
+    "correo": "daphne04@example.org",
+    "direccion": "...",
+    "ciudad": "...",
+    "telefono": "...",
+    "celular": "...",
+    "contacto_emergencia": {
+      "nombre": "...",
+      "celular": "...",
+      "relacion": "FAT"
+    }
+  },
+  "token": "1|aBcDeFgHiJkLmNoPqRsTuVwXyZ..."
+}
+```
+
+**Errores posibles:**
+
+- `401` — Credenciales inválidas:
+
+```json
+{
+  "success": false,
+  "error": "Credenciales inválidas."
+}
+```
+
+- `422` — Errores de validación:
+
+```json
+{
+  "message": "The email field is required.",
+  "errors": {
+    "email": ["The email field is required."],
+    "password": ["The password field is required."],
+    "evento_id": ["The evento id field is required."],
+    "form_type_id": ["The form type id field is required."]
+  }
+}
+```
+
+---
+
+### Pagos QR
+
+#### Generar token de autenticación
+
+```
+GET /api/v1/registrations/generarToken
+```
+
+Genera un token de autenticación para el gateway de pagos QR.
+
+**Respuesta 200:**
+
+```json
+{
+  "success": true,
+  "message": "Token generado correctamente.",
+  "data": { ... }
+}
+```
+
+---
+
+#### Generar código QR para pago
+
+```
+GET /api/v1/registrations/{reference}/generaQr
+```
+
+Genera un código QR para el pago de una inscripción. Usa el `grand_total` de los totales como monto a cobrar.
+
+**Parámetros:**
+
+| Parámetro | Tipo | Descripción |
+|-----------|------|-------------|
+| `reference` | string | Referencia de la inscripción |
+
+**Respuesta 200:**
+
+```json
+{
+  "success": true,
+  "message": "Código QR generado correctamente.",
+  "data": { ... }
+}
+```
+
+---
+
+#### Consultar estado de transacción
+
+```
+GET /api/v1/registrations/{reference}/estadoTransaccion
+```
+
+Consulta el estado de una transacción de pago QR por su referencia.
+
+**Parámetros:**
+
+| Parámetro | Tipo | Descripción |
+|-----------|------|-------------|
+| `reference` | string | Referencia de la inscripción |
+
+**Respuesta 200:**
+
+```json
+{
+  "success": true,
+  "data": { ... }
+}
+```
+
+---
+
+### Códigos promocionales
+
+#### Validar código promocional
+
+```
+GET /api/v1/promo/{id}/code/{promocode}
+```
+
+Valida si un código promocional es válido para un evento específico.
+
+**Parámetros:**
+
+| Parámetro | Tipo | Descripción |
+|-----------|------|-------------|
+| `id` | int | ID del evento |
+| `promocode` | string | Código promocional a validar |
+
+**Respuesta 200:**
+
+```json
+{
+  "success": true,
+  "data": { ... }
 }
 ```
 
@@ -1282,7 +1678,7 @@ Se verificó el estado actual del proyecto con:
 php artisan test
 ```
 
-Resultado verificado: 2 pruebas ejecutadas correctamente.
+Resultado verificado: 81 pruebas ejecutadas correctamente (269 assertions).
 
 ## Observaciones de desarrollo
 
@@ -1291,7 +1687,8 @@ El proyecto ya cuenta con una base sólida para un API de gestión de eventos, p
 - completar los métodos CRUD que actualmente están en estado base;
 - reforzar la documentación de endpoints y ejemplos de respuesta;
 - añadir más pruebas para los flujos críticos de inscripción y autenticación;
-- revisar la coherencia de autenticación de la entidad Persona con Sanctum.
+- revisar la coherencia de autenticación de la entidad Persona con Sanctum;
+- implementar autenticación con Sanctum en endpoints de inscripciones (actualmente abiertos).
 
 ## Licencia
 
