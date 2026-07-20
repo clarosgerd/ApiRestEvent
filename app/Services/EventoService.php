@@ -197,9 +197,11 @@ class EventoService
         if (empty($dto->promoCodes)) return;
 
         $data = array_map(fn($p) => [
-            'event_id'    => $evento->id,
-            'promo_code'  => $p->promoCode,
-            'price'       => $p->price,
+            'event_id'         => $evento->id,
+            'promo_code'       => $p->promoCode,
+            'price'            => $p->price,
+            'discount_type'    => $p->discountType,
+            'discount_percent' => $p->discountPercent,
         ], $dto->promoCodes);
 
         PromoCode::insert($data);

@@ -1,0 +1,4226 @@
+[
+  {
+    "name": "Muestra de Arte 1",
+    "description": "Muestra de Arte 1 — un evento imperdible en Santa Cruz.",
+    "longDescription": "Muestra de Arte 1 es una actividad organizada en Campo Ferial, pensada para toda la familia. Incluye todo lo necesario para una gran experiencia.",
+    "date": "2026-09-02 12:00:00",
+    "localTime": "14:45",
+    "location": "Parque Metropolitano, Santa Cruz",
+    "status": "open",
+    "hasDonation": false,
+    "image": "https://picsum.photos/seed/evento1/800/450",
+    "video": "",
+    "coordinates": [
+      {
+        "lat": -15.5481,
+        "lng": -62.057
+      }
+    ],
+    "route": [],
+    "categories": [
+      {
+        "name": "5K",
+        "price": 215.6,
+        "description": "Categoría 1 de Muestra de Arte 1",
+        "color": "#8bf94b"
+      }
+    ],
+    "formTypes": [
+      {
+        "name": "Individual",
+        "icon": "🎤",
+        "description": "Inscripción individual para Muestra de Arte 1",
+        "tipo": "educativo",
+        "cupo_total": 272,
+        "precio_base": 123.65,
+        "costo_edicion": 17.2,
+        "color": "#8bf94b",
+        "moneda": 1,
+        "permite_lista_espera": 1,
+        "hasshirt": 0,
+        "requiere_talla": 1,
+        "permite_inscripcion_grupal": 0,
+        "max_integrantes_grupo": 16,
+        "descuento_registrante_pct": 0.1,
+        "souvenirs": [
+          {
+            "name": "Camiseta",
+            "icon": "🎒",
+            "price": 36.87
+          },
+          {
+            "name": "Gorra",
+            "icon": "🥤",
+            "price": 46.73
+          },
+          {
+            "name": "Mochila",
+            "icon": "👕",
+            "price": 25.74
+          }
+        ]
+      },
+      {
+        "name": "Grupal",
+        "icon": "🎤",
+        "description": "Inscripción grupal para Muestra de Arte 1",
+        "tipo": "deportivo",
+        "cupo_total": 172,
+        "precio_base": 263.25,
+        "costo_edicion": 29.75,
+        "color": "#5ec485",
+        "moneda": 1,
+        "permite_lista_espera": 0,
+        "hasshirt": 1,
+        "requiere_talla": 0,
+        "permite_inscripcion_grupal": 1,
+        "max_integrantes_grupo": 20,
+        "descuento_registrante_pct": 0.1,
+        "souvenirs": []
+      }
+    ],
+    "promoCodes": [
+      {
+        "promo_code": "PROMO1",
+        "price": null,
+        "discount_type": "percentage",
+        "discount_percent": 0.07
+      }
+    ]
+  },
+  {
+    "name": "Maratón de la Ciudad 2",
+    "description": "Maratón de la Ciudad 2 — un evento imperdible en Sucre.",
+    "longDescription": "Maratón de la Ciudad 2 es una actividad organizada en Teatro Municipal, pensada para toda la familia. Incluye todo lo necesario para una gran experiencia.",
+    "date": "2026-09-27 23:45:00",
+    "localTime": "11:30",
+    "location": "Autódromo, El Alto",
+    "status": "coming_soon",
+    "hasDonation": false,
+    "image": "https://picsum.photos/seed/evento2/800/450",
+    "video": "",
+    "coordinates": [
+      {
+        "lat": -12.7642,
+        "lng": -58.9315
+      }
+    ],
+    "route": [],
+    "categories": [
+      {
+        "name": "5K",
+        "price": 517.5,
+        "description": "Categoría 1 de Maratón de la Ciudad 2",
+        "color": "#38b30f"
+      },
+      {
+        "name": "10K",
+        "price": 772.28,
+        "description": "Categoría 2 de Maratón de la Ciudad 2",
+        "color": "#5ec485"
+      },
+      {
+        "name": "21K",
+        "price": 790.53,
+        "description": "Categoría 3 de Maratón de la Ciudad 2",
+        "color": "#7c8e91"
+      }
+    ],
+    "formTypes": [
+      {
+        "name": "Individual",
+        "icon": "📷",
+        "description": "Inscripción individual para Maratón de la Ciudad 2",
+        "tipo": "congreso",
+        "cupo_total": 34,
+        "precio_base": 33.97,
+        "costo_edicion": 16.52,
+        "color": "#00cc77",
+        "moneda": 1,
+        "permite_lista_espera": 1,
+        "hasshirt": 1,
+        "requiere_talla": 1,
+        "permite_inscripcion_grupal": 0,
+        "max_integrantes_grupo": 16,
+        "descuento_registrante_pct": 0.1,
+        "souvenirs": [
+          {
+            "name": "Camiseta",
+            "icon": "🎒",
+            "price": 13.99
+          },
+          {
+            "name": "Gorra",
+            "icon": "🥤",
+            "price": 33.36
+          },
+          {
+            "name": "Mochila",
+            "icon": "🎁",
+            "price": 25.63
+          }
+        ]
+      }
+    ],
+    "promoCodes": []
+  },
+  {
+    "name": "Encuentro Cultural 3",
+    "description": "Encuentro Cultural 3 — un evento imperdible en Cobija.",
+    "longDescription": "Encuentro Cultural 3 es una actividad organizada en Centro de Convenciones, pensada para toda la familia. Incluye todo lo necesario para una gran experiencia.",
+    "date": "2026-11-22 14:15:00",
+    "localTime": "08:30",
+    "location": "Coliseo Municipal, El Alto",
+    "status": "coming_soon",
+    "hasDonation": false,
+    "image": "https://picsum.photos/seed/evento3/800/450",
+    "video": "",
+    "coordinates": [
+      {
+        "lat": -13.2518,
+        "lng": -68.244
+      }
+    ],
+    "route": [],
+    "categories": [
+      {
+        "name": "5K",
+        "price": 36.94,
+        "description": "Categoría 1 de Encuentro Cultural 3",
+        "color": "#00bad2"
+      }
+    ],
+    "formTypes": [
+      {
+        "name": "Individual",
+        "icon": "🍽️",
+        "description": "Inscripción individual para Encuentro Cultural 3",
+        "tipo": "corporativo",
+        "cupo_total": 320,
+        "precio_base": 285.7,
+        "costo_edicion": 16.87,
+        "color": "#00bad2",
+        "moneda": 1,
+        "permite_lista_espera": 0,
+        "hasshirt": 1,
+        "requiere_talla": 1,
+        "permite_inscripcion_grupal": 0,
+        "max_integrantes_grupo": 11,
+        "descuento_registrante_pct": 0.1,
+        "souvenirs": [
+          {
+            "name": "Camiseta",
+            "icon": "🥤",
+            "price": 21.36
+          }
+        ]
+      },
+      {
+        "name": "Grupal",
+        "icon": "🍽️",
+        "description": "Inscripción grupal para Encuentro Cultural 3",
+        "tipo": "deportivo",
+        "cupo_total": 34,
+        "precio_base": 231.31,
+        "costo_edicion": 8.73,
+        "color": "#1a5e2b",
+        "moneda": 1,
+        "permite_lista_espera": 1,
+        "hasshirt": 0,
+        "requiere_talla": 0,
+        "permite_inscripcion_grupal": 1,
+        "max_integrantes_grupo": 6,
+        "descuento_registrante_pct": 0.1,
+        "souvenirs": [
+          {
+            "name": "Camiseta",
+            "icon": "🎁",
+            "price": 18.92
+          }
+        ]
+      }
+    ],
+    "promoCodes": [
+      {
+        "promo_code": "PROMO3",
+        "price": 15.07,
+        "discount_type": "fixed_price",
+        "discount_percent": null
+      }
+    ]
+  },
+  {
+    "name": "Ciclopaseo Nocturno 4",
+    "description": "Ciclopaseo Nocturno 4 — un evento imperdible en Potosí.",
+    "longDescription": "Ciclopaseo Nocturno 4 es una actividad organizada en Campo Ferial, pensada para toda la familia. Incluye todo lo necesario para una gran experiencia.",
+    "date": "2027-01-15 16:15:00",
+    "localTime": "11:15",
+    "location": "Parque Urbano, Santa Cruz",
+    "status": "open",
+    "hasDonation": false,
+    "image": "https://picsum.photos/seed/evento4/800/450",
+    "video": "",
+    "coordinates": [
+      {
+        "lat": -14.3106,
+        "lng": -67.1477
+      }
+    ],
+    "route": [],
+    "categories": [
+      {
+        "name": "5K",
+        "price": 581.3,
+        "description": "Categoría 1 de Ciclopaseo Nocturno 4",
+        "color": "#00cc77"
+      }
+    ],
+    "formTypes": [
+      {
+        "name": "Individual",
+        "icon": "🏃",
+        "description": "Inscripción individual para Ciclopaseo Nocturno 4",
+        "tipo": "literatura",
+        "cupo_total": 298,
+        "precio_base": 291.86,
+        "costo_edicion": 7.25,
+        "color": "#00bad2",
+        "moneda": 1,
+        "permite_lista_espera": 1,
+        "hasshirt": 1,
+        "requiere_talla": 1,
+        "permite_inscripcion_grupal": 0,
+        "max_integrantes_grupo": 16,
+        "descuento_registrante_pct": 0.1,
+        "souvenirs": []
+      },
+      {
+        "name": "Grupal",
+        "icon": "🚴",
+        "description": "Inscripción grupal para Ciclopaseo Nocturno 4",
+        "tipo": "corporativo",
+        "cupo_total": 130,
+        "precio_base": 146.84,
+        "costo_edicion": 14.89,
+        "color": "#1a5e2b",
+        "moneda": 1,
+        "permite_lista_espera": 1,
+        "hasshirt": 1,
+        "requiere_talla": 0,
+        "permite_inscripcion_grupal": 1,
+        "max_integrantes_grupo": 13,
+        "descuento_registrante_pct": 0.1,
+        "souvenirs": []
+      }
+    ],
+    "promoCodes": [
+      {
+        "promo_code": "PROMO4",
+        "price": 106.25,
+        "discount_type": "fixed_price",
+        "discount_percent": null
+      }
+    ]
+  },
+  {
+    "name": "Congreso de Innovación 5",
+    "description": "Congreso de Innovación 5 — un evento imperdible en Oruro.",
+    "longDescription": "Congreso de Innovación 5 es una actividad organizada en Campo Ferial, pensada para toda la familia. Incluye todo lo necesario para una gran experiencia.",
+    "date": "2026-07-28 00:15:00",
+    "localTime": "10:30",
+    "location": "Teatro Municipal, Oruro",
+    "status": "open",
+    "hasDonation": false,
+    "image": "https://picsum.photos/seed/evento5/800/450",
+    "video": "",
+    "coordinates": [
+      {
+        "lat": -16.7836,
+        "lng": -60.0005
+      }
+    ],
+    "route": [
+      {
+        "lat": -16.1118,
+        "lng": -60.4626,
+        "label": "Salida"
+      },
+      {
+        "lat": -17.7913,
+        "lng": -63.2161,
+        "label": "Meta"
+      }
+    ],
+    "categories": [
+      {
+        "name": "5K",
+        "price": 807.56,
+        "description": "Categoría 1 de Congreso de Innovación 5",
+        "color": "#00cc77"
+      },
+      {
+        "name": "10K",
+        "price": 65.69,
+        "description": "Categoría 2 de Congreso de Innovación 5",
+        "color": "#5ec485"
+      }
+    ],
+    "formTypes": [
+      {
+        "name": "Individual",
+        "icon": "🎨",
+        "description": "Inscripción individual para Congreso de Innovación 5",
+        "tipo": "danza",
+        "cupo_total": 133,
+        "precio_base": 272.84,
+        "costo_edicion": 8.84,
+        "color": "#5ec485",
+        "moneda": 1,
+        "permite_lista_espera": 0,
+        "hasshirt": 1,
+        "requiere_talla": 1,
+        "permite_inscripcion_grupal": 0,
+        "max_integrantes_grupo": 20,
+        "descuento_registrante_pct": 0.1,
+        "souvenirs": [
+          {
+            "name": "Camiseta",
+            "icon": "🎒",
+            "price": 16.3
+          },
+          {
+            "name": "Gorra",
+            "icon": "🧢",
+            "price": 8.5
+          }
+        ]
+      }
+    ],
+    "promoCodes": []
+  },
+  {
+    "name": "Congreso de Innovación 6",
+    "description": "Congreso de Innovación 6 — un evento imperdible en Potosí.",
+    "longDescription": "Congreso de Innovación 6 es una actividad organizada en Centro de Convenciones, pensada para toda la familia. Incluye todo lo necesario para una gran experiencia.",
+    "date": "2026-12-10 00:15:00",
+    "localTime": "11:00",
+    "location": "Autódromo, Potosí",
+    "status": "coming_soon",
+    "hasDonation": true,
+    "image": "https://picsum.photos/seed/evento6/800/450",
+    "video": "",
+    "coordinates": [
+      {
+        "lat": -15.4558,
+        "lng": -65.0018
+      }
+    ],
+    "route": [
+      {
+        "lat": -12.9848,
+        "lng": -60.7763,
+        "label": "Salida"
+      },
+      {
+        "lat": -16.6188,
+        "lng": -57.5698,
+        "label": "Meta"
+      }
+    ],
+    "categories": [
+      {
+        "name": "5K",
+        "price": 640.78,
+        "description": "Categoría 1 de Congreso de Innovación 6",
+        "color": "#00bad2"
+      },
+      {
+        "name": "10K",
+        "price": 288.58,
+        "description": "Categoría 2 de Congreso de Innovación 6",
+        "color": "#7c8e91"
+      },
+      {
+        "name": "21K",
+        "price": 377.37,
+        "description": "Categoría 3 de Congreso de Innovación 6",
+        "color": "#f4ff39"
+      }
+    ],
+    "formTypes": [
+      {
+        "name": "Individual",
+        "icon": "📷",
+        "description": "Inscripción individual para Congreso de Innovación 6",
+        "tipo": "literatura",
+        "cupo_total": 85,
+        "precio_base": 139.18,
+        "costo_edicion": 9.73,
+        "color": "#0033aa",
+        "moneda": 1,
+        "permite_lista_espera": 1,
+        "hasshirt": 0,
+        "requiere_talla": 0,
+        "permite_inscripcion_grupal": 0,
+        "max_integrantes_grupo": 19,
+        "descuento_registrante_pct": 0.1,
+        "souvenirs": []
+      }
+    ],
+    "promoCodes": [
+      {
+        "promo_code": "PROMO6",
+        "price": 220.29,
+        "discount_type": "fixed_price",
+        "discount_percent": null
+      }
+    ]
+  },
+  {
+    "name": "Festival Gastronómico 7",
+    "description": "Festival Gastronómico 7 — un evento imperdible en Tarija.",
+    "longDescription": "Festival Gastronómico 7 es una actividad organizada en Malecón, pensada para toda la familia. Incluye todo lo necesario para una gran experiencia.",
+    "date": "2026-10-02 00:45:00",
+    "localTime": "10:00",
+    "location": "Parque Urbano, Santa Cruz",
+    "status": "open",
+    "hasDonation": true,
+    "image": "https://picsum.photos/seed/evento7/800/450",
+    "video": "",
+    "coordinates": [
+      {
+        "lat": -11.6665,
+        "lng": -64.358
+      }
+    ],
+    "route": [],
+    "categories": [
+      {
+        "name": "5K",
+        "price": 30.01,
+        "description": "Categoría 1 de Festival Gastronómico 7",
+        "color": "#1a5e2b"
+      },
+      {
+        "name": "10K",
+        "price": 404.47,
+        "description": "Categoría 2 de Festival Gastronómico 7",
+        "color": "#38b30f"
+      },
+      {
+        "name": "21K",
+        "price": 869.04,
+        "description": "Categoría 3 de Festival Gastronómico 7",
+        "color": "#00bad2"
+      }
+    ],
+    "formTypes": [
+      {
+        "name": "Individual",
+        "icon": "🎨",
+        "description": "Inscripción individual para Festival Gastronómico 7",
+        "tipo": "fotografia",
+        "cupo_total": 394,
+        "precio_base": 56.12,
+        "costo_edicion": 22.2,
+        "color": "#38b30f",
+        "moneda": 1,
+        "permite_lista_espera": 1,
+        "hasshirt": 1,
+        "requiere_talla": 1,
+        "permite_inscripcion_grupal": 0,
+        "max_integrantes_grupo": 12,
+        "descuento_registrante_pct": 0.1,
+        "souvenirs": []
+      }
+    ],
+    "promoCodes": [
+      {
+        "promo_code": "PROMO7",
+        "price": 20.65,
+        "discount_type": "fixed_price",
+        "discount_percent": null
+      }
+    ]
+  },
+  {
+    "name": "Taller de Fotografía 8",
+    "description": "Taller de Fotografía 8 — un evento imperdible en Tarija.",
+    "longDescription": "Taller de Fotografía 8 es una actividad organizada en Centro de Convenciones, pensada para toda la familia. Incluye todo lo necesario para una gran experiencia.",
+    "date": "2026-10-21 22:15:00",
+    "localTime": "14:00",
+    "location": "Teatro Municipal, Potosí",
+    "status": "open",
+    "hasDonation": true,
+    "image": "https://picsum.photos/seed/evento8/800/450",
+    "video": "",
+    "coordinates": [
+      {
+        "lat": -17.445,
+        "lng": -67.5805
+      }
+    ],
+    "route": [],
+    "categories": [
+      {
+        "name": "5K",
+        "price": 189.06,
+        "description": "Categoría 1 de Taller de Fotografía 8",
+        "color": "#8bf94b"
+      },
+      {
+        "name": "10K",
+        "price": 120.48,
+        "description": "Categoría 2 de Taller de Fotografía 8",
+        "color": "#00cc77"
+      }
+    ],
+    "formTypes": [
+      {
+        "name": "Individual",
+        "icon": "🚴",
+        "description": "Inscripción individual para Taller de Fotografía 8",
+        "tipo": "corporativo",
+        "cupo_total": 396,
+        "precio_base": 105.86,
+        "costo_edicion": 16.03,
+        "color": "#8bf94b",
+        "moneda": 1,
+        "permite_lista_espera": 1,
+        "hasshirt": 1,
+        "requiere_talla": 0,
+        "permite_inscripcion_grupal": 0,
+        "max_integrantes_grupo": 7,
+        "descuento_registrante_pct": 0.1,
+        "souvenirs": []
+      },
+      {
+        "name": "Grupal",
+        "icon": "🎓",
+        "description": "Inscripción grupal para Taller de Fotografía 8",
+        "tipo": "salud",
+        "cupo_total": 378,
+        "precio_base": 203.93,
+        "costo_edicion": 7.79,
+        "color": "#00bad2",
+        "moneda": 1,
+        "permite_lista_espera": 0,
+        "hasshirt": 1,
+        "requiere_talla": 1,
+        "permite_inscripcion_grupal": 1,
+        "max_integrantes_grupo": 18,
+        "descuento_registrante_pct": 0.1,
+        "souvenirs": [
+          {
+            "name": "Camiseta",
+            "icon": "👕",
+            "price": 29.51
+          },
+          {
+            "name": "Gorra",
+            "icon": "👕",
+            "price": 30.49
+          },
+          {
+            "name": "Mochila",
+            "icon": "🎁",
+            "price": 5.87
+          }
+        ]
+      }
+    ],
+    "promoCodes": []
+  },
+  {
+    "name": "Caminata Familiar 9",
+    "description": "Caminata Familiar 9 — un evento imperdible en Cochabamba.",
+    "longDescription": "Caminata Familiar 9 es una actividad organizada en Teatro Municipal, pensada para toda la familia. Incluye todo lo necesario para una gran experiencia.",
+    "date": "2026-10-25 15:00:00",
+    "localTime": "06:30",
+    "location": "Plaza Principal, Potosí",
+    "status": "open",
+    "hasDonation": false,
+    "image": "https://picsum.photos/seed/evento9/800/450",
+    "video": "",
+    "coordinates": [
+      {
+        "lat": -14.4374,
+        "lng": -59.4528
+      }
+    ],
+    "route": [],
+    "categories": [
+      {
+        "name": "5K",
+        "price": 152.12,
+        "description": "Categoría 1 de Caminata Familiar 9",
+        "color": "#7c8e91"
+      },
+      {
+        "name": "10K",
+        "price": 191.35,
+        "description": "Categoría 2 de Caminata Familiar 9",
+        "color": "#38b30f"
+      }
+    ],
+    "formTypes": [
+      {
+        "name": "Individual",
+        "icon": "🍽️",
+        "description": "Inscripción individual para Caminata Familiar 9",
+        "tipo": "moda",
+        "cupo_total": 357,
+        "precio_base": 238.01,
+        "costo_edicion": 2.12,
+        "color": "#f4ff39",
+        "moneda": 1,
+        "permite_lista_espera": 1,
+        "hasshirt": 0,
+        "requiere_talla": 1,
+        "permite_inscripcion_grupal": 0,
+        "max_integrantes_grupo": 17,
+        "descuento_registrante_pct": 0.1,
+        "souvenirs": [
+          {
+            "name": "Camiseta",
+            "icon": "🥤",
+            "price": 25.54
+          },
+          {
+            "name": "Gorra",
+            "icon": "🎁",
+            "price": 22.69
+          }
+        ]
+      }
+    ],
+    "promoCodes": []
+  },
+  {
+    "name": "Maratón de la Ciudad 10",
+    "description": "Maratón de la Ciudad 10 — un evento imperdible en La Paz.",
+    "longDescription": "Maratón de la Ciudad 10 es una actividad organizada en Campo Ferial, pensada para toda la familia. Incluye todo lo necesario para una gran experiencia.",
+    "date": "2026-10-05 15:45:00",
+    "localTime": "08:45",
+    "location": "Malecón, Potosí",
+    "status": "open",
+    "hasDonation": true,
+    "image": "https://picsum.photos/seed/evento10/800/450",
+    "video": "",
+    "coordinates": [
+      {
+        "lat": -15.124,
+        "lng": -61.3915
+      }
+    ],
+    "route": [],
+    "categories": [
+      {
+        "name": "5K",
+        "price": 879.91,
+        "description": "Categoría 1 de Maratón de la Ciudad 10",
+        "color": "#0033aa"
+      }
+    ],
+    "formTypes": [
+      {
+        "name": "Individual",
+        "icon": "🧘",
+        "description": "Inscripción individual para Maratón de la Ciudad 10",
+        "tipo": "deportivo",
+        "cupo_total": 376,
+        "precio_base": 363.65,
+        "costo_edicion": 23.92,
+        "color": "#00cc77",
+        "moneda": 1,
+        "permite_lista_espera": 1,
+        "hasshirt": 0,
+        "requiere_talla": 0,
+        "permite_inscripcion_grupal": 0,
+        "max_integrantes_grupo": 7,
+        "descuento_registrante_pct": 0.1,
+        "souvenirs": [
+          {
+            "name": "Camiseta",
+            "icon": "🎒",
+            "price": 31.41
+          }
+        ]
+      }
+    ],
+    "promoCodes": []
+  },
+  {
+    "name": "Torneo Deportivo 11",
+    "description": "Torneo Deportivo 11 — un evento imperdible en Tarija.",
+    "longDescription": "Torneo Deportivo 11 es una actividad organizada en Estadio Olímpico, pensada para toda la familia. Incluye todo lo necesario para una gran experiencia.",
+    "date": "2026-05-30 21:15:00",
+    "localTime": "09:45",
+    "location": "Parque Metropolitano, Cobija",
+    "status": "closed",
+    "hasDonation": false,
+    "image": "https://picsum.photos/seed/evento11/800/450",
+    "video": "",
+    "coordinates": [
+      {
+        "lat": -12.9277,
+        "lng": -67.5068
+      }
+    ],
+    "route": [],
+    "categories": [
+      {
+        "name": "5K",
+        "price": 378.6,
+        "description": "Categoría 1 de Torneo Deportivo 11",
+        "color": "#7c8e91"
+      },
+      {
+        "name": "10K",
+        "price": 556.56,
+        "description": "Categoría 2 de Torneo Deportivo 11",
+        "color": "#1a5e2b"
+      }
+    ],
+    "formTypes": [
+      {
+        "name": "Individual",
+        "icon": "🎤",
+        "description": "Inscripción individual para Torneo Deportivo 11",
+        "tipo": "educativo",
+        "cupo_total": 475,
+        "precio_base": 371.3,
+        "costo_edicion": 13.52,
+        "color": "#00bad2",
+        "moneda": 1,
+        "permite_lista_espera": 1,
+        "hasshirt": 0,
+        "requiere_talla": 1,
+        "permite_inscripcion_grupal": 0,
+        "max_integrantes_grupo": 6,
+        "descuento_registrante_pct": 0.1,
+        "souvenirs": [
+          {
+            "name": "Camiseta",
+            "icon": "👕",
+            "price": 31.25
+          },
+          {
+            "name": "Gorra",
+            "icon": "🏅",
+            "price": 36.22
+          },
+          {
+            "name": "Mochila",
+            "icon": "🎒",
+            "price": 17.76
+          }
+        ]
+      }
+    ],
+    "promoCodes": [
+      {
+        "promo_code": "PROMO11",
+        "price": 220.15,
+        "discount_type": "fixed_price",
+        "discount_percent": null
+      }
+    ]
+  },
+  {
+    "name": "Carrera Solidaria 12",
+    "description": "Carrera Solidaria 12 — un evento imperdible en Cobija.",
+    "longDescription": "Carrera Solidaria 12 es una actividad organizada en Teatro Municipal, pensada para toda la familia. Incluye todo lo necesario para una gran experiencia.",
+    "date": "2026-08-23 19:30:00",
+    "localTime": "10:45",
+    "location": "Campo Ferial, Oruro",
+    "status": "coming_soon",
+    "hasDonation": true,
+    "image": "https://picsum.photos/seed/evento12/800/450",
+    "video": "",
+    "coordinates": [
+      {
+        "lat": -15.8191,
+        "lng": -62.3309
+      }
+    ],
+    "route": [
+      {
+        "lat": -12.1483,
+        "lng": -60.0736,
+        "label": "Salida"
+      },
+      {
+        "lat": -19.2944,
+        "lng": -59.2851,
+        "label": "Meta"
+      }
+    ],
+    "categories": [
+      {
+        "name": "5K",
+        "price": 389.79,
+        "description": "Categoría 1 de Carrera Solidaria 12",
+        "color": "#f4ff39"
+      }
+    ],
+    "formTypes": [
+      {
+        "name": "Individual",
+        "icon": "🚴",
+        "description": "Inscripción individual para Carrera Solidaria 12",
+        "tipo": "artes",
+        "cupo_total": 302,
+        "precio_base": 40.63,
+        "costo_edicion": 2.35,
+        "color": "#38b30f",
+        "moneda": 1,
+        "permite_lista_espera": 1,
+        "hasshirt": 0,
+        "requiere_talla": 0,
+        "permite_inscripcion_grupal": 0,
+        "max_integrantes_grupo": 11,
+        "descuento_registrante_pct": 0.1,
+        "souvenirs": [
+          {
+            "name": "Camiseta",
+            "icon": "🧢",
+            "price": 26.93
+          },
+          {
+            "name": "Gorra",
+            "icon": "🧢",
+            "price": 7.5
+          }
+        ]
+      },
+      {
+        "name": "Grupal",
+        "icon": "🎨",
+        "description": "Inscripción grupal para Carrera Solidaria 12",
+        "tipo": "religioso",
+        "cupo_total": 406,
+        "precio_base": 220.55,
+        "costo_edicion": 28,
+        "color": "#00bad2",
+        "moneda": 1,
+        "permite_lista_espera": 1,
+        "hasshirt": 1,
+        "requiere_talla": 0,
+        "permite_inscripcion_grupal": 1,
+        "max_integrantes_grupo": 6,
+        "descuento_registrante_pct": 0.1,
+        "souvenirs": [
+          {
+            "name": "Camiseta",
+            "icon": "🥤",
+            "price": 14.67
+          },
+          {
+            "name": "Gorra",
+            "icon": "🎁",
+            "price": 43.84
+          }
+        ]
+      }
+    ],
+    "promoCodes": [
+      {
+        "promo_code": "PROMO12",
+        "price": 132.58,
+        "discount_type": "fixed_price",
+        "discount_percent": null
+      }
+    ]
+  },
+  {
+    "name": "Feria del Libro 13",
+    "description": "Feria del Libro 13 — un evento imperdible en Potosí.",
+    "longDescription": "Feria del Libro 13 es una actividad organizada en Coliseo Municipal, pensada para toda la familia. Incluye todo lo necesario para una gran experiencia.",
+    "date": "2026-11-21 14:45:00",
+    "localTime": "19:30",
+    "location": "Centro de Convenciones, Potosí",
+    "status": "open",
+    "hasDonation": false,
+    "image": "https://picsum.photos/seed/evento13/800/450",
+    "video": "",
+    "coordinates": [
+      {
+        "lat": -18.7886,
+        "lng": -58.7552
+      }
+    ],
+    "route": [],
+    "categories": [
+      {
+        "name": "5K",
+        "price": 426.82,
+        "description": "Categoría 1 de Feria del Libro 13",
+        "color": "#8bf94b"
+      },
+      {
+        "name": "10K",
+        "price": 687.89,
+        "description": "Categoría 2 de Feria del Libro 13",
+        "color": "#6fe376"
+      }
+    ],
+    "formTypes": [
+      {
+        "name": "Individual",
+        "icon": "🎤",
+        "description": "Inscripción individual para Feria del Libro 13",
+        "tipo": "tecnologico",
+        "cupo_total": 288,
+        "precio_base": 316.13,
+        "costo_edicion": 12.51,
+        "color": "#f4ff39",
+        "moneda": 1,
+        "permite_lista_espera": 1,
+        "hasshirt": 1,
+        "requiere_talla": 1,
+        "permite_inscripcion_grupal": 0,
+        "max_integrantes_grupo": 18,
+        "descuento_registrante_pct": 0.1,
+        "souvenirs": [
+          {
+            "name": "Camiseta",
+            "icon": "🎁",
+            "price": 17.44
+          }
+        ]
+      }
+    ],
+    "promoCodes": []
+  },
+  {
+    "name": "Encuentro Cultural 14",
+    "description": "Encuentro Cultural 14 — un evento imperdible en Cobija.",
+    "longDescription": "Encuentro Cultural 14 es una actividad organizada en Estadio Olímpico, pensada para toda la familia. Incluye todo lo necesario para una gran experiencia.",
+    "date": "2026-09-09 11:30:00",
+    "localTime": "14:45",
+    "location": "Teatro Municipal, Sucre",
+    "status": "coming_soon",
+    "hasDonation": false,
+    "image": "https://picsum.photos/seed/evento14/800/450",
+    "video": "",
+    "coordinates": [
+      {
+        "lat": -16.2158,
+        "lng": -63.521
+      }
+    ],
+    "route": [],
+    "categories": [
+      {
+        "name": "5K",
+        "price": 470.06,
+        "description": "Categoría 1 de Encuentro Cultural 14",
+        "color": "#1a5e2b"
+      }
+    ],
+    "formTypes": [
+      {
+        "name": "Individual",
+        "icon": "🍽️",
+        "description": "Inscripción individual para Encuentro Cultural 14",
+        "tipo": "tecnologico",
+        "cupo_total": 477,
+        "precio_base": 157.22,
+        "costo_edicion": 19.17,
+        "color": "#f4ff39",
+        "moneda": 1,
+        "permite_lista_espera": 0,
+        "hasshirt": 0,
+        "requiere_talla": 0,
+        "permite_inscripcion_grupal": 0,
+        "max_integrantes_grupo": 7,
+        "descuento_registrante_pct": 0.1,
+        "souvenirs": [
+          {
+            "name": "Camiseta",
+            "icon": "🎒",
+            "price": 31.8
+          },
+          {
+            "name": "Gorra",
+            "icon": "🥤",
+            "price": 26.02
+          }
+        ]
+      },
+      {
+        "name": "Grupal",
+        "icon": "🎨",
+        "description": "Inscripción grupal para Encuentro Cultural 14",
+        "tipo": "taller",
+        "cupo_total": 479,
+        "precio_base": 316.7,
+        "costo_edicion": 18.53,
+        "color": "#6fe376",
+        "moneda": 1,
+        "permite_lista_espera": 1,
+        "hasshirt": 0,
+        "requiere_talla": 0,
+        "permite_inscripcion_grupal": 1,
+        "max_integrantes_grupo": 17,
+        "descuento_registrante_pct": 0.1,
+        "souvenirs": [
+          {
+            "name": "Camiseta",
+            "icon": "👕",
+            "price": 22.11
+          }
+        ]
+      }
+    ],
+    "promoCodes": []
+  },
+  {
+    "name": "Desafío Trail 15",
+    "description": "Desafío Trail 15 — un evento imperdible en Cobija.",
+    "longDescription": "Desafío Trail 15 es una actividad organizada en Teatro Municipal, pensada para toda la familia. Incluye todo lo necesario para una gran experiencia.",
+    "date": "2026-08-19 10:30:00",
+    "localTime": "13:45",
+    "location": "Malecón, Trinidad",
+    "status": "open",
+    "hasDonation": false,
+    "image": "https://picsum.photos/seed/evento15/800/450",
+    "video": "",
+    "coordinates": [
+      {
+        "lat": -16.7191,
+        "lng": -65.8644
+      }
+    ],
+    "route": [],
+    "categories": [
+      {
+        "name": "5K",
+        "price": 572.05,
+        "description": "Categoría 1 de Desafío Trail 15",
+        "color": "#6fe376"
+      },
+      {
+        "name": "10K",
+        "price": 364.11,
+        "description": "Categoría 2 de Desafío Trail 15",
+        "color": "#1a5e2b"
+      }
+    ],
+    "formTypes": [
+      {
+        "name": "Individual",
+        "icon": "🎭",
+        "description": "Inscripción individual para Desafío Trail 15",
+        "tipo": "literatura",
+        "cupo_total": 411,
+        "precio_base": 105.09,
+        "costo_edicion": 8.18,
+        "color": "#6fe376",
+        "moneda": 1,
+        "permite_lista_espera": 1,
+        "hasshirt": 0,
+        "requiere_talla": 0,
+        "permite_inscripcion_grupal": 0,
+        "max_integrantes_grupo": 12,
+        "descuento_registrante_pct": 0.1,
+        "souvenirs": []
+      }
+    ],
+    "promoCodes": [
+      {
+        "promo_code": "PROMO15",
+        "price": 231.98,
+        "discount_type": "fixed_price",
+        "discount_percent": null
+      }
+    ]
+  },
+  {
+    "name": "Congreso de Innovación 16",
+    "description": "Congreso de Innovación 16 — un evento imperdible en La Paz.",
+    "longDescription": "Congreso de Innovación 16 es una actividad organizada en Parque Metropolitano, pensada para toda la familia. Incluye todo lo necesario para una gran experiencia.",
+    "date": "2026-07-29 11:30:00",
+    "localTime": "12:00",
+    "location": "Parque Metropolitano, El Alto",
+    "status": "coming_soon",
+    "hasDonation": false,
+    "image": "https://picsum.photos/seed/evento16/800/450",
+    "video": "",
+    "coordinates": [
+      {
+        "lat": -13.7961,
+        "lng": -68.0221
+      }
+    ],
+    "route": [
+      {
+        "lat": -18.9355,
+        "lng": -67.8097,
+        "label": "Salida"
+      },
+      {
+        "lat": -20.7225,
+        "lng": -68.6727,
+        "label": "Meta"
+      }
+    ],
+    "categories": [
+      {
+        "name": "5K",
+        "price": 452.65,
+        "description": "Categoría 1 de Congreso de Innovación 16",
+        "color": "#5ec485"
+      },
+      {
+        "name": "10K",
+        "price": 812.5,
+        "description": "Categoría 2 de Congreso de Innovación 16",
+        "color": "#6fe376"
+      }
+    ],
+    "formTypes": [
+      {
+        "name": "Individual",
+        "icon": "🎤",
+        "description": "Inscripción individual para Congreso de Innovación 16",
+        "tipo": "musical",
+        "cupo_total": 200,
+        "precio_base": 20.97,
+        "costo_edicion": 26.66,
+        "color": "#5ec485",
+        "moneda": 1,
+        "permite_lista_espera": 0,
+        "hasshirt": 1,
+        "requiere_talla": 0,
+        "permite_inscripcion_grupal": 0,
+        "max_integrantes_grupo": 5,
+        "descuento_registrante_pct": 0.1,
+        "souvenirs": [
+          {
+            "name": "Camiseta",
+            "icon": "🎒",
+            "price": 23.37
+          }
+        ]
+      },
+      {
+        "name": "Grupal",
+        "icon": "🚴",
+        "description": "Inscripción grupal para Congreso de Innovación 16",
+        "tipo": "taller",
+        "cupo_total": 493,
+        "precio_base": 132.78,
+        "costo_edicion": 7.19,
+        "color": "#6fe376",
+        "moneda": 1,
+        "permite_lista_espera": 1,
+        "hasshirt": 1,
+        "requiere_talla": 0,
+        "permite_inscripcion_grupal": 1,
+        "max_integrantes_grupo": 6,
+        "descuento_registrante_pct": 0.1,
+        "souvenirs": [
+          {
+            "name": "Camiseta",
+            "icon": "🧢",
+            "price": 29.6
+          },
+          {
+            "name": "Gorra",
+            "icon": "👕",
+            "price": 27.12
+          },
+          {
+            "name": "Mochila",
+            "icon": "🧢",
+            "price": 35.96
+          }
+        ]
+      }
+    ],
+    "promoCodes": []
+  },
+  {
+    "name": "Taller de Fotografía 17",
+    "description": "Taller de Fotografía 17 — un evento imperdible en El Alto.",
+    "longDescription": "Taller de Fotografía 17 es una actividad organizada en Plaza Principal, pensada para toda la familia. Incluye todo lo necesario para una gran experiencia.",
+    "date": "2026-11-13 18:15:00",
+    "localTime": "09:45",
+    "location": "Estadio Olímpico, Potosí",
+    "status": "coming_soon",
+    "hasDonation": false,
+    "image": "https://picsum.photos/seed/evento17/800/450",
+    "video": "",
+    "coordinates": [
+      {
+        "lat": -16.4361,
+        "lng": -59.3017
+      }
+    ],
+    "route": [
+      {
+        "lat": -17.9766,
+        "lng": -62.8924,
+        "label": "Salida"
+      },
+      {
+        "lat": -18.3319,
+        "lng": -62.9736,
+        "label": "Meta"
+      }
+    ],
+    "categories": [
+      {
+        "name": "5K",
+        "price": 419.02,
+        "description": "Categoría 1 de Taller de Fotografía 17",
+        "color": "#00bad2"
+      },
+      {
+        "name": "10K",
+        "price": 585.15,
+        "description": "Categoría 2 de Taller de Fotografía 17",
+        "color": "#7c8e91"
+      }
+    ],
+    "formTypes": [
+      {
+        "name": "Individual",
+        "icon": "🍽️",
+        "description": "Inscripción individual para Taller de Fotografía 17",
+        "tipo": "taller",
+        "cupo_total": 466,
+        "precio_base": 202.62,
+        "costo_edicion": 0.09,
+        "color": "#7c8e91",
+        "moneda": 1,
+        "permite_lista_espera": 0,
+        "hasshirt": 0,
+        "requiere_talla": 0,
+        "permite_inscripcion_grupal": 0,
+        "max_integrantes_grupo": 11,
+        "descuento_registrante_pct": 0.1,
+        "souvenirs": [
+          {
+            "name": "Camiseta",
+            "icon": "🎒",
+            "price": 6.84
+          },
+          {
+            "name": "Gorra",
+            "icon": "👕",
+            "price": 45.87
+          }
+        ]
+      },
+      {
+        "name": "Grupal",
+        "icon": "🎤",
+        "description": "Inscripción grupal para Taller de Fotografía 17",
+        "tipo": "moda",
+        "cupo_total": 169,
+        "precio_base": 92.22,
+        "costo_edicion": 20.8,
+        "color": "#f4ff39",
+        "moneda": 1,
+        "permite_lista_espera": 1,
+        "hasshirt": 1,
+        "requiere_talla": 1,
+        "permite_inscripcion_grupal": 1,
+        "max_integrantes_grupo": 11,
+        "descuento_registrante_pct": 0.1,
+        "souvenirs": []
+      }
+    ],
+    "promoCodes": [
+      {
+        "promo_code": "PROMO17",
+        "price": 193.42,
+        "discount_type": "fixed_price",
+        "discount_percent": null
+      }
+    ]
+  },
+  {
+    "name": "Concierto Benéfico 18",
+    "description": "Concierto Benéfico 18 — un evento imperdible en Tarija.",
+    "longDescription": "Concierto Benéfico 18 es una actividad organizada en Parque Metropolitano, pensada para toda la familia. Incluye todo lo necesario para una gran experiencia.",
+    "date": "2026-04-09 11:15:00",
+    "localTime": "08:15",
+    "location": "Campo Ferial, Trinidad",
+    "status": "closed",
+    "hasDonation": false,
+    "image": "https://picsum.photos/seed/evento18/800/450",
+    "video": "",
+    "coordinates": [
+      {
+        "lat": -10.3903,
+        "lng": -66.5826
+      }
+    ],
+    "route": [],
+    "categories": [
+      {
+        "name": "5K",
+        "price": 399.88,
+        "description": "Categoría 1 de Concierto Benéfico 18",
+        "color": "#38b30f"
+      },
+      {
+        "name": "10K",
+        "price": 574.75,
+        "description": "Categoría 2 de Concierto Benéfico 18",
+        "color": "#7c8e91"
+      }
+    ],
+    "formTypes": [
+      {
+        "name": "Individual",
+        "icon": "🎭",
+        "description": "Inscripción individual para Concierto Benéfico 18",
+        "tipo": "taller",
+        "cupo_total": 356,
+        "precio_base": 158.15,
+        "costo_edicion": 0.62,
+        "color": "#7c8e91",
+        "moneda": 1,
+        "permite_lista_espera": 1,
+        "hasshirt": 1,
+        "requiere_talla": 1,
+        "permite_inscripcion_grupal": 0,
+        "max_integrantes_grupo": 20,
+        "descuento_registrante_pct": 0.1,
+        "souvenirs": []
+      },
+      {
+        "name": "Grupal",
+        "icon": "🧘",
+        "description": "Inscripción grupal para Concierto Benéfico 18",
+        "tipo": "deportivo",
+        "cupo_total": 203,
+        "precio_base": 385.92,
+        "costo_edicion": 8.38,
+        "color": "#f4ff39",
+        "moneda": 1,
+        "permite_lista_espera": 0,
+        "hasshirt": 0,
+        "requiere_talla": 1,
+        "permite_inscripcion_grupal": 1,
+        "max_integrantes_grupo": 11,
+        "descuento_registrante_pct": 0.1,
+        "souvenirs": []
+      }
+    ],
+    "promoCodes": []
+  },
+  {
+    "name": "Feria de Emprendedores 19",
+    "description": "Feria de Emprendedores 19 — un evento imperdible en Oruro.",
+    "longDescription": "Feria de Emprendedores 19 es una actividad organizada en Parque Urbano, pensada para toda la familia. Incluye todo lo necesario para una gran experiencia.",
+    "date": "2027-01-10 12:00:00",
+    "localTime": "08:15",
+    "location": "Parque Metropolitano, Santa Cruz",
+    "status": "open",
+    "hasDonation": false,
+    "image": "https://picsum.photos/seed/evento19/800/450",
+    "video": "",
+    "coordinates": [
+      {
+        "lat": -16.6933,
+        "lng": -64.269
+      }
+    ],
+    "route": [],
+    "categories": [
+      {
+        "name": "5K",
+        "price": 796.85,
+        "description": "Categoría 1 de Feria de Emprendedores 19",
+        "color": "#38b30f"
+      },
+      {
+        "name": "10K",
+        "price": 673.91,
+        "description": "Categoría 2 de Feria de Emprendedores 19",
+        "color": "#38b30f"
+      }
+    ],
+    "formTypes": [
+      {
+        "name": "Individual",
+        "icon": "🍽️",
+        "description": "Inscripción individual para Feria de Emprendedores 19",
+        "tipo": "moda",
+        "cupo_total": 493,
+        "precio_base": 305.78,
+        "costo_edicion": 5.06,
+        "color": "#6fe376",
+        "moneda": 1,
+        "permite_lista_espera": 0,
+        "hasshirt": 0,
+        "requiere_talla": 1,
+        "permite_inscripcion_grupal": 0,
+        "max_integrantes_grupo": 16,
+        "descuento_registrante_pct": 0.1,
+        "souvenirs": []
+      },
+      {
+        "name": "Grupal",
+        "icon": "🏃",
+        "description": "Inscripción grupal para Feria de Emprendedores 19",
+        "tipo": "corporativo",
+        "cupo_total": 391,
+        "precio_base": 177.05,
+        "costo_edicion": 6.46,
+        "color": "#8bf94b",
+        "moneda": 1,
+        "permite_lista_espera": 1,
+        "hasshirt": 1,
+        "requiere_talla": 0,
+        "permite_inscripcion_grupal": 1,
+        "max_integrantes_grupo": 20,
+        "descuento_registrante_pct": 0.1,
+        "souvenirs": []
+      }
+    ],
+    "promoCodes": [
+      {
+        "promo_code": "PROMO19",
+        "price": 100.03,
+        "discount_type": "fixed_price",
+        "discount_percent": null
+      }
+    ]
+  },
+  {
+    "name": "Encuentro de Danza 20",
+    "description": "Encuentro de Danza 20 — un evento imperdible en Trinidad.",
+    "longDescription": "Encuentro de Danza 20 es una actividad organizada en Parque Metropolitano, pensada para toda la familia. Incluye todo lo necesario para una gran experiencia.",
+    "date": "2026-10-14 16:15:00",
+    "localTime": "14:00",
+    "location": "Centro de Convenciones, Santa Cruz",
+    "status": "open",
+    "hasDonation": true,
+    "image": "https://picsum.photos/seed/evento20/800/450",
+    "video": "",
+    "coordinates": [
+      {
+        "lat": -12.7572,
+        "lng": -67.5432
+      }
+    ],
+    "route": [],
+    "categories": [
+      {
+        "name": "5K",
+        "price": 123.04,
+        "description": "Categoría 1 de Encuentro de Danza 20",
+        "color": "#1a5e2b"
+      }
+    ],
+    "formTypes": [
+      {
+        "name": "Individual",
+        "icon": "🏃",
+        "description": "Inscripción individual para Encuentro de Danza 20",
+        "tipo": "danza",
+        "cupo_total": 115,
+        "precio_base": 207.44,
+        "costo_edicion": 18.53,
+        "color": "#00cc77",
+        "moneda": 1,
+        "permite_lista_espera": 1,
+        "hasshirt": 1,
+        "requiere_talla": 0,
+        "permite_inscripcion_grupal": 0,
+        "max_integrantes_grupo": 18,
+        "descuento_registrante_pct": 0.1,
+        "souvenirs": [
+          {
+            "name": "Camiseta",
+            "icon": "🧢",
+            "price": 39.89
+          }
+        ]
+      },
+      {
+        "name": "Grupal",
+        "icon": "🎓",
+        "description": "Inscripción grupal para Encuentro de Danza 20",
+        "tipo": "congreso",
+        "cupo_total": 209,
+        "precio_base": 217.37,
+        "costo_edicion": 22.36,
+        "color": "#1a5e2b",
+        "moneda": 1,
+        "permite_lista_espera": 1,
+        "hasshirt": 1,
+        "requiere_talla": 1,
+        "permite_inscripcion_grupal": 1,
+        "max_integrantes_grupo": 19,
+        "descuento_registrante_pct": 0.1,
+        "souvenirs": [
+          {
+            "name": "Camiseta",
+            "icon": "👕",
+            "price": 38.51
+          }
+        ]
+      }
+    ],
+    "promoCodes": []
+  },
+  {
+    "name": "Taller de Fotografía 21",
+    "description": "Taller de Fotografía 21 — un evento imperdible en Santa Cruz.",
+    "longDescription": "Taller de Fotografía 21 es una actividad organizada en Estadio Olímpico, pensada para toda la familia. Incluye todo lo necesario para una gran experiencia.",
+    "date": "2026-09-03 14:15:00",
+    "localTime": "16:15",
+    "location": "Autódromo, Sucre",
+    "status": "coming_soon",
+    "hasDonation": true,
+    "image": "https://picsum.photos/seed/evento21/800/450",
+    "video": "",
+    "coordinates": [
+      {
+        "lat": -10.649,
+        "lng": -66.1352
+      }
+    ],
+    "route": [],
+    "categories": [
+      {
+        "name": "5K",
+        "price": 618.16,
+        "description": "Categoría 1 de Taller de Fotografía 21",
+        "color": "#00bad2"
+      },
+      {
+        "name": "10K",
+        "price": 748.32,
+        "description": "Categoría 2 de Taller de Fotografía 21",
+        "color": "#38b30f"
+      },
+      {
+        "name": "21K",
+        "price": 286.8,
+        "description": "Categoría 3 de Taller de Fotografía 21",
+        "color": "#f4ff39"
+      }
+    ],
+    "formTypes": [
+      {
+        "name": "Individual",
+        "icon": "🎓",
+        "description": "Inscripción individual para Taller de Fotografía 21",
+        "tipo": "religioso",
+        "cupo_total": 336,
+        "precio_base": 94.38,
+        "costo_edicion": 12.2,
+        "color": "#1a5e2b",
+        "moneda": 1,
+        "permite_lista_espera": 1,
+        "hasshirt": 1,
+        "requiere_talla": 1,
+        "permite_inscripcion_grupal": 0,
+        "max_integrantes_grupo": 5,
+        "descuento_registrante_pct": 0.1,
+        "souvenirs": []
+      }
+    ],
+    "promoCodes": []
+  },
+  {
+    "name": "Congreso de Innovación 22",
+    "description": "Congreso de Innovación 22 — un evento imperdible en Oruro.",
+    "longDescription": "Congreso de Innovación 22 es una actividad organizada en Teatro Municipal, pensada para toda la familia. Incluye todo lo necesario para una gran experiencia.",
+    "date": "2027-01-01 20:00:00",
+    "localTime": "15:15",
+    "location": "Parque Urbano, Cobija",
+    "status": "open",
+    "hasDonation": false,
+    "image": "https://picsum.photos/seed/evento22/800/450",
+    "video": "",
+    "coordinates": [
+      {
+        "lat": -18.8479,
+        "lng": -68.8909
+      }
+    ],
+    "route": [],
+    "categories": [
+      {
+        "name": "5K",
+        "price": 774.13,
+        "description": "Categoría 1 de Congreso de Innovación 22",
+        "color": "#5ec485"
+      }
+    ],
+    "formTypes": [
+      {
+        "name": "Individual",
+        "icon": "🏃",
+        "description": "Inscripción individual para Congreso de Innovación 22",
+        "tipo": "taller",
+        "cupo_total": 296,
+        "precio_base": 317.43,
+        "costo_edicion": 5.5,
+        "color": "#1a5e2b",
+        "moneda": 1,
+        "permite_lista_espera": 0,
+        "hasshirt": 1,
+        "requiere_talla": 1,
+        "permite_inscripcion_grupal": 0,
+        "max_integrantes_grupo": 8,
+        "descuento_registrante_pct": 0.1,
+        "souvenirs": [
+          {
+            "name": "Camiseta",
+            "icon": "🎒",
+            "price": 21.08
+          },
+          {
+            "name": "Gorra",
+            "icon": "🥤",
+            "price": 10.35
+          },
+          {
+            "name": "Mochila",
+            "icon": "🏅",
+            "price": 27.96
+          }
+        ]
+      },
+      {
+        "name": "Grupal",
+        "icon": "🎓",
+        "description": "Inscripción grupal para Congreso de Innovación 22",
+        "tipo": "fotografia",
+        "cupo_total": 380,
+        "precio_base": 277.09,
+        "costo_edicion": 16.87,
+        "color": "#8bf94b",
+        "moneda": 1,
+        "permite_lista_espera": 0,
+        "hasshirt": 0,
+        "requiere_talla": 0,
+        "permite_inscripcion_grupal": 1,
+        "max_integrantes_grupo": 20,
+        "descuento_registrante_pct": 0.1,
+        "souvenirs": [
+          {
+            "name": "Camiseta",
+            "icon": "🎒",
+            "price": 13.35
+          },
+          {
+            "name": "Gorra",
+            "icon": "🧢",
+            "price": 33.81
+          }
+        ]
+      }
+    ],
+    "promoCodes": [
+      {
+        "promo_code": "PROMO22",
+        "price": 167.51,
+        "discount_type": "fixed_price",
+        "discount_percent": null
+      }
+    ]
+  },
+  {
+    "name": "Feria del Libro 23",
+    "description": "Feria del Libro 23 — un evento imperdible en El Alto.",
+    "longDescription": "Feria del Libro 23 es una actividad organizada en Centro de Convenciones, pensada para toda la familia. Incluye todo lo necesario para una gran experiencia.",
+    "date": "2026-07-30 15:30:00",
+    "localTime": "11:45",
+    "location": "Teatro Municipal, Santa Cruz",
+    "status": "coming_soon",
+    "hasDonation": false,
+    "image": "https://picsum.photos/seed/evento23/800/450",
+    "video": "",
+    "coordinates": [
+      {
+        "lat": -17.4382,
+        "lng": -67.8793
+      }
+    ],
+    "route": [
+      {
+        "lat": -19.1278,
+        "lng": -61.5542,
+        "label": "Salida"
+      },
+      {
+        "lat": -13.482,
+        "lng": -63.4587,
+        "label": "Meta"
+      }
+    ],
+    "categories": [
+      {
+        "name": "5K",
+        "price": 691.18,
+        "description": "Categoría 1 de Feria del Libro 23",
+        "color": "#0033aa"
+      }
+    ],
+    "formTypes": [
+      {
+        "name": "Individual",
+        "icon": "📷",
+        "description": "Inscripción individual para Feria del Libro 23",
+        "tipo": "religioso",
+        "cupo_total": 262,
+        "precio_base": 36.68,
+        "costo_edicion": 1.25,
+        "color": "#f4ff39",
+        "moneda": 1,
+        "permite_lista_espera": 0,
+        "hasshirt": 0,
+        "requiere_talla": 1,
+        "permite_inscripcion_grupal": 0,
+        "max_integrantes_grupo": 12,
+        "descuento_registrante_pct": 0.1,
+        "souvenirs": []
+      },
+      {
+        "name": "Grupal",
+        "icon": "🚴",
+        "description": "Inscripción grupal para Feria del Libro 23",
+        "tipo": "fotografia",
+        "cupo_total": 64,
+        "precio_base": 356.81,
+        "costo_edicion": 24.27,
+        "color": "#38b30f",
+        "moneda": 1,
+        "permite_lista_espera": 0,
+        "hasshirt": 1,
+        "requiere_talla": 1,
+        "permite_inscripcion_grupal": 1,
+        "max_integrantes_grupo": 19,
+        "descuento_registrante_pct": 0.1,
+        "souvenirs": [
+          {
+            "name": "Camiseta",
+            "icon": "🥤",
+            "price": 22.72
+          },
+          {
+            "name": "Gorra",
+            "icon": "🥤",
+            "price": 9.95
+          },
+          {
+            "name": "Mochila",
+            "icon": "🧢",
+            "price": 28.62
+          }
+        ]
+      }
+    ],
+    "promoCodes": []
+  },
+  {
+    "name": "Encuentro Cultural 24",
+    "description": "Encuentro Cultural 24 — un evento imperdible en El Alto.",
+    "longDescription": "Encuentro Cultural 24 es una actividad organizada en Campo Ferial, pensada para toda la familia. Incluye todo lo necesario para una gran experiencia.",
+    "date": "2026-10-16 21:30:00",
+    "localTime": "17:30",
+    "location": "Estadio Olímpico, Cochabamba",
+    "status": "open",
+    "hasDonation": true,
+    "image": "https://picsum.photos/seed/evento24/800/450",
+    "video": "",
+    "coordinates": [
+      {
+        "lat": -17.9578,
+        "lng": -60.3354
+      }
+    ],
+    "route": [],
+    "categories": [
+      {
+        "name": "5K",
+        "price": 306.73,
+        "description": "Categoría 1 de Encuentro Cultural 24",
+        "color": "#0033aa"
+      },
+      {
+        "name": "10K",
+        "price": 771.4,
+        "description": "Categoría 2 de Encuentro Cultural 24",
+        "color": "#7c8e91"
+      },
+      {
+        "name": "21K",
+        "price": 187.16,
+        "description": "Categoría 3 de Encuentro Cultural 24",
+        "color": "#8bf94b"
+      }
+    ],
+    "formTypes": [
+      {
+        "name": "Individual",
+        "icon": "🚴",
+        "description": "Inscripción individual para Encuentro Cultural 24",
+        "tipo": "educativo",
+        "cupo_total": 354,
+        "precio_base": 270.98,
+        "costo_edicion": 28.5,
+        "color": "#0033aa",
+        "moneda": 1,
+        "permite_lista_espera": 1,
+        "hasshirt": 1,
+        "requiere_talla": 1,
+        "permite_inscripcion_grupal": 0,
+        "max_integrantes_grupo": 13,
+        "descuento_registrante_pct": 0.1,
+        "souvenirs": [
+          {
+            "name": "Camiseta",
+            "icon": "👕",
+            "price": 43.84
+          },
+          {
+            "name": "Gorra",
+            "icon": "🧢",
+            "price": 8.69
+          },
+          {
+            "name": "Mochila",
+            "icon": "👕",
+            "price": 26.95
+          }
+        ]
+      },
+      {
+        "name": "Grupal",
+        "icon": "🎭",
+        "description": "Inscripción grupal para Encuentro Cultural 24",
+        "tipo": "cultural",
+        "cupo_total": 79,
+        "precio_base": 259.82,
+        "costo_edicion": 2.23,
+        "color": "#6fe376",
+        "moneda": 1,
+        "permite_lista_espera": 0,
+        "hasshirt": 0,
+        "requiere_talla": 1,
+        "permite_inscripcion_grupal": 1,
+        "max_integrantes_grupo": 10,
+        "descuento_registrante_pct": 0.1,
+        "souvenirs": [
+          {
+            "name": "Camiseta",
+            "icon": "🎁",
+            "price": 46.89
+          },
+          {
+            "name": "Gorra",
+            "icon": "🎒",
+            "price": 8.3
+          },
+          {
+            "name": "Mochila",
+            "icon": "🥤",
+            "price": 43.96
+          }
+        ]
+      }
+    ],
+    "promoCodes": []
+  },
+  {
+    "name": "Encuentro Cultural 25",
+    "description": "Encuentro Cultural 25 — un evento imperdible en Cobija.",
+    "longDescription": "Encuentro Cultural 25 es una actividad organizada en Parque Metropolitano, pensada para toda la familia. Incluye todo lo necesario para una gran experiencia.",
+    "date": "2026-10-16 00:45:00",
+    "localTime": "06:15",
+    "location": "Campo Ferial, Santa Cruz",
+    "status": "open",
+    "hasDonation": true,
+    "image": "https://picsum.photos/seed/evento25/800/450",
+    "video": "",
+    "coordinates": [
+      {
+        "lat": -13.3025,
+        "lng": -66.7709
+      }
+    ],
+    "route": [
+      {
+        "lat": -18.9895,
+        "lng": -58.2051,
+        "label": "Salida"
+      },
+      {
+        "lat": -15.9799,
+        "lng": -62.8366,
+        "label": "Meta"
+      }
+    ],
+    "categories": [
+      {
+        "name": "5K",
+        "price": 358.01,
+        "description": "Categoría 1 de Encuentro Cultural 25",
+        "color": "#00cc77"
+      },
+      {
+        "name": "10K",
+        "price": 638.73,
+        "description": "Categoría 2 de Encuentro Cultural 25",
+        "color": "#8bf94b"
+      },
+      {
+        "name": "21K",
+        "price": 462.68,
+        "description": "Categoría 3 de Encuentro Cultural 25",
+        "color": "#0033aa"
+      }
+    ],
+    "formTypes": [
+      {
+        "name": "Individual",
+        "icon": "🧘",
+        "description": "Inscripción individual para Encuentro Cultural 25",
+        "tipo": "tecnologico",
+        "cupo_total": 94,
+        "precio_base": 103.09,
+        "costo_edicion": 21.25,
+        "color": "#1a5e2b",
+        "moneda": 1,
+        "permite_lista_espera": 1,
+        "hasshirt": 1,
+        "requiere_talla": 0,
+        "permite_inscripcion_grupal": 0,
+        "max_integrantes_grupo": 17,
+        "descuento_registrante_pct": 0.1,
+        "souvenirs": [
+          {
+            "name": "Camiseta",
+            "icon": "🎁",
+            "price": 14.59
+          }
+        ]
+      }
+    ],
+    "promoCodes": []
+  },
+  {
+    "name": "Jornada de Voluntariado 26",
+    "description": "Jornada de Voluntariado 26 — un evento imperdible en Oruro.",
+    "longDescription": "Jornada de Voluntariado 26 es una actividad organizada en Estadio Olímpico, pensada para toda la familia. Incluye todo lo necesario para una gran experiencia.",
+    "date": "2026-11-26 16:00:00",
+    "localTime": "08:30",
+    "location": "Estadio Olímpico, Cochabamba",
+    "status": "open",
+    "hasDonation": false,
+    "image": "https://picsum.photos/seed/evento26/800/450",
+    "video": "",
+    "coordinates": [
+      {
+        "lat": -17.0366,
+        "lng": -61.014
+      }
+    ],
+    "route": [
+      {
+        "lat": -12.0141,
+        "lng": -64.8173,
+        "label": "Salida"
+      },
+      {
+        "lat": -17.4341,
+        "lng": -65.2621,
+        "label": "Meta"
+      }
+    ],
+    "categories": [
+      {
+        "name": "5K",
+        "price": 405.43,
+        "description": "Categoría 1 de Jornada de Voluntariado 26",
+        "color": "#00cc77"
+      },
+      {
+        "name": "10K",
+        "price": 764.36,
+        "description": "Categoría 2 de Jornada de Voluntariado 26",
+        "color": "#6fe376"
+      },
+      {
+        "name": "21K",
+        "price": 362.81,
+        "description": "Categoría 3 de Jornada de Voluntariado 26",
+        "color": "#00cc77"
+      }
+    ],
+    "formTypes": [
+      {
+        "name": "Individual",
+        "icon": "🎤",
+        "description": "Inscripción individual para Jornada de Voluntariado 26",
+        "tipo": "social",
+        "cupo_total": 151,
+        "precio_base": 216.84,
+        "costo_edicion": 29.25,
+        "color": "#0033aa",
+        "moneda": 1,
+        "permite_lista_espera": 1,
+        "hasshirt": 1,
+        "requiere_talla": 0,
+        "permite_inscripcion_grupal": 0,
+        "max_integrantes_grupo": 15,
+        "descuento_registrante_pct": 0.1,
+        "souvenirs": []
+      }
+    ],
+    "promoCodes": []
+  },
+  {
+    "name": "Encuentro de Danza 27",
+    "description": "Encuentro de Danza 27 — un evento imperdible en La Paz.",
+    "longDescription": "Encuentro de Danza 27 es una actividad organizada en Plaza Principal, pensada para toda la familia. Incluye todo lo necesario para una gran experiencia.",
+    "date": "2027-01-16 18:00:00",
+    "localTime": "07:30",
+    "location": "Plaza Principal, La Paz",
+    "status": "open",
+    "hasDonation": false,
+    "image": "https://picsum.photos/seed/evento27/800/450",
+    "video": "",
+    "coordinates": [
+      {
+        "lat": -20.5716,
+        "lng": -63.0953
+      }
+    ],
+    "route": [],
+    "categories": [
+      {
+        "name": "5K",
+        "price": 198.73,
+        "description": "Categoría 1 de Encuentro de Danza 27",
+        "color": "#1a5e2b"
+      }
+    ],
+    "formTypes": [
+      {
+        "name": "Individual",
+        "icon": "📷",
+        "description": "Inscripción individual para Encuentro de Danza 27",
+        "tipo": "ambiental",
+        "cupo_total": 215,
+        "precio_base": 371.49,
+        "costo_edicion": 21.14,
+        "color": "#00cc77",
+        "moneda": 1,
+        "permite_lista_espera": 1,
+        "hasshirt": 1,
+        "requiere_talla": 1,
+        "permite_inscripcion_grupal": 0,
+        "max_integrantes_grupo": 16,
+        "descuento_registrante_pct": 0.1,
+        "souvenirs": [
+          {
+            "name": "Camiseta",
+            "icon": "🏅",
+            "price": 27.28
+          },
+          {
+            "name": "Gorra",
+            "icon": "🧢",
+            "price": 6.62
+          },
+          {
+            "name": "Mochila",
+            "icon": "🎁",
+            "price": 11.27
+          }
+        ]
+      }
+    ],
+    "promoCodes": []
+  },
+  {
+    "name": "Festival Gastronómico 28",
+    "description": "Festival Gastronómico 28 — un evento imperdible en La Paz.",
+    "longDescription": "Festival Gastronómico 28 es una actividad organizada en Parque Metropolitano, pensada para toda la familia. Incluye todo lo necesario para una gran experiencia.",
+    "date": "2026-08-31 11:00:00",
+    "localTime": "07:45",
+    "location": "Estadio Olímpico, Oruro",
+    "status": "coming_soon",
+    "hasDonation": true,
+    "image": "https://picsum.photos/seed/evento28/800/450",
+    "video": "",
+    "coordinates": [
+      {
+        "lat": -14.9535,
+        "lng": -65.5826
+      }
+    ],
+    "route": [
+      {
+        "lat": -10.1519,
+        "lng": -66.0585,
+        "label": "Salida"
+      },
+      {
+        "lat": -11.608,
+        "lng": -58.6885,
+        "label": "Meta"
+      }
+    ],
+    "categories": [
+      {
+        "name": "5K",
+        "price": 790.63,
+        "description": "Categoría 1 de Festival Gastronómico 28",
+        "color": "#6fe376"
+      }
+    ],
+    "formTypes": [
+      {
+        "name": "Individual",
+        "icon": "🍽️",
+        "description": "Inscripción individual para Festival Gastronómico 28",
+        "tipo": "literatura",
+        "cupo_total": 207,
+        "precio_base": 180.6,
+        "costo_edicion": 16.16,
+        "color": "#5ec485",
+        "moneda": 1,
+        "permite_lista_espera": 1,
+        "hasshirt": 0,
+        "requiere_talla": 1,
+        "permite_inscripcion_grupal": 0,
+        "max_integrantes_grupo": 20,
+        "descuento_registrante_pct": 0.1,
+        "souvenirs": [
+          {
+            "name": "Camiseta",
+            "icon": "🎁",
+            "price": 24.34
+          },
+          {
+            "name": "Gorra",
+            "icon": "🥤",
+            "price": 17.6
+          },
+          {
+            "name": "Mochila",
+            "icon": "🎁",
+            "price": 19.59
+          }
+        ]
+      },
+      {
+        "name": "Grupal",
+        "icon": "🏃",
+        "description": "Inscripción grupal para Festival Gastronómico 28",
+        "tipo": "moda",
+        "cupo_total": 212,
+        "precio_base": 131.42,
+        "costo_edicion": 13.34,
+        "color": "#00bad2",
+        "moneda": 1,
+        "permite_lista_espera": 0,
+        "hasshirt": 1,
+        "requiere_talla": 1,
+        "permite_inscripcion_grupal": 1,
+        "max_integrantes_grupo": 7,
+        "descuento_registrante_pct": 0.1,
+        "souvenirs": [
+          {
+            "name": "Camiseta",
+            "icon": "🎒",
+            "price": 22.13
+          }
+        ]
+      }
+    ],
+    "promoCodes": []
+  },
+  {
+    "name": "Retiro de Bienestar 29",
+    "description": "Retiro de Bienestar 29 — un evento imperdible en Cochabamba.",
+    "longDescription": "Retiro de Bienestar 29 es una actividad organizada en Estadio Olímpico, pensada para toda la familia. Incluye todo lo necesario para una gran experiencia.",
+    "date": "2026-06-13 20:45:00",
+    "localTime": "10:30",
+    "location": "Teatro Municipal, Santa Cruz",
+    "status": "closed",
+    "hasDonation": false,
+    "image": "https://picsum.photos/seed/evento29/800/450",
+    "video": "",
+    "coordinates": [
+      {
+        "lat": -17.4452,
+        "lng": -64.3358
+      }
+    ],
+    "route": [],
+    "categories": [
+      {
+        "name": "5K",
+        "price": 363.88,
+        "description": "Categoría 1 de Retiro de Bienestar 29",
+        "color": "#0033aa"
+      },
+      {
+        "name": "10K",
+        "price": 578.77,
+        "description": "Categoría 2 de Retiro de Bienestar 29",
+        "color": "#5ec485"
+      }
+    ],
+    "formTypes": [
+      {
+        "name": "Individual",
+        "icon": "🚴",
+        "description": "Inscripción individual para Retiro de Bienestar 29",
+        "tipo": "congreso",
+        "cupo_total": 29,
+        "precio_base": 89.6,
+        "costo_edicion": 13.4,
+        "color": "#f4ff39",
+        "moneda": 1,
+        "permite_lista_espera": 0,
+        "hasshirt": 1,
+        "requiere_talla": 0,
+        "permite_inscripcion_grupal": 0,
+        "max_integrantes_grupo": 7,
+        "descuento_registrante_pct": 0.1,
+        "souvenirs": [
+          {
+            "name": "Camiseta",
+            "icon": "🏅",
+            "price": 18.89
+          },
+          {
+            "name": "Gorra",
+            "icon": "🎒",
+            "price": 41.64
+          }
+        ]
+      },
+      {
+        "name": "Grupal",
+        "icon": "🎭",
+        "description": "Inscripción grupal para Retiro de Bienestar 29",
+        "tipo": "danza",
+        "cupo_total": 335,
+        "precio_base": 359.31,
+        "costo_edicion": 24.86,
+        "color": "#00cc77",
+        "moneda": 1,
+        "permite_lista_espera": 0,
+        "hasshirt": 1,
+        "requiere_talla": 1,
+        "permite_inscripcion_grupal": 1,
+        "max_integrantes_grupo": 12,
+        "descuento_registrante_pct": 0.1,
+        "souvenirs": [
+          {
+            "name": "Camiseta",
+            "icon": "🎁",
+            "price": 7.97
+          },
+          {
+            "name": "Gorra",
+            "icon": "🏅",
+            "price": 16.28
+          },
+          {
+            "name": "Mochila",
+            "icon": "👕",
+            "price": 23.82
+          }
+        ]
+      }
+    ],
+    "promoCodes": []
+  },
+  {
+    "name": "Muestra de Arte 30",
+    "description": "Muestra de Arte 30 — un evento imperdible en Sucre.",
+    "longDescription": "Muestra de Arte 30 es una actividad organizada en Parque Metropolitano, pensada para toda la familia. Incluye todo lo necesario para una gran experiencia.",
+    "date": "2026-12-18 00:15:00",
+    "localTime": "16:15",
+    "location": "Parque Metropolitano, Cobija",
+    "status": "open",
+    "hasDonation": true,
+    "image": "https://picsum.photos/seed/evento30/800/450",
+    "video": "",
+    "coordinates": [
+      {
+        "lat": -13.598,
+        "lng": -64.131
+      }
+    ],
+    "route": [
+      {
+        "lat": -13.2527,
+        "lng": -58.4563,
+        "label": "Salida"
+      },
+      {
+        "lat": -13.7461,
+        "lng": -59.8362,
+        "label": "Meta"
+      }
+    ],
+    "categories": [
+      {
+        "name": "5K",
+        "price": 283.4,
+        "description": "Categoría 1 de Muestra de Arte 30",
+        "color": "#7c8e91"
+      },
+      {
+        "name": "10K",
+        "price": 493.03,
+        "description": "Categoría 2 de Muestra de Arte 30",
+        "color": "#00bad2"
+      },
+      {
+        "name": "21K",
+        "price": 387.13,
+        "description": "Categoría 3 de Muestra de Arte 30",
+        "color": "#00bad2"
+      }
+    ],
+    "formTypes": [
+      {
+        "name": "Individual",
+        "icon": "🍽️",
+        "description": "Inscripción individual para Muestra de Arte 30",
+        "tipo": "educativo",
+        "cupo_total": 263,
+        "precio_base": 373.45,
+        "costo_edicion": 1.5,
+        "color": "#f4ff39",
+        "moneda": 1,
+        "permite_lista_espera": 1,
+        "hasshirt": 0,
+        "requiere_talla": 0,
+        "permite_inscripcion_grupal": 0,
+        "max_integrantes_grupo": 11,
+        "descuento_registrante_pct": 0.1,
+        "souvenirs": [
+          {
+            "name": "Camiseta",
+            "icon": "🎒",
+            "price": 31.69
+          },
+          {
+            "name": "Gorra",
+            "icon": "👕",
+            "price": 35.35
+          },
+          {
+            "name": "Mochila",
+            "icon": "🏅",
+            "price": 30.35
+          }
+        ]
+      },
+      {
+        "name": "Grupal",
+        "icon": "🎭",
+        "description": "Inscripción grupal para Muestra de Arte 30",
+        "tipo": "taller",
+        "cupo_total": 477,
+        "precio_base": 83.43,
+        "costo_edicion": 27.53,
+        "color": "#f4ff39",
+        "moneda": 1,
+        "permite_lista_espera": 1,
+        "hasshirt": 0,
+        "requiere_talla": 1,
+        "permite_inscripcion_grupal": 1,
+        "max_integrantes_grupo": 17,
+        "descuento_registrante_pct": 0.1,
+        "souvenirs": [
+          {
+            "name": "Camiseta",
+            "icon": "👕",
+            "price": 32.61
+          }
+        ]
+      }
+    ],
+    "promoCodes": [
+      {
+        "promo_code": "PROMO30",
+        "price": null,
+        "discount_type": "percentage",
+        "discount_percent": 0.13
+      }
+    ]
+  },
+  {
+    "name": "Congreso de Innovación 31",
+    "description": "Congreso de Innovación 31 — un evento imperdible en Cobija.",
+    "longDescription": "Congreso de Innovación 31 es una actividad organizada en Estadio Olímpico, pensada para toda la familia. Incluye todo lo necesario para una gran experiencia.",
+    "date": "2026-05-05 13:00:00",
+    "localTime": "09:45",
+    "location": "Autódromo, Oruro",
+    "status": "closed",
+    "hasDonation": true,
+    "image": "https://picsum.photos/seed/evento31/800/450",
+    "video": "",
+    "coordinates": [
+      {
+        "lat": -21.0311,
+        "lng": -68.833
+      }
+    ],
+    "route": [
+      {
+        "lat": -14.6029,
+        "lng": -60.6762,
+        "label": "Salida"
+      },
+      {
+        "lat": -12.2499,
+        "lng": -60.1836,
+        "label": "Meta"
+      }
+    ],
+    "categories": [
+      {
+        "name": "5K",
+        "price": 594.87,
+        "description": "Categoría 1 de Congreso de Innovación 31",
+        "color": "#0033aa"
+      },
+      {
+        "name": "10K",
+        "price": 545.48,
+        "description": "Categoría 2 de Congreso de Innovación 31",
+        "color": "#38b30f"
+      }
+    ],
+    "formTypes": [
+      {
+        "name": "Individual",
+        "icon": "🎤",
+        "description": "Inscripción individual para Congreso de Innovación 31",
+        "tipo": "teatro",
+        "cupo_total": 111,
+        "precio_base": 83.2,
+        "costo_edicion": 1.97,
+        "color": "#6fe376",
+        "moneda": 1,
+        "permite_lista_espera": 1,
+        "hasshirt": 0,
+        "requiere_talla": 1,
+        "permite_inscripcion_grupal": 0,
+        "max_integrantes_grupo": 15,
+        "descuento_registrante_pct": 0.1,
+        "souvenirs": [
+          {
+            "name": "Camiseta",
+            "icon": "👕",
+            "price": 30.78
+          },
+          {
+            "name": "Gorra",
+            "icon": "👕",
+            "price": 13.27
+          }
+        ]
+      },
+      {
+        "name": "Grupal",
+        "icon": "🍽️",
+        "description": "Inscripción grupal para Congreso de Innovación 31",
+        "tipo": "social",
+        "cupo_total": 344,
+        "precio_base": 142.63,
+        "costo_edicion": 13.28,
+        "color": "#6fe376",
+        "moneda": 1,
+        "permite_lista_espera": 1,
+        "hasshirt": 0,
+        "requiere_talla": 1,
+        "permite_inscripcion_grupal": 1,
+        "max_integrantes_grupo": 8,
+        "descuento_registrante_pct": 0.1,
+        "souvenirs": [
+          {
+            "name": "Camiseta",
+            "icon": "🏅",
+            "price": 49.71
+          },
+          {
+            "name": "Gorra",
+            "icon": "🏅",
+            "price": 13.2
+          }
+        ]
+      }
+    ],
+    "promoCodes": [
+      {
+        "promo_code": "PROMO31",
+        "price": 273.79,
+        "discount_type": "fixed_price",
+        "discount_percent": null
+      }
+    ]
+  },
+  {
+    "name": "Retiro de Bienestar 32",
+    "description": "Retiro de Bienestar 32 — un evento imperdible en El Alto.",
+    "longDescription": "Retiro de Bienestar 32 es una actividad organizada en Plaza Principal, pensada para toda la familia. Incluye todo lo necesario para una gran experiencia.",
+    "date": "2026-09-14 14:00:00",
+    "localTime": "18:45",
+    "location": "Parque Metropolitano, El Alto",
+    "status": "coming_soon",
+    "hasDonation": true,
+    "image": "https://picsum.photos/seed/evento32/800/450",
+    "video": "",
+    "coordinates": [
+      {
+        "lat": -12.2774,
+        "lng": -57.9589
+      }
+    ],
+    "route": [],
+    "categories": [
+      {
+        "name": "5K",
+        "price": 798.12,
+        "description": "Categoría 1 de Retiro de Bienestar 32",
+        "color": "#5ec485"
+      }
+    ],
+    "formTypes": [
+      {
+        "name": "Individual",
+        "icon": "🍽️",
+        "description": "Inscripción individual para Retiro de Bienestar 32",
+        "tipo": "moda",
+        "cupo_total": 398,
+        "precio_base": 127.68,
+        "costo_edicion": 19.33,
+        "color": "#38b30f",
+        "moneda": 1,
+        "permite_lista_espera": 0,
+        "hasshirt": 1,
+        "requiere_talla": 0,
+        "permite_inscripcion_grupal": 0,
+        "max_integrantes_grupo": 9,
+        "descuento_registrante_pct": 0.1,
+        "souvenirs": []
+      },
+      {
+        "name": "Grupal",
+        "icon": "📷",
+        "description": "Inscripción grupal para Retiro de Bienestar 32",
+        "tipo": "literario",
+        "cupo_total": 257,
+        "precio_base": 179.09,
+        "costo_edicion": 7.58,
+        "color": "#00cc77",
+        "moneda": 1,
+        "permite_lista_espera": 0,
+        "hasshirt": 1,
+        "requiere_talla": 0,
+        "permite_inscripcion_grupal": 1,
+        "max_integrantes_grupo": 5,
+        "descuento_registrante_pct": 0.1,
+        "souvenirs": [
+          {
+            "name": "Camiseta",
+            "icon": "🧢",
+            "price": 27.44
+          },
+          {
+            "name": "Gorra",
+            "icon": "🎁",
+            "price": 30.77
+          }
+        ]
+      }
+    ],
+    "promoCodes": []
+  },
+  {
+    "name": "Feria del Libro 33",
+    "description": "Feria del Libro 33 — un evento imperdible en Trinidad.",
+    "longDescription": "Feria del Libro 33 es una actividad organizada en Estadio Olímpico, pensada para toda la familia. Incluye todo lo necesario para una gran experiencia.",
+    "date": "2026-07-03 22:45:00",
+    "localTime": "12:30",
+    "location": "Autódromo, Cobija",
+    "status": "closed",
+    "hasDonation": false,
+    "image": "https://picsum.photos/seed/evento33/800/450",
+    "video": "",
+    "coordinates": [
+      {
+        "lat": -14.6701,
+        "lng": -63.863
+      }
+    ],
+    "route": [],
+    "categories": [
+      {
+        "name": "5K",
+        "price": 126.71,
+        "description": "Categoría 1 de Feria del Libro 33",
+        "color": "#8bf94b"
+      },
+      {
+        "name": "10K",
+        "price": 283.87,
+        "description": "Categoría 2 de Feria del Libro 33",
+        "color": "#8bf94b"
+      },
+      {
+        "name": "21K",
+        "price": 706.11,
+        "description": "Categoría 3 de Feria del Libro 33",
+        "color": "#f4ff39"
+      }
+    ],
+    "formTypes": [
+      {
+        "name": "Individual",
+        "icon": "🎤",
+        "description": "Inscripción individual para Feria del Libro 33",
+        "tipo": "literario",
+        "cupo_total": 102,
+        "precio_base": 73.95,
+        "costo_edicion": 4.7,
+        "color": "#00bad2",
+        "moneda": 1,
+        "permite_lista_espera": 0,
+        "hasshirt": 0,
+        "requiere_talla": 1,
+        "permite_inscripcion_grupal": 0,
+        "max_integrantes_grupo": 11,
+        "descuento_registrante_pct": 0.1,
+        "souvenirs": [
+          {
+            "name": "Camiseta",
+            "icon": "🧢",
+            "price": 37.54
+          },
+          {
+            "name": "Gorra",
+            "icon": "🧢",
+            "price": 39.24
+          }
+        ]
+      },
+      {
+        "name": "Grupal",
+        "icon": "🎓",
+        "description": "Inscripción grupal para Feria del Libro 33",
+        "tipo": "literatura",
+        "cupo_total": 380,
+        "precio_base": 337.98,
+        "costo_edicion": 20.88,
+        "color": "#1a5e2b",
+        "moneda": 1,
+        "permite_lista_espera": 1,
+        "hasshirt": 1,
+        "requiere_talla": 1,
+        "permite_inscripcion_grupal": 1,
+        "max_integrantes_grupo": 14,
+        "descuento_registrante_pct": 0.1,
+        "souvenirs": []
+      }
+    ],
+    "promoCodes": [
+      {
+        "promo_code": "PROMO33",
+        "price": null,
+        "discount_type": "percentage",
+        "discount_percent": 0.1
+      }
+    ]
+  },
+  {
+    "name": "Muestra de Arte 34",
+    "description": "Muestra de Arte 34 — un evento imperdible en Oruro.",
+    "longDescription": "Muestra de Arte 34 es una actividad organizada en Parque Metropolitano, pensada para toda la familia. Incluye todo lo necesario para una gran experiencia.",
+    "date": "2026-10-14 16:15:00",
+    "localTime": "11:00",
+    "location": "Campo Ferial, Santa Cruz",
+    "status": "open",
+    "hasDonation": true,
+    "image": "https://picsum.photos/seed/evento34/800/450",
+    "video": "",
+    "coordinates": [
+      {
+        "lat": -14.6399,
+        "lng": -58.1519
+      }
+    ],
+    "route": [
+      {
+        "lat": -10.124,
+        "lng": -63.215,
+        "label": "Salida"
+      },
+      {
+        "lat": -15.4393,
+        "lng": -65.1161,
+        "label": "Meta"
+      }
+    ],
+    "categories": [
+      {
+        "name": "5K",
+        "price": 379.91,
+        "description": "Categoría 1 de Muestra de Arte 34",
+        "color": "#f4ff39"
+      },
+      {
+        "name": "10K",
+        "price": 133.52,
+        "description": "Categoría 2 de Muestra de Arte 34",
+        "color": "#0033aa"
+      }
+    ],
+    "formTypes": [
+      {
+        "name": "Individual",
+        "icon": "🎤",
+        "description": "Inscripción individual para Muestra de Arte 34",
+        "tipo": "deportivo",
+        "cupo_total": 378,
+        "precio_base": 72.4,
+        "costo_edicion": 18.17,
+        "color": "#1a5e2b",
+        "moneda": 1,
+        "permite_lista_espera": 0,
+        "hasshirt": 0,
+        "requiere_talla": 0,
+        "permite_inscripcion_grupal": 0,
+        "max_integrantes_grupo": 19,
+        "descuento_registrante_pct": 0.1,
+        "souvenirs": []
+      },
+      {
+        "name": "Grupal",
+        "icon": "🏃",
+        "description": "Inscripción grupal para Muestra de Arte 34",
+        "tipo": "ambiental",
+        "cupo_total": 373,
+        "precio_base": 189.6,
+        "costo_edicion": 7.77,
+        "color": "#0033aa",
+        "moneda": 1,
+        "permite_lista_espera": 0,
+        "hasshirt": 1,
+        "requiere_talla": 1,
+        "permite_inscripcion_grupal": 1,
+        "max_integrantes_grupo": 13,
+        "descuento_registrante_pct": 0.1,
+        "souvenirs": []
+      }
+    ],
+    "promoCodes": []
+  },
+  {
+    "name": "Festival Gastronómico 35",
+    "description": "Festival Gastronómico 35 — un evento imperdible en Cobija.",
+    "longDescription": "Festival Gastronómico 35 es una actividad organizada en Parque Urbano, pensada para toda la familia. Incluye todo lo necesario para una gran experiencia.",
+    "date": "2026-04-03 13:45:00",
+    "localTime": "19:45",
+    "location": "Teatro Municipal, Tarija",
+    "status": "closed",
+    "hasDonation": false,
+    "image": "https://picsum.photos/seed/evento35/800/450",
+    "video": "",
+    "coordinates": [
+      {
+        "lat": -17.5709,
+        "lng": -59.638
+      }
+    ],
+    "route": [],
+    "categories": [
+      {
+        "name": "5K",
+        "price": 94.3,
+        "description": "Categoría 1 de Festival Gastronómico 35",
+        "color": "#38b30f"
+      }
+    ],
+    "formTypes": [
+      {
+        "name": "Individual",
+        "icon": "🍽️",
+        "description": "Inscripción individual para Festival Gastronómico 35",
+        "tipo": "tecnologico",
+        "cupo_total": 80,
+        "precio_base": 130.11,
+        "costo_edicion": 26.65,
+        "color": "#f4ff39",
+        "moneda": 1,
+        "permite_lista_espera": 1,
+        "hasshirt": 0,
+        "requiere_talla": 1,
+        "permite_inscripcion_grupal": 0,
+        "max_integrantes_grupo": 10,
+        "descuento_registrante_pct": 0.1,
+        "souvenirs": [
+          {
+            "name": "Camiseta",
+            "icon": "🥤",
+            "price": 16.79
+          },
+          {
+            "name": "Gorra",
+            "icon": "🎁",
+            "price": 22.96
+          },
+          {
+            "name": "Mochila",
+            "icon": "🧢",
+            "price": 40.05
+          }
+        ]
+      },
+      {
+        "name": "Grupal",
+        "icon": "📚",
+        "description": "Inscripción grupal para Festival Gastronómico 35",
+        "tipo": "corporativo",
+        "cupo_total": 343,
+        "precio_base": 106.29,
+        "costo_edicion": 16.33,
+        "color": "#00bad2",
+        "moneda": 1,
+        "permite_lista_espera": 0,
+        "hasshirt": 1,
+        "requiere_talla": 1,
+        "permite_inscripcion_grupal": 1,
+        "max_integrantes_grupo": 13,
+        "descuento_registrante_pct": 0.1,
+        "souvenirs": [
+          {
+            "name": "Camiseta",
+            "icon": "🎁",
+            "price": 36.3
+          },
+          {
+            "name": "Gorra",
+            "icon": "👕",
+            "price": 45.71
+          }
+        ]
+      }
+    ],
+    "promoCodes": [
+      {
+        "promo_code": "PROMO35",
+        "price": 137.86,
+        "discount_type": "fixed_price",
+        "discount_percent": null
+      }
+    ]
+  },
+  {
+    "name": "Expo Tecnología 36",
+    "description": "Expo Tecnología 36 — un evento imperdible en Sucre.",
+    "longDescription": "Expo Tecnología 36 es una actividad organizada en Estadio Olímpico, pensada para toda la familia. Incluye todo lo necesario para una gran experiencia.",
+    "date": "2026-12-14 16:45:00",
+    "localTime": "08:00",
+    "location": "Campo Ferial, Oruro",
+    "status": "open",
+    "hasDonation": true,
+    "image": "https://picsum.photos/seed/evento36/800/450",
+    "video": "",
+    "coordinates": [
+      {
+        "lat": -14.4384,
+        "lng": -61.4009
+      }
+    ],
+    "route": [
+      {
+        "lat": -21.2483,
+        "lng": -68.556,
+        "label": "Salida"
+      },
+      {
+        "lat": -10.9937,
+        "lng": -58.0208,
+        "label": "Meta"
+      }
+    ],
+    "categories": [
+      {
+        "name": "5K",
+        "price": 624.58,
+        "description": "Categoría 1 de Expo Tecnología 36",
+        "color": "#f4ff39"
+      },
+      {
+        "name": "10K",
+        "price": 428.86,
+        "description": "Categoría 2 de Expo Tecnología 36",
+        "color": "#38b30f"
+      }
+    ],
+    "formTypes": [
+      {
+        "name": "Individual",
+        "icon": "🎨",
+        "description": "Inscripción individual para Expo Tecnología 36",
+        "tipo": "social",
+        "cupo_total": 315,
+        "precio_base": 305.52,
+        "costo_edicion": 6.7,
+        "color": "#5ec485",
+        "moneda": 1,
+        "permite_lista_espera": 1,
+        "hasshirt": 0,
+        "requiere_talla": 1,
+        "permite_inscripcion_grupal": 0,
+        "max_integrantes_grupo": 9,
+        "descuento_registrante_pct": 0.1,
+        "souvenirs": [
+          {
+            "name": "Camiseta",
+            "icon": "🧢",
+            "price": 25.19
+          },
+          {
+            "name": "Gorra",
+            "icon": "👕",
+            "price": 20.66
+          },
+          {
+            "name": "Mochila",
+            "icon": "🥤",
+            "price": 48.08
+          }
+        ]
+      },
+      {
+        "name": "Grupal",
+        "icon": "🎤",
+        "description": "Inscripción grupal para Expo Tecnología 36",
+        "tipo": "ambiental",
+        "cupo_total": 63,
+        "precio_base": 317.28,
+        "costo_edicion": 23.78,
+        "color": "#0033aa",
+        "moneda": 1,
+        "permite_lista_espera": 1,
+        "hasshirt": 1,
+        "requiere_talla": 0,
+        "permite_inscripcion_grupal": 1,
+        "max_integrantes_grupo": 15,
+        "descuento_registrante_pct": 0.1,
+        "souvenirs": [
+          {
+            "name": "Camiseta",
+            "icon": "🎁",
+            "price": 47.24
+          },
+          {
+            "name": "Gorra",
+            "icon": "🧢",
+            "price": 12.17
+          },
+          {
+            "name": "Mochila",
+            "icon": "🧢",
+            "price": 14.31
+          }
+        ]
+      }
+    ],
+    "promoCodes": []
+  },
+  {
+    "name": "Desafío Trail 37",
+    "description": "Desafío Trail 37 — un evento imperdible en Oruro.",
+    "longDescription": "Desafío Trail 37 es una actividad organizada en Estadio Olímpico, pensada para toda la familia. Incluye todo lo necesario para una gran experiencia.",
+    "date": "2026-04-23 18:15:00",
+    "localTime": "20:00",
+    "location": "Coliseo Municipal, Oruro",
+    "status": "closed",
+    "hasDonation": false,
+    "image": "https://picsum.photos/seed/evento37/800/450",
+    "video": "",
+    "coordinates": [
+      {
+        "lat": -11.6541,
+        "lng": -68.0686
+      }
+    ],
+    "route": [],
+    "categories": [
+      {
+        "name": "5K",
+        "price": 146.29,
+        "description": "Categoría 1 de Desafío Trail 37",
+        "color": "#00bad2"
+      },
+      {
+        "name": "10K",
+        "price": 449.71,
+        "description": "Categoría 2 de Desafío Trail 37",
+        "color": "#1a5e2b"
+      },
+      {
+        "name": "21K",
+        "price": 21.42,
+        "description": "Categoría 3 de Desafío Trail 37",
+        "color": "#38b30f"
+      }
+    ],
+    "formTypes": [
+      {
+        "name": "Individual",
+        "icon": "🎨",
+        "description": "Inscripción individual para Desafío Trail 37",
+        "tipo": "cine",
+        "cupo_total": 27,
+        "precio_base": 151.53,
+        "costo_edicion": 13.42,
+        "color": "#8bf94b",
+        "moneda": 1,
+        "permite_lista_espera": 1,
+        "hasshirt": 0,
+        "requiere_talla": 0,
+        "permite_inscripcion_grupal": 0,
+        "max_integrantes_grupo": 9,
+        "descuento_registrante_pct": 0.1,
+        "souvenirs": [
+          {
+            "name": "Camiseta",
+            "icon": "🥤",
+            "price": 16.84
+          },
+          {
+            "name": "Gorra",
+            "icon": "👕",
+            "price": 38.61
+          }
+        ]
+      },
+      {
+        "name": "Grupal",
+        "icon": "🎓",
+        "description": "Inscripción grupal para Desafío Trail 37",
+        "tipo": "teatro",
+        "cupo_total": 331,
+        "precio_base": 105.65,
+        "costo_edicion": 26.24,
+        "color": "#7c8e91",
+        "moneda": 1,
+        "permite_lista_espera": 1,
+        "hasshirt": 0,
+        "requiere_talla": 1,
+        "permite_inscripcion_grupal": 1,
+        "max_integrantes_grupo": 19,
+        "descuento_registrante_pct": 0.1,
+        "souvenirs": []
+      }
+    ],
+    "promoCodes": [
+      {
+        "promo_code": "PROMO37",
+        "price": 247.84,
+        "discount_type": "fixed_price",
+        "discount_percent": null
+      }
+    ]
+  },
+  {
+    "name": "Congreso de Innovación 38",
+    "description": "Congreso de Innovación 38 — un evento imperdible en La Paz.",
+    "longDescription": "Congreso de Innovación 38 es una actividad organizada en Coliseo Municipal, pensada para toda la familia. Incluye todo lo necesario para una gran experiencia.",
+    "date": "2026-10-14 11:45:00",
+    "localTime": "11:00",
+    "location": "Coliseo Municipal, La Paz",
+    "status": "open",
+    "hasDonation": false,
+    "image": "https://picsum.photos/seed/evento38/800/450",
+    "video": "",
+    "coordinates": [
+      {
+        "lat": -21.4517,
+        "lng": -58.1109
+      }
+    ],
+    "route": [],
+    "categories": [
+      {
+        "name": "5K",
+        "price": 339.43,
+        "description": "Categoría 1 de Congreso de Innovación 38",
+        "color": "#5ec485"
+      },
+      {
+        "name": "10K",
+        "price": 707.8,
+        "description": "Categoría 2 de Congreso de Innovación 38",
+        "color": "#38b30f"
+      },
+      {
+        "name": "21K",
+        "price": 828.43,
+        "description": "Categoría 3 de Congreso de Innovación 38",
+        "color": "#1a5e2b"
+      }
+    ],
+    "formTypes": [
+      {
+        "name": "Individual",
+        "icon": "🚴",
+        "description": "Inscripción individual para Congreso de Innovación 38",
+        "tipo": "ambiental",
+        "cupo_total": 22,
+        "precio_base": 45.72,
+        "costo_edicion": 24.11,
+        "color": "#6fe376",
+        "moneda": 1,
+        "permite_lista_espera": 0,
+        "hasshirt": 0,
+        "requiere_talla": 1,
+        "permite_inscripcion_grupal": 0,
+        "max_integrantes_grupo": 17,
+        "descuento_registrante_pct": 0.1,
+        "souvenirs": [
+          {
+            "name": "Camiseta",
+            "icon": "🥤",
+            "price": 44.24
+          },
+          {
+            "name": "Gorra",
+            "icon": "👕",
+            "price": 47.22
+          },
+          {
+            "name": "Mochila",
+            "icon": "🧢",
+            "price": 48.62
+          }
+        ]
+      },
+      {
+        "name": "Grupal",
+        "icon": "📚",
+        "description": "Inscripción grupal para Congreso de Innovación 38",
+        "tipo": "ambiental",
+        "cupo_total": 240,
+        "precio_base": 83.04,
+        "costo_edicion": 0.31,
+        "color": "#f4ff39",
+        "moneda": 1,
+        "permite_lista_espera": 0,
+        "hasshirt": 1,
+        "requiere_talla": 1,
+        "permite_inscripcion_grupal": 1,
+        "max_integrantes_grupo": 6,
+        "descuento_registrante_pct": 0.1,
+        "souvenirs": [
+          {
+            "name": "Camiseta",
+            "icon": "🧢",
+            "price": 15.06
+          }
+        ]
+      }
+    ],
+    "promoCodes": [
+      {
+        "promo_code": "PROMO38",
+        "price": null,
+        "discount_type": "percentage",
+        "discount_percent": 0.07
+      }
+    ]
+  },
+  {
+    "name": "Desafío Trail 39",
+    "description": "Desafío Trail 39 — un evento imperdible en Trinidad.",
+    "longDescription": "Desafío Trail 39 es una actividad organizada en Coliseo Municipal, pensada para toda la familia. Incluye todo lo necesario para una gran experiencia.",
+    "date": "2026-10-08 23:45:00",
+    "localTime": "15:30",
+    "location": "Teatro Municipal, Santa Cruz",
+    "status": "open",
+    "hasDonation": true,
+    "image": "https://picsum.photos/seed/evento39/800/450",
+    "video": "",
+    "coordinates": [
+      {
+        "lat": -19.9749,
+        "lng": -60.3036
+      }
+    ],
+    "route": [
+      {
+        "lat": -19.5812,
+        "lng": -63.2282,
+        "label": "Salida"
+      },
+      {
+        "lat": -17.4158,
+        "lng": -65.5704,
+        "label": "Meta"
+      }
+    ],
+    "categories": [
+      {
+        "name": "5K",
+        "price": 568.82,
+        "description": "Categoría 1 de Desafío Trail 39",
+        "color": "#00bad2"
+      },
+      {
+        "name": "10K",
+        "price": 421.84,
+        "description": "Categoría 2 de Desafío Trail 39",
+        "color": "#1a5e2b"
+      }
+    ],
+    "formTypes": [
+      {
+        "name": "Individual",
+        "icon": "🎨",
+        "description": "Inscripción individual para Desafío Trail 39",
+        "tipo": "educativo",
+        "cupo_total": 419,
+        "precio_base": 140.86,
+        "costo_edicion": 8.34,
+        "color": "#f4ff39",
+        "moneda": 1,
+        "permite_lista_espera": 1,
+        "hasshirt": 1,
+        "requiere_talla": 1,
+        "permite_inscripcion_grupal": 0,
+        "max_integrantes_grupo": 5,
+        "descuento_registrante_pct": 0.1,
+        "souvenirs": [
+          {
+            "name": "Camiseta",
+            "icon": "🎒",
+            "price": 39.3
+          },
+          {
+            "name": "Gorra",
+            "icon": "🎁",
+            "price": 23.53
+          },
+          {
+            "name": "Mochila",
+            "icon": "🥤",
+            "price": 41.29
+          }
+        ]
+      },
+      {
+        "name": "Grupal",
+        "icon": "🎤",
+        "description": "Inscripción grupal para Desafío Trail 39",
+        "tipo": "moda",
+        "cupo_total": 172,
+        "precio_base": 330.83,
+        "costo_edicion": 25.5,
+        "color": "#1a5e2b",
+        "moneda": 1,
+        "permite_lista_espera": 0,
+        "hasshirt": 0,
+        "requiere_talla": 1,
+        "permite_inscripcion_grupal": 1,
+        "max_integrantes_grupo": 14,
+        "descuento_registrante_pct": 0.1,
+        "souvenirs": [
+          {
+            "name": "Camiseta",
+            "icon": "🥤",
+            "price": 43.16
+          }
+        ]
+      }
+    ],
+    "promoCodes": [
+      {
+        "promo_code": "PROMO39",
+        "price": 259.06,
+        "discount_type": "fixed_price",
+        "discount_percent": null
+      }
+    ]
+  },
+  {
+    "name": "Expo Tecnología 40",
+    "description": "Expo Tecnología 40 — un evento imperdible en Cobija.",
+    "longDescription": "Expo Tecnología 40 es una actividad organizada en Plaza Principal, pensada para toda la familia. Incluye todo lo necesario para una gran experiencia.",
+    "date": "2026-06-09 13:00:00",
+    "localTime": "10:15",
+    "location": "Plaza Principal, El Alto",
+    "status": "closed",
+    "hasDonation": true,
+    "image": "https://picsum.photos/seed/evento40/800/450",
+    "video": "",
+    "coordinates": [
+      {
+        "lat": -14.2295,
+        "lng": -57.929
+      }
+    ],
+    "route": [],
+    "categories": [
+      {
+        "name": "5K",
+        "price": 221.54,
+        "description": "Categoría 1 de Expo Tecnología 40",
+        "color": "#1a5e2b"
+      },
+      {
+        "name": "10K",
+        "price": 454.66,
+        "description": "Categoría 2 de Expo Tecnología 40",
+        "color": "#00bad2"
+      },
+      {
+        "name": "21K",
+        "price": 200.95,
+        "description": "Categoría 3 de Expo Tecnología 40",
+        "color": "#5ec485"
+      }
+    ],
+    "formTypes": [
+      {
+        "name": "Individual",
+        "icon": "🧘",
+        "description": "Inscripción individual para Expo Tecnología 40",
+        "tipo": "religioso",
+        "cupo_total": 372,
+        "precio_base": 126.74,
+        "costo_edicion": 14.35,
+        "color": "#0033aa",
+        "moneda": 1,
+        "permite_lista_espera": 0,
+        "hasshirt": 0,
+        "requiere_talla": 1,
+        "permite_inscripcion_grupal": 0,
+        "max_integrantes_grupo": 15,
+        "descuento_registrante_pct": 0.1,
+        "souvenirs": [
+          {
+            "name": "Camiseta",
+            "icon": "🎁",
+            "price": 34.77
+          }
+        ]
+      },
+      {
+        "name": "Grupal",
+        "icon": "🎨",
+        "description": "Inscripción grupal para Expo Tecnología 40",
+        "tipo": "artes",
+        "cupo_total": 309,
+        "precio_base": 277.5,
+        "costo_edicion": 10,
+        "color": "#00bad2",
+        "moneda": 1,
+        "permite_lista_espera": 1,
+        "hasshirt": 1,
+        "requiere_talla": 1,
+        "permite_inscripcion_grupal": 1,
+        "max_integrantes_grupo": 14,
+        "descuento_registrante_pct": 0.1,
+        "souvenirs": [
+          {
+            "name": "Camiseta",
+            "icon": "🎒",
+            "price": 18.65
+          }
+        ]
+      }
+    ],
+    "promoCodes": [
+      {
+        "promo_code": "PROMO40",
+        "price": 115.75,
+        "discount_type": "fixed_price",
+        "discount_percent": null
+      }
+    ]
+  },
+  {
+    "name": "Feria de Emprendedores 41",
+    "description": "Feria de Emprendedores 41 — un evento imperdible en Cochabamba.",
+    "longDescription": "Feria de Emprendedores 41 es una actividad organizada en Malecón, pensada para toda la familia. Incluye todo lo necesario para una gran experiencia.",
+    "date": "2026-04-18 14:15:00",
+    "localTime": "11:30",
+    "location": "Malecón, Sucre",
+    "status": "closed",
+    "hasDonation": false,
+    "image": "https://picsum.photos/seed/evento41/800/450",
+    "video": "",
+    "coordinates": [
+      {
+        "lat": -21.6952,
+        "lng": -62.4126
+      }
+    ],
+    "route": [
+      {
+        "lat": -14.9218,
+        "lng": -61.1846,
+        "label": "Salida"
+      },
+      {
+        "lat": -18.2959,
+        "lng": -57.6355,
+        "label": "Meta"
+      }
+    ],
+    "categories": [
+      {
+        "name": "5K",
+        "price": 684.94,
+        "description": "Categoría 1 de Feria de Emprendedores 41",
+        "color": "#6fe376"
+      },
+      {
+        "name": "10K",
+        "price": 721.37,
+        "description": "Categoría 2 de Feria de Emprendedores 41",
+        "color": "#1a5e2b"
+      },
+      {
+        "name": "21K",
+        "price": 147.95,
+        "description": "Categoría 3 de Feria de Emprendedores 41",
+        "color": "#f4ff39"
+      }
+    ],
+    "formTypes": [
+      {
+        "name": "Individual",
+        "icon": "🧘",
+        "description": "Inscripción individual para Feria de Emprendedores 41",
+        "tipo": "salud",
+        "cupo_total": 178,
+        "precio_base": 201.8,
+        "costo_edicion": 29.34,
+        "color": "#8bf94b",
+        "moneda": 1,
+        "permite_lista_espera": 1,
+        "hasshirt": 0,
+        "requiere_talla": 1,
+        "permite_inscripcion_grupal": 0,
+        "max_integrantes_grupo": 9,
+        "descuento_registrante_pct": 0.1,
+        "souvenirs": [
+          {
+            "name": "Camiseta",
+            "icon": "🥤",
+            "price": 18.8
+          },
+          {
+            "name": "Gorra",
+            "icon": "🥤",
+            "price": 17.43
+          }
+        ]
+      },
+      {
+        "name": "Grupal",
+        "icon": "🎭",
+        "description": "Inscripción grupal para Feria de Emprendedores 41",
+        "tipo": "literatura",
+        "cupo_total": 466,
+        "precio_base": 235.33,
+        "costo_edicion": 15.33,
+        "color": "#6fe376",
+        "moneda": 1,
+        "permite_lista_espera": 1,
+        "hasshirt": 0,
+        "requiere_talla": 1,
+        "permite_inscripcion_grupal": 1,
+        "max_integrantes_grupo": 8,
+        "descuento_registrante_pct": 0.1,
+        "souvenirs": []
+      }
+    ],
+    "promoCodes": []
+  },
+  {
+    "name": "Maratón de la Ciudad 42",
+    "description": "Maratón de la Ciudad 42 — un evento imperdible en El Alto.",
+    "longDescription": "Maratón de la Ciudad 42 es una actividad organizada en Estadio Olímpico, pensada para toda la familia. Incluye todo lo necesario para una gran experiencia.",
+    "date": "2026-11-03 14:15:00",
+    "localTime": "10:30",
+    "location": "Estadio Olímpico, Santa Cruz",
+    "status": "open",
+    "hasDonation": false,
+    "image": "https://picsum.photos/seed/evento42/800/450",
+    "video": "",
+    "coordinates": [
+      {
+        "lat": -18.6693,
+        "lng": -62.065
+      }
+    ],
+    "route": [],
+    "categories": [
+      {
+        "name": "5K",
+        "price": 309.47,
+        "description": "Categoría 1 de Maratón de la Ciudad 42",
+        "color": "#00cc77"
+      },
+      {
+        "name": "10K",
+        "price": 770.38,
+        "description": "Categoría 2 de Maratón de la Ciudad 42",
+        "color": "#7c8e91"
+      }
+    ],
+    "formTypes": [
+      {
+        "name": "Individual",
+        "icon": "🎓",
+        "description": "Inscripción individual para Maratón de la Ciudad 42",
+        "tipo": "danza",
+        "cupo_total": 386,
+        "precio_base": 133.86,
+        "costo_edicion": 20.65,
+        "color": "#7c8e91",
+        "moneda": 1,
+        "permite_lista_espera": 0,
+        "hasshirt": 1,
+        "requiere_talla": 0,
+        "permite_inscripcion_grupal": 0,
+        "max_integrantes_grupo": 7,
+        "descuento_registrante_pct": 0.1,
+        "souvenirs": []
+      }
+    ],
+    "promoCodes": []
+  },
+  {
+    "name": "Feria de Emprendedores 43",
+    "description": "Feria de Emprendedores 43 — un evento imperdible en Tarija.",
+    "longDescription": "Feria de Emprendedores 43 es una actividad organizada en Malecón, pensada para toda la familia. Incluye todo lo necesario para una gran experiencia.",
+    "date": "2026-09-05 21:15:00",
+    "localTime": "17:15",
+    "location": "Malecón, Tarija",
+    "status": "coming_soon",
+    "hasDonation": false,
+    "image": "https://picsum.photos/seed/evento43/800/450",
+    "video": "",
+    "coordinates": [
+      {
+        "lat": -10.6333,
+        "lng": -65.1302
+      }
+    ],
+    "route": [],
+    "categories": [
+      {
+        "name": "5K",
+        "price": 722.71,
+        "description": "Categoría 1 de Feria de Emprendedores 43",
+        "color": "#7c8e91"
+      }
+    ],
+    "formTypes": [
+      {
+        "name": "Individual",
+        "icon": "📷",
+        "description": "Inscripción individual para Feria de Emprendedores 43",
+        "tipo": "danza",
+        "cupo_total": 301,
+        "precio_base": 89.13,
+        "costo_edicion": 22.15,
+        "color": "#7c8e91",
+        "moneda": 1,
+        "permite_lista_espera": 0,
+        "hasshirt": 0,
+        "requiere_talla": 0,
+        "permite_inscripcion_grupal": 0,
+        "max_integrantes_grupo": 18,
+        "descuento_registrante_pct": 0.1,
+        "souvenirs": [
+          {
+            "name": "Camiseta",
+            "icon": "🎒",
+            "price": 5.7
+          }
+        ]
+      },
+      {
+        "name": "Grupal",
+        "icon": "🎭",
+        "description": "Inscripción grupal para Feria de Emprendedores 43",
+        "tipo": "recreativo",
+        "cupo_total": 170,
+        "precio_base": 290.62,
+        "costo_edicion": 29.06,
+        "color": "#00bad2",
+        "moneda": 1,
+        "permite_lista_espera": 1,
+        "hasshirt": 1,
+        "requiere_talla": 1,
+        "permite_inscripcion_grupal": 1,
+        "max_integrantes_grupo": 20,
+        "descuento_registrante_pct": 0.1,
+        "souvenirs": [
+          {
+            "name": "Camiseta",
+            "icon": "🧢",
+            "price": 6.04
+          },
+          {
+            "name": "Gorra",
+            "icon": "🧢",
+            "price": 12.71
+          },
+          {
+            "name": "Mochila",
+            "icon": "🎒",
+            "price": 25.15
+          }
+        ]
+      }
+    ],
+    "promoCodes": [
+      {
+        "promo_code": "PROMO43",
+        "price": 213.5,
+        "discount_type": "fixed_price",
+        "discount_percent": null
+      }
+    ]
+  },
+  {
+    "name": "Muestra de Arte 44",
+    "description": "Muestra de Arte 44 — un evento imperdible en La Paz.",
+    "longDescription": "Muestra de Arte 44 es una actividad organizada en Autódromo, pensada para toda la familia. Incluye todo lo necesario para una gran experiencia.",
+    "date": "2026-08-08 16:45:00",
+    "localTime": "16:15",
+    "location": "Coliseo Municipal, Sucre",
+    "status": "open",
+    "hasDonation": true,
+    "image": "https://picsum.photos/seed/evento44/800/450",
+    "video": "",
+    "coordinates": [
+      {
+        "lat": -18.3509,
+        "lng": -58.0484
+      }
+    ],
+    "route": [],
+    "categories": [
+      {
+        "name": "5K",
+        "price": 92.27,
+        "description": "Categoría 1 de Muestra de Arte 44",
+        "color": "#5ec485"
+      },
+      {
+        "name": "10K",
+        "price": 442.03,
+        "description": "Categoría 2 de Muestra de Arte 44",
+        "color": "#38b30f"
+      }
+    ],
+    "formTypes": [
+      {
+        "name": "Individual",
+        "icon": "🍽️",
+        "description": "Inscripción individual para Muestra de Arte 44",
+        "tipo": "deportivo",
+        "cupo_total": 374,
+        "precio_base": 156.07,
+        "costo_edicion": 10.74,
+        "color": "#0033aa",
+        "moneda": 1,
+        "permite_lista_espera": 0,
+        "hasshirt": 1,
+        "requiere_talla": 1,
+        "permite_inscripcion_grupal": 0,
+        "max_integrantes_grupo": 8,
+        "descuento_registrante_pct": 0.1,
+        "souvenirs": []
+      },
+      {
+        "name": "Grupal",
+        "icon": "🧘",
+        "description": "Inscripción grupal para Muestra de Arte 44",
+        "tipo": "recreativo",
+        "cupo_total": 471,
+        "precio_base": 50.08,
+        "costo_edicion": 16.25,
+        "color": "#00cc77",
+        "moneda": 1,
+        "permite_lista_espera": 1,
+        "hasshirt": 1,
+        "requiere_talla": 1,
+        "permite_inscripcion_grupal": 1,
+        "max_integrantes_grupo": 9,
+        "descuento_registrante_pct": 0.1,
+        "souvenirs": []
+      }
+    ],
+    "promoCodes": []
+  },
+  {
+    "name": "Congreso de Innovación 45",
+    "description": "Congreso de Innovación 45 — un evento imperdible en Sucre.",
+    "longDescription": "Congreso de Innovación 45 es una actividad organizada en Campo Ferial, pensada para toda la familia. Incluye todo lo necesario para una gran experiencia.",
+    "date": "2026-11-13 20:45:00",
+    "localTime": "19:30",
+    "location": "Teatro Municipal, Cochabamba",
+    "status": "open",
+    "hasDonation": false,
+    "image": "https://picsum.photos/seed/evento45/800/450",
+    "video": "",
+    "coordinates": [
+      {
+        "lat": -12.9234,
+        "lng": -65.3454
+      }
+    ],
+    "route": [],
+    "categories": [
+      {
+        "name": "5K",
+        "price": 36.19,
+        "description": "Categoría 1 de Congreso de Innovación 45",
+        "color": "#6fe376"
+      }
+    ],
+    "formTypes": [
+      {
+        "name": "Individual",
+        "icon": "🎤",
+        "description": "Inscripción individual para Congreso de Innovación 45",
+        "tipo": "fotografia",
+        "cupo_total": 419,
+        "precio_base": 55.83,
+        "costo_edicion": 14.02,
+        "color": "#f4ff39",
+        "moneda": 1,
+        "permite_lista_espera": 0,
+        "hasshirt": 1,
+        "requiere_talla": 0,
+        "permite_inscripcion_grupal": 0,
+        "max_integrantes_grupo": 5,
+        "descuento_registrante_pct": 0.1,
+        "souvenirs": [
+          {
+            "name": "Camiseta",
+            "icon": "🎁",
+            "price": 20.42
+          },
+          {
+            "name": "Gorra",
+            "icon": "🏅",
+            "price": 43.05
+          },
+          {
+            "name": "Mochila",
+            "icon": "🧢",
+            "price": 18.11
+          }
+        ]
+      }
+    ],
+    "promoCodes": []
+  },
+  {
+    "name": "Carrera Solidaria 46",
+    "description": "Carrera Solidaria 46 — un evento imperdible en Oruro.",
+    "longDescription": "Carrera Solidaria 46 es una actividad organizada en Teatro Municipal, pensada para toda la familia. Incluye todo lo necesario para una gran experiencia.",
+    "date": "2026-08-04 18:15:00",
+    "localTime": "09:45",
+    "location": "Centro de Convenciones, Oruro",
+    "status": "open",
+    "hasDonation": true,
+    "image": "https://picsum.photos/seed/evento46/800/450",
+    "video": "",
+    "coordinates": [
+      {
+        "lat": -17.4007,
+        "lng": -60.8879
+      }
+    ],
+    "route": [],
+    "categories": [
+      {
+        "name": "5K",
+        "price": 778.53,
+        "description": "Categoría 1 de Carrera Solidaria 46",
+        "color": "#5ec485"
+      }
+    ],
+    "formTypes": [
+      {
+        "name": "Individual",
+        "icon": "🧘",
+        "description": "Inscripción individual para Carrera Solidaria 46",
+        "tipo": "social",
+        "cupo_total": 476,
+        "precio_base": 184.22,
+        "costo_edicion": 15.59,
+        "color": "#0033aa",
+        "moneda": 1,
+        "permite_lista_espera": 0,
+        "hasshirt": 0,
+        "requiere_talla": 0,
+        "permite_inscripcion_grupal": 0,
+        "max_integrantes_grupo": 14,
+        "descuento_registrante_pct": 0.1,
+        "souvenirs": []
+      }
+    ],
+    "promoCodes": []
+  },
+  {
+    "name": "Ciclopaseo Nocturno 47",
+    "description": "Ciclopaseo Nocturno 47 — un evento imperdible en El Alto.",
+    "longDescription": "Ciclopaseo Nocturno 47 es una actividad organizada en Plaza Principal, pensada para toda la familia. Incluye todo lo necesario para una gran experiencia.",
+    "date": "2026-12-03 23:45:00",
+    "localTime": "20:45",
+    "location": "Malecón, La Paz",
+    "status": "open",
+    "hasDonation": true,
+    "image": "https://picsum.photos/seed/evento47/800/450",
+    "video": "",
+    "coordinates": [
+      {
+        "lat": -17.6438,
+        "lng": -63.7176
+      }
+    ],
+    "route": [],
+    "categories": [
+      {
+        "name": "5K",
+        "price": 90.99,
+        "description": "Categoría 1 de Ciclopaseo Nocturno 47",
+        "color": "#8bf94b"
+      },
+      {
+        "name": "10K",
+        "price": 204.91,
+        "description": "Categoría 2 de Ciclopaseo Nocturno 47",
+        "color": "#6fe376"
+      },
+      {
+        "name": "21K",
+        "price": 569.15,
+        "description": "Categoría 3 de Ciclopaseo Nocturno 47",
+        "color": "#8bf94b"
+      }
+    ],
+    "formTypes": [
+      {
+        "name": "Individual",
+        "icon": "🎭",
+        "description": "Inscripción individual para Ciclopaseo Nocturno 47",
+        "tipo": "artes",
+        "cupo_total": 309,
+        "precio_base": 386.32,
+        "costo_edicion": 28.41,
+        "color": "#6fe376",
+        "moneda": 1,
+        "permite_lista_espera": 1,
+        "hasshirt": 0,
+        "requiere_talla": 1,
+        "permite_inscripcion_grupal": 0,
+        "max_integrantes_grupo": 12,
+        "descuento_registrante_pct": 0.1,
+        "souvenirs": [
+          {
+            "name": "Camiseta",
+            "icon": "👕",
+            "price": 15.19
+          }
+        ]
+      }
+    ],
+    "promoCodes": [
+      {
+        "promo_code": "PROMO47",
+        "price": null,
+        "discount_type": "percentage",
+        "discount_percent": 0.13
+      }
+    ]
+  },
+  {
+    "name": "Caminata Familiar 48",
+    "description": "Caminata Familiar 48 — un evento imperdible en Cochabamba.",
+    "longDescription": "Caminata Familiar 48 es una actividad organizada en Parque Metropolitano, pensada para toda la familia. Incluye todo lo necesario para una gran experiencia.",
+    "date": "2026-09-29 20:15:00",
+    "localTime": "16:30",
+    "location": "Malecón, El Alto",
+    "status": "open",
+    "hasDonation": true,
+    "image": "https://picsum.photos/seed/evento48/800/450",
+    "video": "",
+    "coordinates": [
+      {
+        "lat": -14.5354,
+        "lng": -66.1565
+      }
+    ],
+    "route": [
+      {
+        "lat": -13.9767,
+        "lng": -60.6007,
+        "label": "Salida"
+      },
+      {
+        "lat": -21.3666,
+        "lng": -64.03,
+        "label": "Meta"
+      }
+    ],
+    "categories": [
+      {
+        "name": "5K",
+        "price": 619.46,
+        "description": "Categoría 1 de Caminata Familiar 48",
+        "color": "#7c8e91"
+      },
+      {
+        "name": "10K",
+        "price": 269.05,
+        "description": "Categoría 2 de Caminata Familiar 48",
+        "color": "#0033aa"
+      }
+    ],
+    "formTypes": [
+      {
+        "name": "Individual",
+        "icon": "🧘",
+        "description": "Inscripción individual para Caminata Familiar 48",
+        "tipo": "ambiental",
+        "cupo_total": 290,
+        "precio_base": 47.05,
+        "costo_edicion": 11.57,
+        "color": "#5ec485",
+        "moneda": 1,
+        "permite_lista_espera": 1,
+        "hasshirt": 1,
+        "requiere_talla": 0,
+        "permite_inscripcion_grupal": 0,
+        "max_integrantes_grupo": 6,
+        "descuento_registrante_pct": 0.1,
+        "souvenirs": [
+          {
+            "name": "Camiseta",
+            "icon": "🎒",
+            "price": 12.15
+          }
+        ]
+      }
+    ],
+    "promoCodes": []
+  },
+  {
+    "name": "Concierto Benéfico 49",
+    "description": "Concierto Benéfico 49 — un evento imperdible en Santa Cruz.",
+    "longDescription": "Concierto Benéfico 49 es una actividad organizada en Coliseo Municipal, pensada para toda la familia. Incluye todo lo necesario para una gran experiencia.",
+    "date": "2026-09-11 16:15:00",
+    "localTime": "20:45",
+    "location": "Coliseo Municipal, Cobija",
+    "status": "open",
+    "hasDonation": false,
+    "image": "https://picsum.photos/seed/evento49/800/450",
+    "video": "",
+    "coordinates": [
+      {
+        "lat": -13.6898,
+        "lng": -59.9431
+      }
+    ],
+    "route": [],
+    "categories": [
+      {
+        "name": "5K",
+        "price": 698.64,
+        "description": "Categoría 1 de Concierto Benéfico 49",
+        "color": "#6fe376"
+      },
+      {
+        "name": "10K",
+        "price": 252.55,
+        "description": "Categoría 2 de Concierto Benéfico 49",
+        "color": "#38b30f"
+      },
+      {
+        "name": "21K",
+        "price": 459.77,
+        "description": "Categoría 3 de Concierto Benéfico 49",
+        "color": "#7c8e91"
+      }
+    ],
+    "formTypes": [
+      {
+        "name": "Individual",
+        "icon": "📷",
+        "description": "Inscripción individual para Concierto Benéfico 49",
+        "tipo": "corporativo",
+        "cupo_total": 249,
+        "precio_base": 301.39,
+        "costo_edicion": 15.04,
+        "color": "#00bad2",
+        "moneda": 1,
+        "permite_lista_espera": 0,
+        "hasshirt": 0,
+        "requiere_talla": 0,
+        "permite_inscripcion_grupal": 0,
+        "max_integrantes_grupo": 12,
+        "descuento_registrante_pct": 0.1,
+        "souvenirs": [
+          {
+            "name": "Camiseta",
+            "icon": "🎒",
+            "price": 45.16
+          },
+          {
+            "name": "Gorra",
+            "icon": "🧢",
+            "price": 28.52
+          }
+        ]
+      },
+      {
+        "name": "Grupal",
+        "icon": "🏃",
+        "description": "Inscripción grupal para Concierto Benéfico 49",
+        "tipo": "literatura",
+        "cupo_total": 74,
+        "precio_base": 136.34,
+        "costo_edicion": 11.15,
+        "color": "#38b30f",
+        "moneda": 1,
+        "permite_lista_espera": 0,
+        "hasshirt": 1,
+        "requiere_talla": 1,
+        "permite_inscripcion_grupal": 1,
+        "max_integrantes_grupo": 14,
+        "descuento_registrante_pct": 0.1,
+        "souvenirs": [
+          {
+            "name": "Camiseta",
+            "icon": "👕",
+            "price": 48.19
+          }
+        ]
+      }
+    ],
+    "promoCodes": []
+  },
+  {
+    "name": "Ciclopaseo Nocturno 50",
+    "description": "Ciclopaseo Nocturno 50 — un evento imperdible en Trinidad.",
+    "longDescription": "Ciclopaseo Nocturno 50 es una actividad organizada en Campo Ferial, pensada para toda la familia. Incluye todo lo necesario para una gran experiencia.",
+    "date": "2026-08-16 14:30:00",
+    "localTime": "17:45",
+    "location": "Malecón, La Paz",
+    "status": "open",
+    "hasDonation": false,
+    "image": "https://picsum.photos/seed/evento50/800/450",
+    "video": "",
+    "coordinates": [
+      {
+        "lat": -14.641,
+        "lng": -58.923
+      }
+    ],
+    "route": [],
+    "categories": [
+      {
+        "name": "5K",
+        "price": 672.3,
+        "description": "Categoría 1 de Ciclopaseo Nocturno 50",
+        "color": "#8bf94b"
+      }
+    ],
+    "formTypes": [
+      {
+        "name": "Individual",
+        "icon": "🏃",
+        "description": "Inscripción individual para Ciclopaseo Nocturno 50",
+        "tipo": "deportivo",
+        "cupo_total": 37,
+        "precio_base": 242.75,
+        "costo_edicion": 22.37,
+        "color": "#00bad2",
+        "moneda": 1,
+        "permite_lista_espera": 1,
+        "hasshirt": 0,
+        "requiere_talla": 0,
+        "permite_inscripcion_grupal": 0,
+        "max_integrantes_grupo": 20,
+        "descuento_registrante_pct": 0.1,
+        "souvenirs": [
+          {
+            "name": "Camiseta",
+            "icon": "🏅",
+            "price": 48.77
+          },
+          {
+            "name": "Gorra",
+            "icon": "👕",
+            "price": 17.13
+          }
+        ]
+      },
+      {
+        "name": "Grupal",
+        "icon": "🎓",
+        "description": "Inscripción grupal para Ciclopaseo Nocturno 50",
+        "tipo": "recreativo",
+        "cupo_total": 112,
+        "precio_base": 288.92,
+        "costo_edicion": 0.5,
+        "color": "#38b30f",
+        "moneda": 1,
+        "permite_lista_espera": 0,
+        "hasshirt": 0,
+        "requiere_talla": 0,
+        "permite_inscripcion_grupal": 1,
+        "max_integrantes_grupo": 19,
+        "descuento_registrante_pct": 0.1,
+        "souvenirs": [
+          {
+            "name": "Camiseta",
+            "icon": "👕",
+            "price": 13.8
+          },
+          {
+            "name": "Gorra",
+            "icon": "👕",
+            "price": 23.5
+          },
+          {
+            "name": "Mochila",
+            "icon": "🎒",
+            "price": 29.76
+          }
+        ]
+      }
+    ],
+    "promoCodes": []
+  }
+]

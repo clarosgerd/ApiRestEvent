@@ -78,7 +78,9 @@ class StoreEventosRequest extends FormRequest
 
             'promoCodes'            => 'nullable|array',
             'promoCodes.*.promo_code' => 'required_with:promoCodes|string|max:30',
-            'promoCodes.*.price'    => 'required_with:promoCodes|numeric|min:0',
+            'promoCodes.*.price'    => 'nullable|numeric|min:0',
+            'promoCodes.*.discount_type'    => 'nullable|string|in:fixed_price,percentage',
+            'promoCodes.*.discount_percent' => 'nullable|numeric|min:0|max:1',
         ];
     }
 }
