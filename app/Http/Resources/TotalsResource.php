@@ -21,6 +21,7 @@ class TotalsResource extends JsonResource
             'souvenirs' => (float)$this->souvenirs,
             'fee' => (float)$this->fee,
             'descuento' => (float)$this->descuento,
+            'descuento_registrante' => (float)$this->descuento_registrante,
             'grand_total' => (float)$this->grand_total
 
         ];

@@ -20,17 +20,19 @@ Route::group(['prefix' => 'v1','namespace' => 'App\Http\Controllers'], function 
     Route::apiResource('/route',RouteController::class);
     Route::apiResource('/category',CategoryController::class);
     Route::apiResource('/form-type',FormTypeController::class);
-    Route::apiResource('/persona',PersonaController::class);
+    Route::get('persona/me', [PersonaController::class, 'me'])->middleware('auth:sanctum');
+    Route::apiResource('/persona',PersonaController::class)->middleware('auth:sanctum');
     Route::post('persona/register', [PersonaController::class, 'register']);
     Route::post('persona/login', [PersonaController::class, 'login']);
     Route::post('persona/logout', [PersonaController::class, 'logout']);
     // Route::get('/events/{event}', 'App\Http\Controllers\EventoController@show');
-    Route::get('/registrations',[RegistrationController::class, 'index']);
-    Route::post('/registrations',[RegistrationController::class, 'store']);
+    Route::get('/registrations',[RegistrationController::class, 'index'])->middleware('auth:sanctum');
+    Route::post('/registrations',[RegistrationController::class, 'store'])->middleware('auth:sanctum');
     Route::post('/registrations/lookup',[RegistrationController::class, 'lookup']);
+    Route::get('/registrations/mine',[RegistrationController::class, 'mine'])->middleware('auth:sanctum');
     Route::get('/registrations/{reference}',[RegistrationController::class, 'show']);
     Route::patch('/registrations/{reference}/payment',[RegistrationController::class, 'updatePayment']);
-    Route::delete('/registrations/{reference}',[RegistrationController::class, 'destroy']);
+    Route::delete('/registrations/{reference}',[RegistrationController::class, 'destroy'])->middleware('auth:sanctum');
     Route::put('/registrations/{reference}',[RegistrationController::class, 'update']);
     Route::patch('/registrations/{reference}/update-paid',[RegistrationController::class, 'updatePaid']);
 

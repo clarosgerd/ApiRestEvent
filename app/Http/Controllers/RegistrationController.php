@@ -62,6 +62,39 @@ class RegistrationController extends Controller
     }
 
     /**
+     * Inscripciones de la persona autenticada (identificada por su
+     * numero_documento o correo, igual criterio que lookupRegistration).
+     * Usado por el header de login para ofrecer acceso directo a
+     * inscripciones pendientes de pago tras loguearse.
+     */
+    public function mine(Request $request): JsonResponse
+    {
+        $persona = $request->user();
+
+        $registrations = Registration::with([
+            'totals',
+            'participants.contactoEmergenciaParticipante',
+            'participants.souvenirParticipante',
+            'participants.answers',
+        ])
+            ->whereHas('participants', function ($q) use ($persona) {
+                $q->where('numero_documento', $persona->numero_documento)
+                  ->orWhere('correo', $persona->email);
+            })
+            ->when(
+                $request->filled('pago_status'),
+                fn($query) => $query->where('pago_status', $request->pago_status)
+            )
+            ->orderByDesc('fecha')
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => RegistrationCollectionResource::collection($registrations),
+        ]);
+    }
+
+    /**
      * Registrar una inscripción.
      */
     public function store(StoreRegistrationRequest $request): JsonResponse

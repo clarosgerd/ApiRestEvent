@@ -172,7 +172,15 @@ class PersonaController extends Controller
         ]);
 
     }
-public function logout(Request $request): JsonResponse
+public function me(Request $request): JsonResponse
+    {
+        return response()->json([
+            'success' => true,
+            'data'    => new PersonaResource($request->user()),
+        ]);
+    }
+
+    public function logout(Request $request): JsonResponse
     {
        // Al usar auth('personas')->user() obtenemos la instancia correcta de Persona
         $persona = auth('personas')->user();

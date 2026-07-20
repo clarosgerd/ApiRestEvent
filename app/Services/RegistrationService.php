@@ -89,6 +89,7 @@ class RegistrationService
             'souvenirs' => $dto->totals->souvenirs,
             'fee' => $dto->totals->fee,
             'descuento' => $dto->totals->discount,
+            'descuento_registrante' => $dto->totals->groupDiscount,
             'grand_total' => $dto->totals->grandTotal,
         ]);
     }
@@ -254,6 +255,7 @@ class RegistrationService
                 'souvenirs'       => $data['totales']['souvenirs'],
                 'fee'             => $data['totales']['fee'],
                 'descuento'       => $data['totales']['descuento'],
+                'descuento_registrante' => $data['totales']['descuento_registrante'] ?? 0,
                 'grand_total'     => $data['totales']['grand_total'],
             ]);
 
@@ -473,6 +475,7 @@ private function validateParticipantRegistration(
                 'souvenirs'       => $data['totales']['souvenirs'],
                 'fee'             => $data['totales']['fee'],
                 'descuento'       => $data['totales']['descuento'],
+                'descuento_registrante' => $data['totales']['descuento_registrante'] ?? 0,
                 'grand_total'     => $data['totales']['grand_total'],
             ]);
 

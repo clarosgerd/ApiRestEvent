@@ -23,6 +23,7 @@ class RegistrationResource extends JsonResource
             'fecha' => optional($this->fecha)
                 ->format('Y-m-d H:i:s'),
             'evento_id' => (string) $this->evento_id,
+            'form_types_id' => $this->form_types_id,
             'evento_nombre' => $this->evento_nombre,
             'tipo_pago' => $this->tipo_pago,
             'pago_status' => $this->pago_status,

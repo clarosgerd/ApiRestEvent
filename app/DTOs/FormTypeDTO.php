@@ -19,6 +19,9 @@ class FormTypeDTO
         public int $hasshirt,
         public int $hasQuestion,
         public int $requiereTalla,
+        public bool $permiteInscripcionGrupal,
+        public int $maxIntegrantesGrupo,
+        public float $descuentoRegistrantePct,
         /** @var SouvenirFormDTO[] */
         public array $souvenirs,
         /** @var FormularioCamposDTO[] */
@@ -42,6 +45,9 @@ class FormTypeDTO
             hasshirt: (int) ($data['hasshirt'] ?? 0),
              hasQuestion: (int) ($data['hasQuestion'] ?? 0),
             requiereTalla: (int) ($data['requiere_talla'] ?? 0),
+            permiteInscripcionGrupal: (bool) ($data['permite_inscripcion_grupal'] ?? false),
+            maxIntegrantesGrupo: (int) ($data['max_integrantes_grupo'] ?? 10),
+            descuentoRegistrantePct: (float) ($data['descuento_registrante_pct'] ?? 0.10),
             souvenirs: array_map(
                 fn(array $s) => SouvenirFormDTO::fromArray($s),
                 $data['souvenirs'] ?? []

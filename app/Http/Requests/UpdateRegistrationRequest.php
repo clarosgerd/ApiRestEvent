@@ -52,6 +52,7 @@ class UpdateRegistrationRequest extends FormRequest
             'totales.souvenirs'                         => ['required', 'numeric'],
             'totales.fee'                               => ['required', 'numeric'],
             'totales.descuento'                         => ['required', 'numeric'],
+            'totales.descuento_registrante'              => ['nullable', 'numeric'],
             'totales.grand_total'                       => ['required', 'numeric'],
         ];
     }

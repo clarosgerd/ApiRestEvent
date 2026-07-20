@@ -55,6 +55,9 @@ class StoreEventosRequest extends FormRequest
             'formTypes.*.permite_lista_espera' => 'nullable|integer',
             'formTypes.*.hasshirt'  => 'nullable|integer',
             'formTypes.*.requiere_talla' => 'nullable|integer',
+            'formTypes.*.permite_inscripcion_grupal' => 'nullable|boolean',
+            'formTypes.*.max_integrantes_grupo'      => 'nullable|integer|min:1',
+            'formTypes.*.descuento_registrante_pct'  => 'nullable|numeric|min:0|max:1',
 
             'formTypes.*.souvenirs'           => 'nullable|array',
             'formTypes.*.souvenirs.*.name'    => 'required_with:formTypes.*.souvenirs|string|max:255',

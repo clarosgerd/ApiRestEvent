@@ -16,6 +16,7 @@ class RegistrationTotal extends Model
         'souvenirs',
         'fee',
         'descuento',
+        'descuento_registrante',
         'grand_total',
     ];
 
@@ -25,6 +26,7 @@ class RegistrationTotal extends Model
         'souvenirs' => 'decimal:2',
         'fee' => 'decimal:2',
         'descuento' => 'decimal:2',
+        'descuento_registrante' => 'decimal:2',
         'grand_total' => 'decimal:2',
     ];
 

@@ -16,9 +16,8 @@ class PersonaResource extends JsonResource
     {
        return [
 
+            'id' => $this->id,
             'email' => $this->email,
-            // si deseas enviar password
-            'password' => $this->password,
             'nombre' => $this->nombre,
             'apellido' => $this->apellido,
             'alias' => $this->alias,

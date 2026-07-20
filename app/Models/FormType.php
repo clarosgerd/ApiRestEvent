@@ -29,6 +29,7 @@ class FormType extends Model
         'hasQuestion',
         'permite_inscripcion_grupal',
         'max_integrantes_grupo',
+        'descuento_registrante_pct',
         'hasQuestion',
         'costo_edicion',
         'tiempo_expiracion_min',

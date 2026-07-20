@@ -135,6 +135,9 @@ class EventoService
                 'permite_lista_espera'  => $formTypeDTO->permiteListaEspera,
                 'hasshirt'              => $formTypeDTO->hasshirt,
                 'requiere_talla'        => $formTypeDTO->requiereTalla,
+                'permite_inscripcion_grupal' => $formTypeDTO->permiteInscripcionGrupal,
+                'max_integrantes_grupo'      => $formTypeDTO->maxIntegrantesGrupo,
+                'descuento_registrante_pct'  => $formTypeDTO->descuentoRegistrantePct,
             ]);
 
             $this->createSouvenirs($formType, $formTypeDTO->souvenirs);
