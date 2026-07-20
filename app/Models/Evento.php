@@ -83,9 +83,33 @@ protected $casts = [
    }
  
     public function promoCodes()
-   {
-      return $this->hasMany('App\Models\PromoCode', 'event_id');
-   }
+    {
+       return $this->hasMany('App\Models\PromoCode', 'event_id');
+    }
 
+    public function organizador()
+    {
+        return $this->belongsTo(Organizador::class, 'organizador_id');
+    }
+
+    public function tipoEvento()
+    {
+        return $this->belongsTo(TipoEvento::class, 'tipo_evento_id');
+    }
+
+    public function subtipoEvento()
+    {
+        return $this->belongsTo(SubtipoEvento::class, 'subtipo_evento_id');
+    }
+
+    public function pais()
+    {
+        return $this->belongsTo(Pais::class, 'pais_id');
+    }
+
+    public function ciudad()
+    {
+        return $this->belongsTo(Ciudad::class, 'ciudad_id');
+    }
 
     }
