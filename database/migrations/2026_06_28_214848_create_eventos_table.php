@@ -14,10 +14,10 @@ return new class extends Migration
         Schema::create('eventos', function (Blueprint $table) {
             $table->id();
             $table->integer('organizador_id')->unsigned();
-            $table->integer('tipo_evento_id')->unsigned();
-            $table->integer('subtipo_evento_id')->unsigned();
+            $table->tinyInteger('tipo_evento_id')->unsigned();
+            $table->tinyInteger('subtipo_evento_id')->unsigned();
             $table->string('estado_evento_id');
-            $table->integer('pais_id')->unsigned();
+            $table->smallInteger('pais_id')->unsigned();
             $table->integer('ciudad_id')->unsigned();
             $table->String('nombre', 255);
             $table->String('nombre_corto', 255);

@@ -44,7 +44,12 @@ class EventoResource extends JsonResource
             'hasPromoCode'                 =>$this->hasPromoCode,
             
             'categories'                =>CategoryResource::collection($this->whenLoaded('categories')),  // Categorías del evento
-            'formTypes'                 =>FormTypeResource::collection($this->whenLoaded('formTypes')),  // Tipos de formulario del evento  
+            'formTypes'                 =>FormTypeResource::collection($this->whenLoaded('formTypes')),  // Tipos de formulario del evento
+            // Métodos de pago habilitados para este evento (los del sistema
+            // y/o los propios del organizador — ver Organizador::formasPagoEfectivas()).
+            'formasPago'                =>$this->relationLoaded('organizador') && $this->organizador
+                                                ? FormasPagoResource::collection($this->organizador->formasPagoEfectivas())
+                                                : [],
                  //     'reglamento'                =>$this->reglamento,
        //     'deslinde'                  =>$this->deslinde,
        //     'fecha_fin'                 =>$this->fecha_fin,

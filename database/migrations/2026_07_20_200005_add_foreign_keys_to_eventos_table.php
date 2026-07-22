@@ -13,7 +13,7 @@ return new class extends Migration
             $table->foreign('tipo_evento_id')->references('id')->on('tipos_evento');
             $table->foreign('subtipo_evento_id')->references('id')->on('subtipos_evento');
             $table->foreign('pais_id')->references('id')->on('paises');
-            $table->foreign('ciudad_id')->references('id')->on('ciudades');
+           $table->foreign('ciudad_id')->references('id')->on('ciudades');
         });
     }
 
@@ -23,8 +23,8 @@ return new class extends Migration
             $table->dropForeign(['organizador_id']);
             $table->dropForeign(['tipo_evento_id']);
             $table->dropForeign(['subtipo_evento_id']);
-            $table->dropForeign(['pais_id']);
-            $table->dropForeign(['ciudad_id']);
+           $table->dropForeign(['pais_id']);
+           $table->dropForeign(['ciudad_id']);
         });
     }
 };

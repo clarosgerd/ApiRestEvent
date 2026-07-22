@@ -17,11 +17,17 @@ class DatabaseSeeder extends Seeder
     {
         // User::factory(10)->create();
         $this->call([
+            PaisSeeder::class,
+            CiudadSeeder::class,
+            TipoEventoSeeder::class,
+            SubtipoEventoSeeder::class,
+            OrganizadorSeeder::class,
+            FormasPagoSeeder::class,
             EventoSeeder::class,
           //  FormTypeSeeder::class,
           //  FormularioCamposSeeder::class,
             PersonaSeeder::class,
-           
+
         ]);
     }
 }

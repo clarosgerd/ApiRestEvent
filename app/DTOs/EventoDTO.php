@@ -14,6 +14,7 @@ class EventoDTO
         public string $status,
         public bool $publicado,
         public bool $hasDonation,
+        public ?int $organizadorId,
         public ?string $videoUrl,
         public ?string $imagenPortadaUrl,
         /** @var CoordinateDTO[] */
@@ -40,6 +41,7 @@ class EventoDTO
             status: $data['status'] ?? 'open',
             publicado: (bool) ($data['publicado'] ?? true),
             hasDonation: (bool) ($data['hasDonation'] ?? false),
+            organizadorId: isset($data['organizador_id']) ? (int) $data['organizador_id'] : null,
             videoUrl: $data['video'] ?? $data['video_url'] ?? null,
             imagenPortadaUrl: $data['image'] ?? $data['imagen_portada_url'] ?? null,
             coordinates: array_map(

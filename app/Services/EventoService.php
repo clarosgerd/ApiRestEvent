@@ -36,10 +36,15 @@ class EventoService
                 'video_url'           => $dto->videoUrl ?? '',
                 'imagen_portada_url'  => $dto->imagenPortadaUrl ?? '',
 
+                // organizador_id: usa el que venga en el request (validado contra
+                // organizadores.id en StoreEventosRequest) — si no se manda,
+                // mantiene el default histórico (1) para no romper callers
+                // existentes que todavía no lo envían.
+                'organizador_id'         => $dto->organizadorId ?? 1,
+
                 // Columnas NOT NULL sin default en `eventos` que la API todavía no
                 // expone (ver migración 2026_06_28_214848_create_eventos_table) —
                 // se rellenan con valores neutros para que el INSERT no falle.
-                'organizador_id'         => 1,
                 'tipo_evento_id'         => 1,
                 'subtipo_evento_id'      => 1,
                 'pais_id'                => 1,
@@ -216,6 +221,7 @@ class EventoService
             'formTypes.souvenirs',
             'formTypes.formularioCampos.options',
             'promoCodes',
+            'organizador.formasPagoSeleccionadas',
         ]);
     }
 }

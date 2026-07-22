@@ -30,14 +30,28 @@ class EventoFactory extends Factory
 	    //$contador_visitas=$this->faker->randomElement(['0', '1']);
         $status=['open', 'closed', 'coming_soon'];
 
-        $youtubeId = Str::random(11); 
+        $youtubeId = Str::random(11);
+
+        $organizadorId = \App\Models\Organizador::inRandomOrder()->value('id')
+            ?? \App\Models\Organizador::factory()->create()->id;
+
+        $paisId = \App\Models\Pais::inRandomOrder()->value('id')
+            ?? \App\Models\Pais::factory()->create()->id;
+        $ciudadId = \App\Models\Ciudad::where('pais_id', $paisId)->inRandomOrder()->value('id')
+            ?? \App\Models\Ciudad::factory()->create(['pais_id' => $paisId])->id;
+
+        $tipoEventoId = \App\Models\TipoEvento::inRandomOrder()->value('id')
+            ?? \App\Models\TipoEvento::factory()->create()->id;
+        $subtipoEventoId = \App\Models\SubtipoEvento::where('tipo_evento_id', $tipoEventoId)->inRandomOrder()->value('id')
+            ?? \App\Models\SubtipoEvento::factory()->create(['tipo_evento_id' => $tipoEventoId])->id;
+
         return [
-            'organizador_id'=> fake()->unique(true)->numberBetween($min = 1, $max = 999),
-            'tipo_evento_id'=> fake()->unique(true)->numberBetween($min = 1, $max = 999),
-            'subtipo_evento_id'=>fake()->unique(true)->numberBetween($min = 1, $max = 999),
+            'organizador_id'=> $organizadorId,
+            'tipo_evento_id'=> $tipoEventoId,
+            'subtipo_evento_id'=> $subtipoEventoId,
             'estado_evento_id'=> fake()->randomElement($status),
-            'pais_id'=> fake()->unique(true)->numberBetween($min = 1, $max = 999),
-            'ciudad_id'=> fake()->unique(true)->numberBetween($min = 1, $max = 999),
+            'pais_id'=> $paisId,
+            'ciudad_id'=> $ciudadId,
             'nombre'=> fake()->name(),
             'nombre_corto'=> fake()->name(),
             'url_slug'=>  fake()->url(),

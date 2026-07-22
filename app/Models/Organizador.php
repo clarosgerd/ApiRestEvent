@@ -45,4 +45,46 @@ class Organizador extends Model
     {
         return $this->hasMany(Evento::class, 'organizador_id');
     }
+
+    /**
+     * Métodos de pago propios de este organizador (su convenio/gateway o
+     * instrucciones manuales) — no los del sistema.
+     */
+    public function formasPagoPropias()
+    {
+        return $this->hasMany(FormasPago::class, 'organizador_id');
+    }
+
+    /**
+     * Combinación que este organizador eligió vía el pivote
+     * organizador_formas_pago (puede incluir métodos del sistema, los
+     * suyos propios, o ambos — es la fuente de verdad que edita el panel de
+     * administración).
+     */
+    public function formasPagoSeleccionadas()
+    {
+        return $this->belongsToMany(FormasPago::class, 'organizador_formas_pago', 'organizador_id', 'forma_pago_id')
+            ->wherePivot('activo', true)
+            ->withPivot('activo')
+            ->withTimestamps();
+    }
+
+    /**
+     * Lista efectiva de métodos de pago para eventos de este organizador:
+     * lo que eligió vía el pivote, o si todavía no fue configurado (pivote
+     * vacío — organizador nuevo, pendiente de pasar por el panel de
+     * administración), los métodos del sistema por defecto.
+     */
+    public function formasPagoEfectivas()
+    {
+        $seleccionadas = $this->relationLoaded('formasPagoSeleccionadas')
+            ? $this->formasPagoSeleccionadas
+            : $this->formasPagoSeleccionadas()->get();
+
+        if ($seleccionadas->isNotEmpty()) {
+            return $seleccionadas;
+        }
+
+        return FormasPago::whereNull('organizador_id')->where('activo', true)->get();
+    }
 }
