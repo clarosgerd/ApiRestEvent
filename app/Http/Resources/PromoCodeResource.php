@@ -21,6 +21,7 @@ class PromoCodeResource extends JsonResource
             'price'            =>$this->price ,
             'discount_type'    => $this->discount_type ?? 'fixed_price',
             'discount_percent' => $this->discount_percent !== null ? (float) $this->discount_percent : null,
+            'usado'            => (bool) $this->usado,
 
     ];
     }

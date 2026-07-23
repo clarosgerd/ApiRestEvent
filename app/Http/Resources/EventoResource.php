@@ -51,7 +51,8 @@ class EventoResource extends JsonResource
                                                 ? FormasPagoResource::collection($this->organizador->formasPagoEfectivas())
                                                 : [],
                  //     'reglamento'                =>$this->reglamento,
-       //     'deslinde'                  =>$this->deslinde,
+            'deslinde'                  =>$this->deslinde,
+            'deslinde_pdf_url'          =>$this->deslinde_pdf_url,
        //     'fecha_fin'                 =>$this->fecha_fin,
        //     'fecha_apertura_inscrip'    =>$this->fecha_apertura_inscrip,
        //     'fecha_cierre_inscrip'      =>$this->fecha_cierre_inscrip,
@@ -73,6 +74,7 @@ class EventoResource extends JsonResource
        //     'destacado'                 =>$this->destacado,
        //   'hasDonation'                 =>$this->hasDonation,
             'promoCodes'                 =>PromoCodeResource::collection($this->whenLoaded('promoCodes')),  // Códigos promocionales del evento
+            'auspiciadores'              =>AuspiciadorResource::collection($this->whenLoaded('auspiciadores')),  // Auspiciadores del evento (carrusel de logos)
     //        'contador_visitas'          =>$this->contador_visitas
     ];
     

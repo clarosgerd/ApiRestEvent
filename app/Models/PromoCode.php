@@ -17,6 +17,8 @@ class PromoCode extends Model
         'discount_type',
         'discount_percent',
         'status',
+        'usado',
+        'registration_id',
     ];
 
     

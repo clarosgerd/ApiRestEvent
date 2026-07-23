@@ -17,6 +17,8 @@ class EventoDTO
         public ?int $organizadorId,
         public ?string $videoUrl,
         public ?string $imagenPortadaUrl,
+        public ?string $deslinde,
+        public ?string $deslindePdfUrl,
         /** @var CoordinateDTO[] */
         public array $coordinates,
         /** @var RouteDTO[] */
@@ -27,6 +29,8 @@ class EventoDTO
         public array $formTypes,
         /** @var PromoCodeDTO[] */
         public array $promoCodes,
+        /** @var AuspiciadorDTO[] */
+        public array $auspiciadores,
     ) {}
 
     public static function fromArray(array $data): self
@@ -44,6 +48,8 @@ class EventoDTO
             organizadorId: isset($data['organizador_id']) ? (int) $data['organizador_id'] : null,
             videoUrl: $data['video'] ?? $data['video_url'] ?? null,
             imagenPortadaUrl: $data['image'] ?? $data['imagen_portada_url'] ?? null,
+            deslinde: $data['deslinde'] ?? null,
+            deslindePdfUrl: $data['deslinde_pdf_url'] ?? null,
             coordinates: array_map(
                 fn(array $c) => CoordinateDTO::fromArray($c),
                 $data['coordinates'] ?? []
@@ -63,6 +69,10 @@ class EventoDTO
             promoCodes: array_map(
                 fn(array $p) => PromoCodeDTO::fromArray($p),
                 $data['promoCodes'] ?? []
+            ),
+            auspiciadores: array_map(
+                fn(array $a) => AuspiciadorDTO::fromArray($a),
+                $data['auspiciadores'] ?? []
             ),
         );
     }

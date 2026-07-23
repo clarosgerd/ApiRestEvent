@@ -95,12 +95,19 @@ class PromoCodeController extends Controller
         $collection = PromoCodeResource::collection( $promo);
 //dd($collection);
 
+        if ($promo->isNotEmpty() && $promo->first()->usado) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Este código de promoción ya fue utilizado.',
+            ]);
+        }
+
         if ($collection->isNotEmpty())
             {
             return response()->json([
                 'success' => true,
                 'data' => $collection,
-                
+
             ]);
             }else {
                  return response()->json([

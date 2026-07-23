@@ -26,7 +26,7 @@ class ParticipantDTO
         /** @var AnswerDTO[] */
         public array $answers,
 
-        public int $category,
+        public string $category,
         public float $categoryPrice,
         public float $donation,
         public float $promoDiscount,
@@ -64,7 +64,7 @@ class ParticipantDTO
                 $data['answers'] ?? []
             ),
 
-            category: (int) $data['categoria']  ? (int) $data['categoria'] : 0  ,
+            category: (string) $data['categoria'],
             categoryPrice: (float) $data['precioCategoria'],
             donation: (float) $data['donacion'],
             promoDiscount: (float) $data['promoDescuento'],

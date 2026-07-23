@@ -12,6 +12,7 @@ use App\Models\Souvenir;
 use App\Models\FormularioCampos;
 use App\Models\QuestionOptions;
 use App\Models\PromoCode;
+use App\Models\Auspiciador;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -53,7 +54,8 @@ class EventoService
                 'url_slug'               => Str::slug($dto->nombre) . '-' . Str::lower(Str::random(6)),
                 'keyword'                => Str::slug($dto->nombre),
                 'reglamento'             => '',
-                'deslinde'               => '',
+                'deslinde'               => $dto->deslinde ?? '',
+                'deslinde_pdf_url'       => $dto->deslindePdfUrl ?? '',
                 'fecha_fin'              => $dto->fechaInicio,
                 'fecha_apertura_inscrip' => now(),
                 'fecha_cierre_inscrip'   => $dto->fechaInicio,
@@ -73,6 +75,7 @@ class EventoService
             $this->createCategories($evento, $dto);
             $this->createFormTypes($evento, $dto);
             $this->createPromoCodes($evento, $dto);
+            $this->createAuspiciadores($evento, $dto);
 
             return $this->loadRelations($evento);
         });
@@ -118,6 +121,21 @@ class EventoService
         ], $dto->categories);
 
         Category::insert($data);
+    }
+
+    private function createAuspiciadores(Evento $evento, EventoDTO $dto): void
+    {
+        if (empty($dto->auspiciadores)) return;
+
+        $data = array_map(fn($a) => [
+            'event_id' => $evento->id,
+            'nombre'   => $a->nombre,
+            'logo_url' => $a->logoUrl,
+            'contacto' => $a->contacto,
+            'orden'    => $a->orden,
+        ], $dto->auspiciadores);
+
+        Auspiciador::insert($data);
     }
 
     private function createFormTypes(Evento $evento, EventoDTO $dto): void
@@ -221,6 +239,7 @@ class EventoService
             'formTypes.souvenirs',
             'formTypes.formularioCampos.options',
             'promoCodes',
+            'auspiciadores',
             'organizador.formasPagoSeleccionadas',
         ]);
     }

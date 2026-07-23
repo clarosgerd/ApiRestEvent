@@ -103,7 +103,11 @@ class RegistrationController extends Controller
             $request->validated()[0]
         );
        // dd( $request->validated()[0]);
-        $registration = $this->service->create($dto);
+        try {
+            $registration = $this->service->create($dto);
+        } catch (\DomainException $e) {
+            return response()->json(['success' => false, 'error' => $e->getMessage()], 422);
+        }
 
         return response()->json([
             'success' => true,
@@ -242,10 +246,14 @@ public function estadoTransaccion(
      */
     public function update(UpdateRegistrationRequest $request, string $reference): JsonResponse
     {
-        $registration = $this->service->update(
-            $reference,
-            $request->validated()
-        );
+        try {
+            $registration = $this->service->update(
+                $reference,
+                $request->validated()
+            );
+        } catch (\DomainException $e) {
+            return response()->json(['success' => false, 'error' => $e->getMessage()], 422);
+        }
 
         return response()->json([
             'success' => true,
@@ -262,7 +270,11 @@ public function estadoTransaccion(
         $validated = $request->validated();
         $validated['_usuario'] = $request->user()?->email ?? $request->ip();
 
-        $result = $this->service->updatePaidRegistration($reference, $validated);
+        try {
+            $result = $this->service->updatePaidRegistration($reference, $validated);
+        } catch (\DomainException $e) {
+            return response()->json(['success' => false, 'error' => $e->getMessage()], 422);
+        }
 
         return response()->json([
             'success'       => true,

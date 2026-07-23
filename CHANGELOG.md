@@ -2,6 +2,122 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/).
 
+## 2026-07-23
+
+Exposición de `deslinde` y nuevo `deslinde_pdf_url` del evento, para el checkbox de deslinde de
+responsabilidad agregado en `elascenso/event` (rama `updateticket`) antes de confirmar el pago;
+nuevo recurso `auspiciadores` (sponsors) para el carrusel de logos que se agregó en ese mismo
+repo; comando `demo:reset` para limpiar datos de demo; fix de un bug preexistente en
+`participantes.categoria`; y códigos de promoción de un solo uso. Ver también el `CHANGELOG.md`
+de `elascenso/event` para la mitad de estos cambios que vive en ese repo.
+
+### Added
+- Migración `2026_07_23_000000_add_deslinde_pdf_url_to_eventos_table`: columna
+  `deslinde_pdf_url` (`varchar(500)`, nullable) en `eventos` — mismo patrón que
+  `logo_url`/`gpx_url`/`icono_url` (URL que aloja el organizador; esta API no sube archivos).
+- **Recurso `auspiciadores`** (uno-a-muchos con `eventos`, mismo patrón que `categories`/
+  `promoCodes`): migración `2026_07_23_010000_create_auspiciadores_table` (`nombre`, `logo_url`,
+  `contacto` nullable — un solo campo de link genérico, sin lógica de tipo del lado de la API —,
+  `orden` nullable), modelo `Auspiciador` (relación `Evento::auspiciadores()` ordenada por
+  `orden`), `AuspiciadorDTO`, `AuspiciadorResource`, y soporte en `EventoService::create()` /
+  `EventoDTO` / `StoreEventosRequest` (`auspiciadores.*.nombre`/`logo_url`/`contacto`/`orden`).
+- **`php artisan demo:reset`** (`app/Console/Commands/ResetDemoData.php`, nuevo, reutilizable):
+  trunca eventos/inscripciones y todo lo que cuelga de ellos (`answers`, `questions`,
+  `participantes`, `registrations`, `categories`, `auspiciadores`, `coordinates`, `routes`,
+  `eventos`, etc.) para preparar una demo, sin tocar `personas`, `contactos_emergencia`,
+  catálogos, ni tablas de infraestructura de Laravel. Pide confirmación salvo `--force`.
+  Deliberadamente no usa `migrate:fresh`/`db:seed` (recrean/duplican datos fijos de los seeders).
+  Detalle completo en `elascenso/event/brain/demo-reset-seed-datos-23072026.md`.
+- **Códigos de promoción de un solo uso**: migración
+  `2026_07_23_030000_add_usado_and_registration_id_to_promo_codes_table` (`usado` boolean,
+  `registration_id` nullable FK a `registrations`). `RegistrationService::consumePromoCode()`
+  (con `lockForUpdate()` dentro de la transacción existente — evita que dos inscripciones
+  simultáneas con el mismo código pasen ambas la validación) y `releasePromoCodes()`, enganchados
+  en `createParticipant()`/`createParticipantFromData()` — cubre alta nueva, edición de pendiente
+  y edición de pagada con dos únicos puntos de enganche. `PromoCodeController::promoCode()`
+  (`GET /promo/{event}/code/{code}`) ahora rechaza un código ya `usado` para dar feedback
+  inmediato al frontend. Detalle completo en
+  `elascenso/event/brain/promo-codes-un-solo-uso-23072026.md`.
+
+### Changed
+- `deslinde` (columna ya existente en `eventos`, `varchar(500)`) estaba comentada en
+  `EventoResource` y `EventoService::create()` siempre la guardaba como `''` — nunca se pudo leer
+  ni escribir desde fuera de la API. Ahora se expone en `GET /event`/`GET /event/{id}` y se acepta
+  como campo de entrada opcional en `POST /api/v1/event` (`StoreEventosRequest`, `EventoDTO`),
+  mismo patrón que `video`/`image`.
+- `EventoResource`: agregado `deslinde_pdf_url` a la respuesta.
+- `Evento::$fillable`: agregado `deslinde_pdf_url` (`deslinde` ya estaba).
+- `EventoResource`: agregado `auspiciadores` (colección de `AuspiciadorResource`) a la respuesta.
+- `EventoController@index`/`@show`: agregado `auspiciadores` a las listas de relaciones a
+  cargar (`->with(...)`/`loadMissing([...])`) — estas dos, junto con
+  `EventoService::loadRelations()` (usada solo en `store()`), son **tres puntos separados** donde
+  hay que declarar cada relación nueva del evento; un recurso agregado solo en uno de los tres
+  queda visible en `POST /api/v1/event` pero ausente en `GET /event`/`GET /event/{id}` (o
+  viceversa) sin ningún error — se detectó así en la verificación de abajo.
+- **Fix**: `participantes.categoria` estaba tipada `unsignedBigInteger` (pensada como FK a
+  `categories.id`, nunca implementada así) pero siempre se le guardaba el **nombre** de la
+  categoría (`"5K"`, `"General"`, `"VIP"`...); `ParticipantDTO::fromArray()` le hacía `(int)` a
+  ese string, truncándolo silenciosamente (`"5K"` → `5`, `"General"` → `0`) — sin ningún error de
+  validación. Migración `2026_07_23_020000_change_categoria_to_string_on_participantes_table`
+  (`ALTER TABLE ... MODIFY categoria VARCHAR(255)`, con `DB::statement()` crudo porque
+  `doctrine/dbal` no está instalado — mismo criterio que
+  `2026_07_20_182731_fix_max_integrantes_grupo...`) + `ParticipantDTO`: propiedad `int $category`
+  → `string $category`, sin el cast forzado. Encontrado al sembrar datos de demo para
+  `elascenso/event`, no relacionado con `auspiciadores`/`deslinde`.
+- **Fix**: `RegistrationController::store()`/`update()`/`updatePaid()` no capturaban
+  `\DomainException` (solo `lookup()` lo hacía). El único motivo por el que
+  `registro_actualizar.php` (`elascenso/event`) lograba mostrar el mensaje real de una
+  `DomainException` era que `APP_DEBUG=true` en este entorno (Laravel expone `exception`/
+  `message` crudos en modo debug) — en producción (`APP_DEBUG=false`) esto se rompía
+  silenciosamente y el usuario solo veía un 502 genérico. Ahora los tres capturan
+  `\DomainException` y devuelven `{success:false, error: "..."}` con `422`, mismo patrón que ya
+  usaba `lookup()` — determinístico independientemente de `APP_DEBUG`. Encontrado al implementar
+  el enforcement de códigos de promoción de un solo uso, del que dependía.
+
+### Verified
+- Probado en vivo con `php artisan serve` + `curl`: un evento creado vía `POST /api/v1/event` con
+  `deslinde`/`deslinde_pdf_url` los devuelve correctamente tanto en la respuesta del POST como en
+  `GET /event/{id}` posterior.
+- `auspiciadores`: un evento creado con 3 auspiciadores fuera de orden (`orden` 2, 1, 3) los
+  devuelve ordenados correctamente en el `POST`; el primer intento de `GET /event/{id}` los
+  devolvía vacíos por el problema de relaciones no cargadas en `@show` descrito arriba —
+  corregido y reverificado. Encontrado y corregido además un bug de nomenclatura: Eloquent
+  pluralizaba `Auspiciador` → `auspiciadors` (reglas de inglés) en vez de `auspiciadores`,
+  rompiendo el insert (`Table 'auspiciadors' doesn't exist`) hasta declarar `protected $table =
+  'auspiciadores'` explícito en el modelo (mismo fix que ya tenía `Evento`).
+- Pipeline completo de datos de demo corrido contra la BD real: `demo:reset` dejó `personas`
+  intacta (110 antes/después del truncate) mientras `eventos`/`registrations` quedaron en 0;
+  luego se cargaron 50 eventos + 40 inscripciones (20 paid, 20 pending) desde `elascenso/event`,
+  con `personas` subiendo a 152 (por el registro de cada participante) sin ninguna baja. El fix
+  de `categoria` se verificó con una inscripción de prueba antes/después (`"5"` → `"5K"`).
+- Códigos de promoción de un solo uso probados en vivo: un código Gold (50%) usado en una
+  inscripción queda `usado:true`; `GET /promo/{event}/code/...` y una segunda inscripción con el
+  mismo código son rechazados con `422`/"ya fue utilizado"; editar la primera inscripción
+  manteniendo el código no se rechaza a sí misma; cambiarlo a otro libera el viejo
+  (`usado:false`) y consume el nuevo; dos `POST /registrations` simultáneos con el mismo código
+  liberado — uno `201`, el otro `422` — confirma que `lockForUpdate()` evita la condición de
+  carrera.
+- Dataset de demo de `promo_codes` actualizado en vivo: se borraron los 18 códigos random
+  sembrados por la corrida original de `generate_eventos_seed.js` (`elascenso/event`) y se
+  cargaron 10 códigos fijos Gold/Plata/Cobre en el evento 1 (todos `usado:false`). De paso se
+  limpiaron dos eventos de prueba ("Prueba Promo Unico Uso", ids 51/53) y sus 2 inscripciones de
+  prueba que habían quedado de la verificación de la feature de un solo uso — no eran parte del
+  dataset limpio de 50 eventos / 40 inscripciones. Detalle en
+  `elascenso/event/brain/demo-reset-seed-datos-23072026.md` sección 6.
+
+### Fixed
+- **Incidente**: la BD apareció completamente vacía, incluida `personas` (tabla que ningún flujo
+  de este proyecto vacía intencionalmente — `demo:reset` la excluye explícitamente). Al intentar
+  restaurar con `php artisan db:seed` falló `PaisSeeder` con
+  `Call to undefined function Database\Factories\fake()`: el `vendor/` de Composer había quedado
+  incompleto, faltaba `fakerphp/faker` (declarado en `composer.json`/`composer.lock`, requerido
+  por el helper `fake()` de Laravel que usan todos los seeders/factories). `composer install`
+  restauró el paquete; `php artisan db:seed --force` restauró catálogos + 100 eventos + 100
+  personas base; el pipeline de `brain/` de `elascenso/event` restauró los 50 eventos demo + 40
+  inscripciones encima. Detalle completo (incluyendo el cambio de id del evento insignia de
+  Gold/Plata/Cobre, de 1 a 151) en
+  `elascenso/event/brain/demo-reset-seed-datos-23072026.md` sección 7.
+
 ## 2026-07-21
 
 ### Fixed

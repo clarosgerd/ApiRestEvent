@@ -11,17 +11,14 @@
             "id": "f0c57b40d388783c",
             "type": "leaf",
             "state": {
-              "type": "canvas",
+              "type": "markdown",
               "state": {
-                "file": "Sin título.canvas",
-                "viewState": {
-                  "x": 0,
-                  "y": 0,
-                  "zoom": 0
-                }
+                "file": "diagnostico_proyecto.md",
+                "mode": "source",
+                "source": false
               },
-              "icon": "lucide-layout-dashboard",
-              "title": "Sin título"
+              "icon": "lucide-file",
+              "title": "diagnostico_proyecto"
             }
           }
         ]
@@ -195,10 +192,10 @@
       "opencode:Opencode conversations": false
     }
   },
-  "active": "2b80535fe69007f1",
+  "active": "f0c57b40d388783c",
   "lastOpenFiles": [
-    "snuggly-foraging-mccarthy.md",
     "Sin título.canvas",
+    "snuggly-foraging-mccarthy.md",
     "Simular_geenracion_QR.md",
     "requerimiento_registro_answer.md",
     "requerimiento_incluir preguntas_en_formulario.md",

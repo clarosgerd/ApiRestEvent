@@ -26,6 +26,8 @@ class StoreEventosRequest extends FormRequest
             'hasDonation'           => 'nullable|boolean',
             'video'                 => 'nullable|string|max:255',
             'image'                 => 'nullable|string|max:255',
+            'deslinde'              => 'nullable|string|max:500',
+            'deslinde_pdf_url'      => 'nullable|string|max:500',
 
             'coordinates'           => 'nullable|array',
             'coordinates.*.lat'     => 'required_with:coordinates|numeric',
@@ -82,6 +84,12 @@ class StoreEventosRequest extends FormRequest
             'promoCodes.*.price'    => 'nullable|numeric|min:0',
             'promoCodes.*.discount_type'    => 'nullable|string|in:fixed_price,percentage',
             'promoCodes.*.discount_percent' => 'nullable|numeric|min:0|max:1',
+
+            'auspiciadores'            => 'nullable|array',
+            'auspiciadores.*.nombre'   => 'required_with:auspiciadores|string|max:255',
+            'auspiciadores.*.logo_url' => 'required_with:auspiciadores|string|max:500',
+            'auspiciadores.*.contacto' => 'nullable|string|max:500',
+            'auspiciadores.*.orden'    => 'nullable|integer',
         ];
     }
 }

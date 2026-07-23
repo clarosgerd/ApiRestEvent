@@ -28,6 +28,7 @@ class Evento extends Model
         'hasPromoCode',
         'reglamento',
         'deslinde',
+        'deslinde_pdf_url',
         'fecha_inicio',
         'localTime',
         'fecha_fin',
@@ -85,6 +86,11 @@ protected $casts = [
     public function promoCodes()
     {
        return $this->hasMany('App\Models\PromoCode', 'event_id');
+    }
+
+    public function auspiciadores()
+    {
+       return $this->hasMany('App\Models\Auspiciador', 'event_id')->orderBy('orden');
     }
 
     public function organizador()

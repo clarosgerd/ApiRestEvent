@@ -6,6 +6,7 @@ use App\DTOs\ParticipantDTO;
 use App\DTOs\RegistrationDTO;
 use App\Models\Participante;
 use App\Models\Persona;
+use App\Models\PromoCode;
 use App\Models\SouvenirParticipante;
 use App\Models\Registration;
 use App\Models\RegistrationTotal;
@@ -101,6 +102,8 @@ class RegistrationService
         Registration $registration,
         ParticipantDTO $dto
     ): void {
+
+        $this->consumePromoCode($registration->evento_id, $dto->promoCode, $registration->id);
 
         $participant = Participante::create([
 
@@ -241,6 +244,13 @@ class RegistrationService
 
             $this->validateDuplicateParticipantsFromData($data);
 
+            // Libera los códigos de promoción que esta misma inscripción tuviera
+            // consumidos antes de recrear los participantes — si el organizador
+            // mantiene el mismo código, createParticipantFromData() lo vuelve a
+            // marcar usado sin rechazarse a sí mismo; si lo cambia o lo quita,
+            // el código viejo queda libre para otra inscripción.
+            $this->releasePromoCodes($registration->id);
+
             $registration->participants()->delete();
             $registration->totals()->delete();
 
@@ -270,6 +280,8 @@ class RegistrationService
      */
     private function createParticipantFromData(Registration $registration, array $data): void
     {
+        $this->consumePromoCode($registration->evento_id, $data['promoCodigo'] ?? '', $registration->id);
+
         $birth = $data['nacimiento'];
 
         $participant = Participante::create([
@@ -339,6 +351,46 @@ class RegistrationService
             }
             $documents[$key] = true;
         }
+    }
+
+    /**
+     * Marca un código de promoción como usado por esta inscripción, o lanza
+     * si ya lo consumió otra. lockForUpdate() dentro de la transacción de
+     * create()/update()/updatePaidRegistration() evita que dos inscripciones
+     * simultáneas con el mismo código pasen ambas la validación.
+     */
+    private function consumePromoCode(int $eventId, string $promoCodigo, int $registrationId): void
+    {
+        $promoCodigo = trim($promoCodigo);
+        if ($promoCodigo === '') return;
+
+        $promo = PromoCode::where('event_id', $eventId)
+            ->where('promo_code', $promoCodigo)
+            ->lockForUpdate()
+            ->first();
+
+        // Si no existe, ya debería haberse rechazado aguas arriba en
+        // elascenso/event (_registro_validacion.php) — acá no bloqueamos por
+        // un código desconocido, solo por uno ya usado por otra inscripción.
+        if (!$promo) return;
+
+        if ($promo->usado && $promo->registration_id !== $registrationId) {
+            throw new \DomainException('Este código de promoción ya fue utilizado.');
+        }
+
+        $promo->update(['usado' => true, 'registration_id' => $registrationId]);
+    }
+
+    /**
+     * Libera los códigos de promoción que una inscripción tiene consumidos —
+     * se llama antes de recrear sus participantes en update()/
+     * updatePaidRegistration(), para no rechazarla a sí misma si mantiene el
+     * mismo código y para liberar el código si lo cambia o lo quita.
+     */
+    private function releasePromoCodes(int $registrationId): void
+    {
+        PromoCode::where('registration_id', $registrationId)
+            ->update(['usado' => false, 'registration_id' => null]);
     }
 
     /**
@@ -460,6 +512,8 @@ private function validateParticipantRegistration(
             $costoEdicion = $registration->formType->costo_edicion ?? 0;
 
             $this->validateDuplicateParticipantsFromData($data);
+
+            $this->releasePromoCodes($registration->id);
 
             $registration->participants()->delete();
             $registration->totals()->delete();
