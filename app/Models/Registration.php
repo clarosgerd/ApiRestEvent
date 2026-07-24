@@ -22,6 +22,7 @@ class Registration extends Model
         'evento_nombre',
         'tipo_pago',
         'pago_status',
+        'pay_order_number',
     ];
 
     protected $casts = [

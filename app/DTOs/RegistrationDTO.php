@@ -16,6 +16,7 @@ class RegistrationDTO
         public string $eventName,
         public string $paymentType,
         public string $paymentStatus,
+        public ?string $payOrderNumber,
         public TotalsDTO $totals,
         /** @var ParticipantDTO[] */
         public array $participants
@@ -34,6 +35,7 @@ class RegistrationDTO
             formId: (int)$data['form_types_id'],
             paymentType: $data['tipo_pago'],
             paymentStatus: $data['pago_status'],
+            payOrderNumber: $data['pay_order_number'] ?? null,
             totals: TotalsDTO::fromArray($data['totales']),
             participants: array_map(
                 fn ($participant) => ParticipantDTO::fromArray($participant),

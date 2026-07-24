@@ -118,6 +118,51 @@ de `elascenso/event` para la mitad de estos cambios que vive en ese repo.
   Gold/Plata/Cobre, de 1 a 151) en
   `elascenso/event/brain/demo-reset-seed-datos-23072026.md` sección 7.
 
+## 2026-07-23 (Multipago)
+
+Soporte de persistencia para la integración de Multipago (gateway de pago con iframe) en
+`elascenso/event` — ver su `CHANGELOG.md` para el resto de la integración (creación de la orden,
+pantalla de iframe, polling, callback), que vive del lado del frontend/API local.
+
+### Added
+- Migración `2026_07_23_040000_add_pay_order_number_to_registrations_table`: columna
+  `registrations.pay_order_number` (`string`, nullable).
+- `Registration::$fillable`: agregado `pay_order_number`.
+- `RegistrationDTO`: nueva propiedad `?string $payOrderNumber`, parseada de
+  `$data['pay_order_number'] ?? null`. `RegistrationService::create()` la persiste.
+- `StoreRegistrationRequest`: regla `'*.pay_order_number' => ['nullable','string']` — sin esto,
+  `RegistrationController::store()` (que usa `$request->validated()`, no `all()`) lo hubiera
+  descartado en silencio antes de llegar al DTO.
+- `RegistrationResource`: expone `pay_order_number` — así `elascenso/event` lo recibe al consultar
+  `GET /registrations/{reference}` (usado por su `pago_status.php` para el polling).
+- **`GET /registrations/by-pay-order/{payOrderNumber}`** (`RegistrationController::findByPayOrder()`,
+  sin `auth:sanctum`, mismo criterio que `show()`): búsqueda inversa referencia↔pay_order_number,
+  para que el callback de Multipago (que solo recibe `pay_order_number`, nunca la `referencia`
+  interna) pueda encontrar a qué inscripción corresponde. Registrada **antes** de la ruta comodín
+  `/registrations/{reference}` en `routes/api.php` (si no, Laravel matchea `by-pay-order` como si
+  fuera un `{reference}`).
+
+### Fixed
+- A diferencia de SIP (donde el `alias` que se le pasa a la pasarela es la misma `referencia`, así
+  que nunca hizo falta persistir nada), Multipago genera su propio `pay_order_number` sin relación
+  con la `referencia` — y de paso se confirmó que `qr_id` (que `elascenso/event` ya le manda a esta
+  API para SIP) nunca se persistía: no estaba en `Registration::$fillable`, se descartaba en
+  silencio. SIP nunca lo necesitó porque el matching es `alias === referencia`; Multipago sí lo
+  necesitaba, de ahí esta migración.
+
+### Verified
+- `php artisan route:clear` requerido tras agregar la ruta nueva — las rutas están cacheadas en
+  este proyecto (`bootstrap/cache/routes-v7.php`), así que un `php artisan serve` ya corriendo no
+  ve rutas agregadas después de arrancar sin limpiar el caché.
+- `GET /registrations/{reference}` confirmado incluyendo `pay_order_number` (`null` por defecto);
+  `PATCH` de prueba seguido de `GET /registrations/by-pay-order/{valor}` devuelve la `referencia`
+  correcta.
+- Smoke test end-to-end vía `api/registro.php` de `elascenso/event` con `tipoPago=multipago`
+  (evento 151): la validación completa pasa, `RegistrationDTO`/`StoreRegistrationRequest` aceptan
+  el nuevo campo sin descartarlo — el registro no llega a crearse porque Multipago devuelve error
+  con las credenciales placeholder de esta cuenta (`multipago-payment-integration/.env`), lo cual
+  es el comportamiento esperado y no un problema de esta persistencia.
+
 ## 2026-07-21
 
 ### Fixed

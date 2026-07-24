@@ -27,6 +27,7 @@ class RegistrationResource extends JsonResource
             'evento_nombre' => $this->evento_nombre,
             'tipo_pago' => $this->tipo_pago,
             'pago_status' => $this->pago_status,
+            'pay_order_number' => $this->pay_order_number,
             'totales' => new TotalsResource(
                 $this->whenLoaded('totals')
             ),

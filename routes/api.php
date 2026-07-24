@@ -30,6 +30,9 @@ Route::group(['prefix' => 'v1','namespace' => 'App\Http\Controllers'], function 
     Route::post('/registrations',[RegistrationController::class, 'store'])->middleware('auth:sanctum');
     Route::post('/registrations/lookup',[RegistrationController::class, 'lookup']);
     Route::get('/registrations/mine',[RegistrationController::class, 'mine'])->middleware('auth:sanctum');
+    // Debe ir antes de la ruta comodín /registrations/{reference} de abajo,
+    // si no Laravel matchea "by-pay-order" como si fuera un {reference}.
+    Route::get('/registrations/by-pay-order/{payOrderNumber}',[RegistrationController::class, 'findByPayOrder']);
     Route::get('/registrations/{reference}',[RegistrationController::class, 'show']);
     Route::patch('/registrations/{reference}/payment',[RegistrationController::class, 'updatePayment']);
     Route::delete('/registrations/{reference}',[RegistrationController::class, 'destroy'])->middleware('auth:sanctum');

@@ -140,6 +140,22 @@ class RegistrationController extends Controller
     }
 
     /**
+     * Buscar la referencia de una inscripción a partir del pay_order_number
+     * que le asignó una pasarela externa (Multipago). Llamada
+     * server-to-server desde el callback de la pasarela, que solo recibe
+     * ese identificador — no la referencia interna.
+     */
+    public function findByPayOrder(string $payOrderNumber): JsonResponse
+    {
+        $registration = Registration::where('pay_order_number', $payOrderNumber)->firstOrFail();
+
+        return response()->json([
+            'success' => true,
+            'referencia' => $registration->referencia,
+        ]);
+    }
+
+    /**
      * Actualizar estado del pago.
      */
     public function updatePayment(

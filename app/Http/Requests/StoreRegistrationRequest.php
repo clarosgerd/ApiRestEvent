@@ -32,6 +32,7 @@ class StoreRegistrationRequest extends FormRequest
             '*.evento_nombre' => ['required','string'],
             '*.tipo_pago' => ['required'],
             '*.pago_status' => ['required'],
+            '*.pay_order_number' => ['nullable', 'string'],
             '*.totales' => ['required','array'],
             '*.participantes.*.contacto_emergencia' => ['required','array'],
             '*.participantes.*.souvenirs' => ['nullable','array'],

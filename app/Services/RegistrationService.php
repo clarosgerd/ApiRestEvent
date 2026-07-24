@@ -52,6 +52,7 @@ class RegistrationService
                 'form_types_id' => $dto->formId,
                 'tipo_pago' => $dto->paymentType,
                 'pago_status' => $dto->paymentStatus,
+                'pay_order_number' => $dto->payOrderNumber,
             ]);
 
             foreach ($dto->participants as $participant) {

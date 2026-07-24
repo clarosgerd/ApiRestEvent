@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "diagnostico_proyecto.md",
+                "file": "TEST_PLAN_STAKEHOLDERS.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "diagnostico_proyecto"
+              "title": "TEST_PLAN_STAKEHOLDERS"
             }
           }
         ]
@@ -194,6 +194,10 @@
   },
   "active": "f0c57b40d388783c",
   "lastOpenFiles": [
+    "DEPLOY_CPANEL.md",
+    "README.md",
+    "TEST_PLAN_STAKEHOLDERS.md",
+    "diagnostico_proyecto.md",
     "Sin título.canvas",
     "snuggly-foraging-mccarthy.md",
     "Simular_geenracion_QR.md",
@@ -201,13 +205,11 @@
     "requerimiento_incluir preguntas_en_formulario.md",
     "requerimiento_crear_buscador.md",
     "REQUERIMIENTO_ACTUALIZACION_PAGADAS.md",
-    "README.md",
     "Propuesta_buscador.md",
     "implementacion_sync_personas.md",
     "implementacion_registro_evento.md",
     "implementacion_registro_answers.md",
     "floofy-popping-harp.md",
-    "diagnostico_proyecto.md",
     "implementacion_actualizacion_inscripcion.md",
     "requerimiento_registro_answer",
     "cree un enlace.md",
