@@ -88,7 +88,13 @@ class PromoCodeController extends Controller
 
     // dd($promocode);
         
-        $promo = PromoCode::where([['event_id', '=', $id],['promo_code', '=', $promocode]])->get();
+        // La columna promo_code tiene collation case-insensitive (utf8mb4_*_ci),
+        // así que '=' normal matchea 'descuento20' con 'DESCUENTO20' — los
+        // códigos de promoción son case-sensitive por diseño, se fuerza la
+        // comparación exacta con BINARY.
+        $promo = PromoCode::where('event_id', $id)
+            ->whereRaw('BINARY promo_code = ?', [$promocode])
+            ->get();
        // $promo = $eventos->paginate()->appends($request->query());
         //dd($eventos);
        // $eventos = Evento::paginate(15);

@@ -39,6 +39,7 @@ class ApiEndpointsTest extends TestCase
     public function test_persona_register_login_list_and_show_endpoints_work(): void
     {
         $email = 'juan.' . Str::random(6) . '@example.com';
+        $this->actingAsPersona();
 
         $this->postJson('/api/v1/persona/register', [
             'nombre' => 'Juan',
@@ -88,6 +89,7 @@ class ApiEndpointsTest extends TestCase
 
     public function test_registrations_endpoints_work(): void
     {
+        $this->actingAsPersona();
         $event = Evento::factory()->create();
         $formType = FormType::factory()->create(['event_id' => $event->id]);
 

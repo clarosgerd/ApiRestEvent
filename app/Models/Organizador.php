@@ -24,6 +24,12 @@ class Organizador extends Model
         'comision_especial',
         'convenio_notas',
         'activo',
+        'dias_recordatorio_pendiente_1',
+        'dias_recordatorio_pendiente_2',
+        'dias_gracia_reversion',
+        'dias_recordatorio_kit',
+        'dia_envio_marketing',
+        'whatsapp_canal',
     ];
 
     protected $casts = [

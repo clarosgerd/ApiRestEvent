@@ -44,6 +44,11 @@ class Registration extends Model
         return $this->belongsTo(FormType::class, 'form_types_id');
     }
 
+    public function evento(): BelongsTo
+    {
+        return $this->belongsTo(Evento::class, 'evento_id');
+    }
+
     public function auditLogs(): HasMany
     {
         return $this->hasMany(AuditLog::class);

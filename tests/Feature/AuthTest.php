@@ -200,6 +200,7 @@ class AuthTest extends TestCase
     public function test_list_personas_returns_paginated_results(): void
     {
         Persona::factory()->count(3)->create();
+        $this->actingAsPersona();
 
         $this->getJson('/api/v1/persona')
             ->assertOk()
@@ -210,6 +211,7 @@ class AuthTest extends TestCase
     public function test_show_persona_by_id_returns_data(): void
     {
         $persona = Persona::factory()->create(['nombre' => 'Maria']);
+        $this->actingAsPersona();
 
         $this->getJson('/api/v1/persona/' . $persona->id)
             ->assertOk()
@@ -219,6 +221,8 @@ class AuthTest extends TestCase
 
     public function test_show_persona_returns_404_for_nonexistent(): void
     {
+        $this->actingAsPersona();
+
         $this->getJson('/api/v1/persona/99999')
             ->assertNotFound();
     }

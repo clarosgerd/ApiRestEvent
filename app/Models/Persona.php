@@ -28,11 +28,18 @@ class Persona extends Authenticatable
         'telefono',
         'celular',
         'token',
+        'acepta_marketing',
+        'ultimo_envio_marketing_at',
     ];
 
     protected $hidden = [
         'password',
         'token',
+    ];
+
+    protected $casts = [
+        'acepta_marketing'          => 'boolean',
+        'ultimo_envio_marketing_at' => 'datetime',
     ];
 
     public function contactoEmergencia()

@@ -52,7 +52,20 @@ class SendWhatsappMessageJob implements ShouldQueue
             // 429: reintenta más tarde, respetando el release()
             $this->release(30);
         } catch (OpenWAApiException $e) {
-            // Cualquier otro error tipado del SDK (401, 403, 404, 501...)
+            // Confirmado empíricamente el 26/07/2026: esta instancia de OpenWA a
+            // veces entrega el mensaje real a WhatsApp y RECIÉN DESPUÉS devuelve
+            // 500 al construir la respuesta (bug del servidor, no nuestro) — se
+            // probó mandando a un número real y el mensaje llegó pese al 500.
+            // Reintentar acá reenviaría el mismo mensaje real 2-3 veces a una
+            // persona. Se marca como fallido para revisión manual, sin reintentar.
+            if ($e->getStatus() === 500) {
+                Log::warning("OpenWA devolvió 500 para {$this->chatId} — el mensaje puede haberse entregado igual (ver nota en el código). No se reintenta para evitar duplicados: {$e->getMessage()}");
+                $this->fail($e);
+                return;
+            }
+
+            // Cualquier otro error tipado del SDK (401, 403, 404, 501...) — acá sí
+            // asumimos que el mensaje no salió, tiene sentido reintentar.
             Log::error("Error OpenWA [{$e->getStatus()}]: ".json_encode($e->getBody()));
             throw $e; // deja que Laravel reintente según $tries
         }

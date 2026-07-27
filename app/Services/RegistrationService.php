@@ -5,6 +5,7 @@ namespace App\Services;
 use App\DTOs\ParticipantDTO;
 use App\DTOs\RegistrationDTO;
 use App\Models\Participante;
+use App\Models\FormType;
 use App\Models\Persona;
 use App\Models\PromoCode;
 use App\Models\SouvenirParticipante;
@@ -20,12 +21,17 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 class RegistrationService
 {
+    public function __construct(
+        private readonly NotificacionService $notificaciones
+    ) {
+    }
+
     /**
      * Crear una inscripción completa.
      */
     public function create(RegistrationDTO $dto): Registration
     {
-        return DB::transaction(function () use ($dto) {
+        $registration = DB::transaction(function () use ($dto) {
 
             if (
                 Registration::where('referencia', $dto->reference)->exists()
@@ -61,18 +67,30 @@ class RegistrationService
                     $participant
                 );
             }
+
+            $this->deactivateFormTypeIfCupoLleno($registration->form_types_id);
+
             $this->createTotals(
                 $registration,
                 $dto
             );
 
             $this->syncPersonas($registration);
-            
+
             return $this->loadRelations(
                 $registration
             );
 
         });
+
+        // Fuera de la transacción a propósito: el envío de correo (I/O de red)
+        // no debe mantener abierta la conexión/transacción de BD, y una falla
+        // de SMTP no debe revertir el registro ya guardado.
+        if ($registration->pago_status === 'pending') {
+            $this->notificaciones->notificarInscripcionPendiente($registration);
+        }
+
+        return $registration;
     }
 
     /**
@@ -94,6 +112,52 @@ class RegistrationService
             'descuento_registrante' => $dto->totals->groupDiscount,
             'grand_total' => $dto->totals->grandTotal,
         ]);
+    }
+
+    /**
+     * Red de seguridad diaria (comando form_types:desactivar-cupo-lleno):
+     * recorre todos los form_types activos y desactiva los que ya llenaron
+     * cupo. El chequeo "en caliente" ya ocurre en create()/update()/
+     * updatePaidRegistration(); esto solo cubre condiciones de carrera o
+     * ediciones manuales directas en BD.
+     */
+    public function sweepFormTypesCupoLleno(): int
+    {
+        $desactivados = 0;
+
+        foreach (FormType::where('activo', true)->pluck('id') as $formTypeId) {
+            $this->deactivateFormTypeIfCupoLleno($formTypeId);
+            if (!FormType::find($formTypeId)->activo) {
+                $desactivados++;
+            }
+        }
+
+        return $desactivados;
+    }
+
+    /**
+     * Cuenta los participantes de inscripciones vigentes (ni canceladas ni
+     * fallidas) de este form_type y, si ya alcanzaron el cupo_total, lo
+     * desactiva (activo = 0) para que deje de ofrecerse en el frontend.
+     * Es una desactivación, nunca una reactivación: si alguien cancela y
+     * libera cupo, reactivar `activo` es una decisión manual del organizador.
+     */
+    private function deactivateFormTypeIfCupoLleno(int $formTypeId): void
+    {
+        $formType = FormType::find($formTypeId);
+
+        if (!$formType || !$formType->activo) {
+            return;
+        }
+
+        $inscritos = Participante::whereHas('registration', function ($query) use ($formTypeId) {
+            $query->where('form_types_id', $formTypeId)
+                ->whereNotIn('pago_status', ['cancelled', 'failed']);
+        })->count();
+
+        if ($inscritos >= $formType->cupo_total) {
+            $formType->update(['activo' => false]);
+        }
     }
 
     /**
@@ -208,6 +272,15 @@ class RegistrationService
             'pago_status' => $status
         ]);
 
+        if ($status === 'paid') {
+            $this->notificaciones->notificarPagoConfirmado($registration);
+        } elseif ($status === 'cancelled') {
+            // Cubre tanto la reversión automática de cupo (comando
+            // notificaciones:revertir-cupo) como una cancelación manual vía
+            // este mismo endpoint — cualquier transición a cancelled avisa.
+            $this->notificaciones->notificarReversionCupo($registration);
+        }
+
         return $this->loadRelations(
             $registration
         );
@@ -237,9 +310,11 @@ class RegistrationService
 
             $registration = Registration::where('referencia', $reference)->firstOrFail();
 
-            if ($registration->pago_status === 'paid') {
+            if (in_array($registration->pago_status, ['paid', 'cancelled'], true)) {
                 throw new \DomainException(
-                    'No se puede modificar una inscripción ya pagada.'
+                    $registration->pago_status === 'paid'
+                        ? 'No se puede modificar una inscripción ya pagada.'
+                        : 'No se puede modificar una inscripción cancelada.'
                 );
             }
 
@@ -258,6 +333,8 @@ class RegistrationService
             foreach ($data['participantes'] as $participantData) {
                 $this->createParticipantFromData($registration, $participantData);
             }
+
+            $this->deactivateFormTypeIfCupoLleno($registration->form_types_id);
 
             RegistrationTotal::create([
                 'registration_id' => $registration->id,
@@ -365,8 +442,11 @@ class RegistrationService
         $promoCodigo = trim($promoCodigo);
         if ($promoCodigo === '') return;
 
+        // BINARY para que la comparación sea case-sensitive igual que en
+        // PromoCodeController::promoCode() — la columna tiene collation
+        // case-insensitive por defecto.
         $promo = PromoCode::where('event_id', $eventId)
-            ->where('promo_code', $promoCodigo)
+            ->whereRaw('BINARY promo_code = ?', [$promoCodigo])
             ->lockForUpdate()
             ->first();
 
@@ -522,6 +602,8 @@ private function validateParticipantRegistration(
             foreach ($data['participantes'] as $participantData) {
                 $this->createParticipantFromData($registration, $participantData);
             }
+
+            $this->deactivateFormTypeIfCupoLleno($registration->form_types_id);
 
             RegistrationTotal::create([
                 'registration_id' => $registration->id,

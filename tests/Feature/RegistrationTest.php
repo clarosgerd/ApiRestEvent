@@ -22,6 +22,7 @@ class RegistrationTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        $this->actingAsPersona();
         $this->event = Evento::factory()->create();
         $this->formType = FormType::factory()->create([
             'event_id' => $this->event->id,
@@ -252,8 +253,13 @@ class RegistrationTest extends TestCase
         $participant = $payload[0]['participantes'][0];
         $payload[0]['participantes'][] = $participant;
 
+        // validateDuplicateParticipants() lanza \DomainException, que
+        // RegistrationController::store() ya captura y convierte en 422
+        // (a diferencia de la referencia duplicada, que es \Exception plana
+        // y sí llega como 500 sin capturar — ver test de arriba).
         $this->postJson('/api/v1/registrations', $payload)
-            ->assertStatus(500);
+            ->assertUnprocessable()
+            ->assertJsonPath('success', false);
     }
 
     // ==========================================
