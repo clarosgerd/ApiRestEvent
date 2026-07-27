@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "TEST_PLAN_STAKEHOLDERS.md",
+                "file": "TEST_PLAN_STAKEHOLDERS desactualizado.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "TEST_PLAN_STAKEHOLDERS"
+              "title": "TEST_PLAN_STAKEHOLDERS desactualizado"
             }
           }
         ]
@@ -53,7 +53,7 @@
             "state": {
               "type": "search",
               "state": {
-                "query": "tag:#eventsGrid",
+                "query": "",
                 "matchingCase": false,
                 "explainSearch": false,
                 "collapseAll": false,
@@ -74,7 +74,8 @@
               "title": "Marcadores"
             }
           }
-        ]
+        ],
+        "currentTab": 1
       }
     ],
     "direction": "horizontal",
@@ -194,18 +195,26 @@
   },
   "active": "f0c57b40d388783c",
   "lastOpenFiles": [
+    "Sin título.base",
+    "Sin título 1.canvas",
+    "DEPLOY_CPANEL.md",
+    "INFORME-DEVOPS-DBA-NOTIFICACIONES.md",
+    "requerimiento_crear_buscador.md",
+    "load_eventos_seed.js",
+    "generate_eventos_seed.js",
+    "eventos_seed_50.json",
+    "cambios_2026_07_19.md",
+    "Informes",
+    "REQUERIMIENTO_ACTUALIZACION_PAGADAS.md",
     "TEST_PLAN_STAKEHOLDERS desactualizado.md",
     "TEST_PLAN_STAKEHOLDERS.md",
-    "REQUERIMIENTO_ACTUALIZACION_PAGADAS.md",
     "snuggly-foraging-mccarthy.md",
-    "DEPLOY_CPANEL.md",
     "README.md",
     "diagnostico_proyecto.md",
     "Sin título.canvas",
     "Simular_geenracion_QR.md",
     "requerimiento_registro_answer.md",
     "requerimiento_incluir preguntas_en_formulario.md",
-    "requerimiento_crear_buscador.md",
     "Propuesta_buscador.md",
     "implementacion_sync_personas.md",
     "implementacion_registro_evento.md",

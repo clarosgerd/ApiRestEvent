@@ -25,12 +25,12 @@ El envío de correo (confirmación de pago, pendientes, recordatorios) se movió
 
 Todas en `ApiRestEvent/database/migrations/`, todas aditivas (agregan tablas/columnas, no tocan datos existentes, todas con default seguro):
 
-| Archivo | Qué hace |
-|---|---|
-| `2026_07_26_151642_create_registration_notifications_table.php` | Tabla `registration_notifications` — log de qué se envió (tipo+canal) por inscripción, para no duplicar envíos. |
-| `2026_07_26_155809_add_notificacion_config_to_organizadores_table.php` | 6 columnas nuevas en `organizadores` (§9). |
-| `2026_07_26_203537_create_mensaje_table.php` | Tabla `mensaje` — cola de salida para el software externo de WhatsApp (§7). |
-| `2026_07_26_210344_add_marketing_preferences_to_personas_table.php` | 2 columnas nuevas en `personas`: `acepta_marketing` (bool, default true), `ultimo_envio_marketing_at` (nullable). |
+| Archivo                                                                | Qué hace                                                                                                          |
+| ---------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `2026_07_26_151642_create_registration_notifications_table.php`        | Tabla `registration_notifications` — log de qué se envió (tipo+canal) por inscripción, para no duplicar envíos.   |
+| `2026_07_26_155809_add_notificacion_config_to_organizadores_table.php` | 6 columnas nuevas en `organizadores` (§9).                                                                        |
+| `2026_07_26_203537_create_mensaje_table.php`                           | Tabla `mensaje` — cola de salida para el software externo de WhatsApp (§7).                                       |
+| `2026_07_26_210344_add_marketing_preferences_to_personas_table.php`    | 2 columnas nuevas en `personas`: `acepta_marketing` (bool, default true), `ultimo_envio_marketing_at` (nullable). |
 
 No hay backfill/seed necesario — todas las columnas tienen default.
 
