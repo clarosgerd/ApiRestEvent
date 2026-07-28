@@ -30,6 +30,7 @@ class FormTypeResource extends JsonResource
             'max_integrantes_grupo'      => (int) $this->max_integrantes_grupo,
             'descuento_registrante_pct'  => (float) $this->descuento_registrante_pct,
             'hasshirt'              =>$this->hasshirt,
+            'costo_polera'          =>$this->costo_polera,
              'hasQuestion'              =>$this->hasQuestion,
             'requiere_talla'        =>$this->requiere_talla,
             //'souvenirs'             =>new SouvenirResource($this->form_types_id),  // Souvenirs del evento

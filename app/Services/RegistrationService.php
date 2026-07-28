@@ -31,12 +31,48 @@ class RegistrationService
      */
     public function create(RegistrationDTO $dto): Registration
     {
-        $registration = DB::transaction(function () use ($dto) {
+        try {
+            $registration = $this->createInTransaction($dto);
+        } catch (\Illuminate\Database\UniqueConstraintViolationException $e) {
+            // Red de seguridad ante una colisión real bajo concurrencia: dos
+            // requests simultáneas pueden pasar el chequeo
+            // Registration::where('referencia', ...)->exists() de abajo antes
+            // de que cualquiera haga commit — acá el UNIQUE de `referencia`
+            // en la base es la última línea de defensa. Se normaliza al mismo
+            // DomainException que ese chequeo (mismo mensaje, mismo tipo) para
+            // que el controller la atrape igual y event/api/registro.php la
+            // reconozca con su self-heal — pero solo si la violación es
+            // realmente de esa columna: cualquier otro UNIQUE que choque en
+            // esta transacción se relanza tal cual, no se enmascara.
+            if (str_contains($e->getMessage(), 'referencia')) {
+                throw new \DomainException("La referencia {$dto->reference} ya existe.");
+            }
+            throw $e;
+        }
+
+        // Fuera de la transacción a propósito: el envío de correo (I/O de red)
+        // no debe mantener abierta la conexión/transacción de BD, y una falla
+        // de SMTP no debe revertir el registro ya guardado.
+        if ($registration->pago_status === 'pending') {
+            $this->notificaciones->notificarInscripcionPendiente($registration);
+        }
+
+        return $registration;
+    }
+
+    private function createInTransaction(RegistrationDTO $dto): Registration
+    {
+        return DB::transaction(function () use ($dto) {
 
             if (
                 Registration::where('referencia', $dto->reference)->exists()
             ) {
-                throw new \Exception(
+                // DomainException (no Exception a secas): así el controller la
+                // atrapa y devuelve un 422 limpio en vez de un 500 sin manejar
+                // — event/api/registro.php necesita ese 422 legible para
+                // distinguir "mi propio reintento chocó con mi propia
+                // referencia" de un error real.
+                throw new \DomainException(
                     "La referencia {$dto->reference} ya existe."
                 );
             }
@@ -82,15 +118,6 @@ class RegistrationService
             );
 
         });
-
-        // Fuera de la transacción a propósito: el envío de correo (I/O de red)
-        // no debe mantener abierta la conexión/transacción de BD, y una falla
-        // de SMTP no debe revertir el registro ya guardado.
-        if ($registration->pago_status === 'pending') {
-            $this->notificaciones->notificarInscripcionPendiente($registration);
-        }
-
-        return $registration;
     }
 
     /**
@@ -498,7 +525,13 @@ private function validateParticipantRegistration(
         ->where('tipo_documento', $participantDTO->documentType)
         ->where('numero_documento', $participantDTO->documentNumber)
         ->whereHas('registration', function ($query) use ($registrationDTO) {
-            $query->where('evento_id', $registrationDTO->eventId);
+            // Mismo criterio que deactivateFormTypeIfCupoLleno(): una
+            // inscripción cancelled/failed no cuenta como "vigente". Sin este
+            // filtro, a alguien cuyo cupo se revirtió por falta de pago
+            // (notificaciones:revertir-cupo) le quedaba bloqueado para
+            // siempre volver a inscribirse a este evento.
+            $query->where('evento_id', $registrationDTO->eventId)
+                ->whereNotIn('pago_status', ['cancelled', 'failed']);
         })
         ->exists();
 

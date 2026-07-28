@@ -157,6 +157,7 @@ class EventoService
                 'moneda'                => $formTypeDTO->moneda,
                 'permite_lista_espera'  => $formTypeDTO->permiteListaEspera,
                 'hasshirt'              => $formTypeDTO->hasshirt,
+                'costo_polera'          => $formTypeDTO->costoPolera,
                 'requiere_talla'        => $formTypeDTO->requiereTalla,
                 'permite_inscripcion_grupal' => $formTypeDTO->permiteInscripcionGrupal,
                 'max_integrantes_grupo'      => $formTypeDTO->maxIntegrantesGrupo,

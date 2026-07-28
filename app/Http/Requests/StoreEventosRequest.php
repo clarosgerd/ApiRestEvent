@@ -57,6 +57,7 @@ class StoreEventosRequest extends FormRequest
             'formTypes.*.moneda'    => 'nullable|integer',
             'formTypes.*.permite_lista_espera' => 'nullable|integer',
             'formTypes.*.hasshirt'  => 'nullable|integer',
+            'formTypes.*.costo_polera' => 'nullable|numeric|min:0',
             'formTypes.*.requiere_talla' => 'nullable|integer',
             'formTypes.*.permite_inscripcion_grupal' => 'nullable|boolean',
             'formTypes.*.max_integrantes_grupo'      => 'nullable|integer|min:1',

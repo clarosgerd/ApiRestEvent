@@ -26,6 +26,7 @@ class FormType extends Model
         'requiere_talla',
         'requiere_distancia',
         'hasshirt',
+        'costo_polera',
         'hasQuestion',
         'permite_inscripcion_grupal',
         'max_integrantes_grupo',
