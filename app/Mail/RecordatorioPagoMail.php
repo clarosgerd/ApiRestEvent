@@ -27,8 +27,8 @@ class RecordatorioPagoMail extends Mailable
         $evento = $this->registration->evento;
 
         $subject = $this->tier === 1
-            ? "Payment Reminder — {$this->registration->evento_nombre} [{$this->registration->referencia}]"
-            : "Urgent: Payment Reminder — {$this->registration->evento_nombre} [{$this->registration->referencia}]";
+            ? "Recordatorio de pago — {$this->registration->evento_nombre} [{$this->registration->referencia}]"
+            : "Urgente: Recordatorio de pago — {$this->registration->evento_nombre} [{$this->registration->referencia}]";
 
         return $this->subject($subject)
             ->view('emails.recordatorio-pendiente')

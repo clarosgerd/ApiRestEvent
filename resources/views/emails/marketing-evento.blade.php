@@ -7,8 +7,8 @@
 <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.15);">
 
   <tr><td style="background:#022858;padding:28px 32px;text-align:center;">
-    <h1 style="color:#ffffff;font-size:22px;margin:0 0 4px;">Events You Might Like</h1>
-    <p style="color:rgba(255,255,255,.6);font-size:13px;margin:0;">Hi {{ $persona->nombre }}, based on events you've joined before</p>
+    <h1 style="color:#ffffff;font-size:22px;margin:0 0 4px;">Eventos que podrían interesarte</h1>
+    <p style="color:rgba(255,255,255,.6);font-size:13px;margin:0;">Hola {{ $persona->nombre }}, según eventos en los que participaste antes</p>
   </td></tr>
 
   <tr><td style="padding:20px 32px;">
@@ -19,7 +19,7 @@
             <strong style="color:#022858;font-size:15px;">{{ $evento->nombre }}</strong><br>
             <span style="font-size:13px;color:#607080;line-height:2;">
               @if ($evento->fecha_inicio)
-                {{ \Carbon\Carbon::parse($evento->fecha_inicio)->format('F j, Y') }}<br>
+                {{ \Carbon\Carbon::parse($evento->fecha_inicio)->locale('es')->translatedFormat('d \d\e F \d\e Y') }}<br>
               @endif
               {{ $evento->lugar }}
             </span>
@@ -31,8 +31,8 @@
 
   <tr><td style="padding:16px 32px;text-align:center;background:#f4f8fb;">
     <p style="font-size:11px;color:#607080;margin:0;">
-      You're receiving this because you've registered for similar events before.<br>
-      <a href="{{ $optOutUrl }}" style="color:#607080;">Unsubscribe from marketing emails</a>
+      Recibes este correo porque te registraste antes en eventos similares.<br>
+      <a href="{{ $optOutUrl }}" style="color:#607080;">Darme de baja de correos de marketing</a>
     </p>
   </td></tr>
 

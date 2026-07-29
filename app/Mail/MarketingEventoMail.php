@@ -26,7 +26,7 @@ class MarketingEventoMail extends Mailable
     {
         $optOutUrl = URL::signedRoute('marketing.opt-out', ['persona' => $this->persona->id]);
 
-        return $this->subject('Events you might like')
+        return $this->subject('Eventos que podrían interesarte')
             ->view('emails.marketing-evento')
             ->with([
                 'persona'   => $this->persona,

@@ -3,6 +3,7 @@
 namespace App\Mail;
 
 use App\Models\Registration;
+use App\Services\ReferenceQrService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
 use Illuminate\Queue\SerializesModels;
@@ -15,22 +16,23 @@ class InscripcionPendienteMail extends Mailable
     {
     }
 
-    private const PAY_LABELS = ['sip' => 'QR Code', 'multipago' => 'Multipago', 'pendiente' => 'Pay later'];
+    private const PAY_LABELS = ['sip' => 'QR (SIP)', 'multipago' => 'Multipago', 'pendiente' => 'Pago pendiente'];
 
     public function build(): self
     {
         $evento = $this->registration->evento;
 
-        return $this->subject("Registration Received — Payment Pending — {$this->registration->evento_nombre} [{$this->registration->referencia}]")
+        return $this->subject("Registro recibido — Pago pendiente — {$this->registration->evento_nombre} [{$this->registration->referencia}]")
             ->view('emails.confirmacion')
             ->with([
                 'registration' => $this->registration,
                 'evento'       => $evento,
-                'headerTitle'  => 'Registration Received — Payment Pending',
-                'statusLabel'  => '⏳ Pending',
+                'headerTitle'  => 'Registro recibido — Pago pendiente',
+                'statusLabel'  => '⏳ Pendiente',
                 'statusColor'  => '#b07d00',
-                'footerMsg'    => 'Keep this email as your registration reference',
+                'footerMsg'    => 'Guarda este correo como referencia de tu registro',
                 'payLabel'     => self::PAY_LABELS[$this->registration->tipo_pago] ?? $this->registration->tipo_pago,
+                'qrImage'      => ReferenceQrService::toBase64Png($this->registration->referencia),
             ]);
     }
 }

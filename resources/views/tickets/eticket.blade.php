@@ -10,58 +10,64 @@
 <body>
 <table>
   <tr><td style="background:#022858;padding:20px 24px;text-align:center;">
-    <span style="color:#ffffff;font-size:18px;font-weight:bold;">E-Ticket — {{ $registration->evento_nombre }}</span>
+    <span style="color:#ffffff;font-size:18px;font-weight:bold;">Entrada electrónica — {{ $registration->evento_nombre }}</span>
   </td></tr>
 
   <tr><td style="background:#00bad2;padding:14px 24px;text-align:center;">
-    <span style="color:#ffffff;font-size:11px;text-transform:uppercase;letter-spacing:1px;">Reference Number</span><br>
+    <span style="color:#ffffff;font-size:11px;text-transform:uppercase;letter-spacing:1px;">Número de referencia</span><br>
     <span style="color:#ffffff;font-size:22px;font-weight:bold;letter-spacing:3px;">{{ $registration->referencia }}</span>
   </td></tr>
 
   <tr><td style="padding:16px 24px;">
     <table>
       <tr>
-        <td style="padding:4px 0;color:#607080;width:130px;">Event</td>
+        <td style="padding:4px 0;color:#607080;width:130px;">Evento</td>
         <td style="padding:4px 0;font-weight:bold;">{{ $registration->evento_nombre }}</td>
       </tr>
       <tr>
-        <td style="padding:4px 0;color:#607080;">Date &amp; Time</td>
-        <td style="padding:4px 0;">{{ $evento?->fecha_inicio ? \Carbon\Carbon::parse($evento->fecha_inicio)->format('F j, Y') : '' }} · {{ $evento->localTime ?? '' }}</td>
+        <td style="padding:4px 0;color:#607080;">Fecha y hora</td>
+        <td style="padding:4px 0;">{{ $evento?->fecha_inicio ? \Carbon\Carbon::parse($evento->fecha_inicio)->locale('es')->translatedFormat('d \d\e F \d\e Y') : '' }} · {{ $evento->localTime ?? '' }}</td>
       </tr>
       <tr>
-        <td style="padding:4px 0;color:#607080;">Location</td>
+        <td style="padding:4px 0;color:#607080;">Lugar</td>
         <td style="padding:4px 0;">{{ $evento->lugar ?? '' }}</td>
       </tr>
       <tr>
-        <td style="padding:4px 0;color:#607080;">Payment Method</td>
+        <td style="padding:4px 0;color:#607080;">Método de pago</td>
         <td style="padding:4px 0;">{{ $payLabel }}</td>
       </tr>
       <tr>
-        <td style="padding:4px 0;color:#607080;">Status</td>
-        <td style="padding:4px 0;color:#258f36;font-weight:bold;">✓ Paid</td>
+        <td style="padding:4px 0;color:#607080;">Estado</td>
+        <td style="padding:4px 0;color:#258f36;font-weight:bold;">✓ Pagado</td>
       </tr>
     </table>
   </td></tr>
 
   <tr><td style="padding:12px 24px;">
-    <div style="font-size:11px;font-weight:bold;color:#022858;text-transform:uppercase;margin-bottom:8px;">Participants</div>
+    <div style="font-size:11px;font-weight:bold;color:#022858;text-transform:uppercase;margin-bottom:8px;">Participantes</div>
     <table>
       @include('emails.partials.participantes', ['registration' => $registration])
     </table>
   </td></tr>
 
   <tr><td style="padding:12px 24px;">
-    <div style="font-size:11px;font-weight:bold;color:#022858;text-transform:uppercase;margin-bottom:8px;">Payment Summary</div>
+    <div style="font-size:11px;font-weight:bold;color:#022858;text-transform:uppercase;margin-bottom:8px;">Resumen de pago</div>
     @include('emails.partials.totales', ['registration' => $registration])
   </td></tr>
 
   <tr><td style="background:#022858;padding:16px 24px;text-align:center;">
-    <span style="color:#ffffff;font-size:11px;text-transform:uppercase;">Grand Total</span><br>
+    <span style="color:#ffffff;font-size:11px;text-transform:uppercase;">Total general</span><br>
     <span style="color:#ffffff;font-size:24px;font-weight:bold;">Bs{{ number_format((float) $registration->totals->grand_total, 2) }}</span>
   </td></tr>
 
+  @if (!empty($qrImage))
+  <tr><td style="padding:16px 24px;text-align:center;">
+    <img src="data:image/png;base64,{{ $qrImage }}" alt="QR de referencia" width="120" height="120">
+  </td></tr>
+  @endif
+
   <tr><td style="padding:12px 24px;text-align:center;color:#607080;font-size:10px;">
-    Keep this e-ticket as proof of payment · {{ $registration->referencia }}
+    Guarda esta entrada como comprobante de pago · {{ $registration->referencia }}
   </td></tr>
 </table>
 </body>

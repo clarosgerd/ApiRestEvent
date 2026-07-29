@@ -35,6 +35,11 @@ class Organizador extends Model
     protected $casts = [
         'comision_especial' => 'decimal:2',
         'activo' => 'boolean',
+        'dias_recordatorio_pendiente_1' => 'integer',
+        'dias_recordatorio_pendiente_2' => 'integer',
+        'dias_gracia_reversion' => 'integer',
+        'dias_recordatorio_kit' => 'integer',
+        'dia_envio_marketing' => 'integer',
     ];
 
     public function pais()

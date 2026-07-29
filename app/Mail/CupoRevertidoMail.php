@@ -17,7 +17,7 @@ class CupoRevertidoMail extends Mailable
 
     public function build(): self
     {
-        return $this->subject("Registration Cancelled — {$this->registration->evento_nombre} [{$this->registration->referencia}]")
+        return $this->subject("Registro cancelado — {$this->registration->evento_nombre} [{$this->registration->referencia}]")
             ->view('emails.cupo-revertido')
             ->with([
                 'registration' => $this->registration,

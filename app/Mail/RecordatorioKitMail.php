@@ -19,7 +19,7 @@ class RecordatorioKitMail extends Mailable
     {
         $evento = $this->registration->evento;
 
-        return $this->subject("Kit Pickup Reminder — {$this->registration->evento_nombre} [{$this->registration->referencia}]")
+        return $this->subject("Recordatorio de recojo de kit — {$this->registration->evento_nombre} [{$this->registration->referencia}]")
             ->view('emails.recordatorio-kit')
             ->with([
                 'registration' => $this->registration,
