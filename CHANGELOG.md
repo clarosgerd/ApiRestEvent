@@ -2,6 +2,61 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/).
 
+## 2026-07-28
+
+Diagnóstico del recordatorio de pago a 30 días (confirmado funcionando en la corrida de
+medianoche), bug nuevo encontrado en esa misma corrida, correos 100% en español, y restauración
+del QR de referencia en los correos de inscripción.
+
+### Fixed
+- **`notificaciones:revertir-cupo` crasheaba** con `TypeError: Carbon::rawAddUnit(): Argument #3
+  ($value) must be of type int|float, string given` en `RevertirCupo.php:32`
+  (`$notificacion->enviado_at->copy()->addDays($diasGracia)`). Causa: `Organizador::$casts` no
+  casteaba los campos `unsignedSmallInteger` de configuración de notificaciones
+  (`dias_gracia_reversion`, `dias_recordatorio_pendiente_1`/`_2`, `dias_recordatorio_kit`,
+  `dia_envio_marketing`) — MySQL/PDO los devolvía como string y Carbon 3 es estricto en
+  `addDays()`. Se agregaron los 5 campos como `'integer'` en `app/Models/Organizador.php`. Esto
+  también corrige un bug silencioso paralelo en `MarketingMensual.php:66`
+  (`now()->day !== $diaEnvio`, comparación estricta que con `$diaEnvio` string nunca sería `true`).
+- **Correos hardcodeados en inglés**: pese a que el frontend (`elascenso/event`) soporta ES/EN/PT
+  (default ES) y el negocio es 100% boliviano, los 6 `Mailable` (`PagoConfirmadoMail`,
+  `InscripcionPendienteMail`, `RecordatorioPagoMail`, `RecordatorioKitMail`, `CupoRevertidoMail`,
+  `MarketingEventoMail`) y sus vistas Blade (`emails/*.blade.php`, `tickets/eticket.blade.php`,
+  `emails/partials/*`) tenían subjects, labels y fechas (`Carbon::format('F j, Y')`) fijos en
+  inglés. Traducidos íntegramente a español, incluyendo formato de fecha localizado
+  (`->locale('es')->translatedFormat('d \d\e F \d\e Y')`).
+- **QR de referencia perdido en los correos de inscripción**: encontrado el commit exacto donde se
+  perdió (`elascenso/event@da60e7e "Notificaciones de Correo"`, que borró `event/api/email.php` al
+  migrar el envío de correos a este backend — ese archivo era el único que armaba el QR, agregado
+  originalmente en `elascenso/event@43f6691 "incluir QR al pdf-email"`). Restaurado del lado del
+  backend: nuevo `App\Services\ReferenceQrService::toBase64Png()` genera el mismo QR que codifica
+  solo la referencia (p.ej. `LA-29B51728`, para check-in) que antes se generaba en el navegador.
+  Incluido en `emails/confirmacion.blade.php` (compartida por `PagoConfirmadoMail` e
+  `InscripcionPendienteMail`, cubre pago pendiente y confirmado) y en `tickets/eticket.blade.php`
+  (PDF adjunto de la entrada, que no lo tenía ni antes de la migración).
+
+### Added
+- `composer require chillerlan/php-qrcode` — elegido sobre `simplesoftwareio/simple-qrcode` porque
+  su salida PNG requiere Imagick (no instalado en este entorno ni típicamente disponible en
+  hosting compartido cPanel), mientras que `chillerlan/php-qrcode` genera PNG vía GD (confirmado
+  disponible tanto local como en el hosting de UAT).
+- `App\Services\ReferenceQrService` (`toBase64Png(string $referencia, int $size = 200): string`).
+
+### Verified
+- `ReferenceQrService` probado de punta a punta: el PNG generado decodifica de vuelta a la
+  referencia exacta (`(new QRCode())->readFromFile(...)` contra su propio output).
+- Los 5 `Mailable` renderizados (`->render()`) contra un registro real sin excepciones;
+  `PagoConfirmadoMail` genera además el PDF (`Pdf::loadView('tickets.eticket', ...)`) sin errores,
+  con el QR embebido correctamente (verificado visualmente, PDF y HTML).
+- `grep` de las cadenas en inglés conocidas (`Reference Number`, `Payment Method`, `Grand Total`,
+  etc.) sobre todos los templates tocados — sin coincidencias reales.
+
+### Pending
+- Desplegar `app/Models/Organizador.php` (fix de casts) y `app/Services/ReferenceQrService.php` +
+  `composer install` (nueva dependencia `chillerlan/php-qrcode`) a UAT. La corrida de
+  `notificaciones:revertir-cupo` que falló en UAT no canceló las inscripciones vencidas
+  correspondientes esa noche — considerar dispararla a mano una vez desplegado el fix.
+
 ## 2026-07-23
 
 Exposición de `deslinde` y nuevo `deslinde_pdf_url` del evento, para el checkbox de deslinde de
