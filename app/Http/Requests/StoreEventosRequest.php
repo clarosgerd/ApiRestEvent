@@ -91,6 +91,20 @@ class StoreEventosRequest extends FormRequest
             'auspiciadores.*.logo_url' => 'required_with:auspiciadores|string|max:500',
             'auspiciadores.*.contacto' => 'nullable|string|max:500',
             'auspiciadores.*.orden'    => 'nullable|integer',
+
+            'agenda'                   => 'nullable|array',
+            'agenda.*.formTypeId'      => 'nullable|integer',
+            'agenda.*.formTypeName'    => 'nullable|string|max:255',
+            'agenda.*.date'            => 'nullable|date',
+            'agenda.*.startTime'       => 'required_with:agenda|string',
+            'agenda.*.endTime'         => 'nullable|string',
+            'agenda.*.title'           => 'required_with:agenda|string|max:255',
+            'agenda.*.description'     => 'nullable|string',
+            'agenda.*.speaker'         => 'nullable|string|max:255',
+            'agenda.*.speakerRole'     => 'nullable|string|max:255',
+            'agenda.*.room'            => 'nullable|string|max:255',
+            'agenda.*.icon'            => 'nullable|string|max:10',
+            'agenda.*.orden'           => 'nullable|integer',
         ];
     }
 }

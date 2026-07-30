@@ -93,6 +93,12 @@ protected $casts = [
        return $this->hasMany('App\Models\Auspiciador', 'event_id')->orderBy('orden');
     }
 
+    public function agendaItems()
+    {
+       return $this->hasMany('App\Models\AgendaItem', 'event_id')
+                    ->orderBy('fecha')->orderBy('hora_inicio')->orderBy('orden');
+    }
+
     public function organizador()
     {
         return $this->belongsTo(Organizador::class, 'organizador_id');

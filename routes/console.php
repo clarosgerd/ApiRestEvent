@@ -39,3 +39,9 @@ Schedule::command('queue:work --stop-when-empty')->cron('0 */8 * * *')->appendOu
 // Corre diario; el comando filtra internamente por el día del mes que
 // corresponda a cada persona (dia_envio_marketing del organizador).
 Schedule::command('notificaciones:marketing-mensual')->daily()->appendOutputTo($schedulerLog);
+
+// ── Aviso de dashboard al organizador, 15 días antes del evento ─────────
+// Corre diario; el comando filtra internamente por eventos "open" cuya
+// fecha_inicio caiga exactamente 15 días en el futuro (idempotente vía
+// evento_notifications, igual patrón que registration_notifications).
+Schedule::command('notificaciones:recordatorio-dashboard-organizador')->daily()->appendOutputTo($schedulerLog);

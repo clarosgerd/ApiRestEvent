@@ -13,6 +13,7 @@ use App\Models\FormularioCampos;
 use App\Models\QuestionOptions;
 use App\Models\PromoCode;
 use App\Models\Auspiciador;
+use App\Models\AgendaItem;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -76,6 +77,7 @@ class EventoService
             $this->createFormTypes($evento, $dto);
             $this->createPromoCodes($evento, $dto);
             $this->createAuspiciadores($evento, $dto);
+            $this->createAgendaItems($evento, $dto);
 
             return $this->loadRelations($evento);
         });
@@ -136,6 +138,39 @@ class EventoService
         ], $dto->auspiciadores);
 
         Auspiciador::insert($data);
+    }
+
+    private function createAgendaItems(Evento $evento, EventoDTO $dto): void
+    {
+        if (empty($dto->agenda)) return;
+
+        // Resuelve formTypeName -> id real ya creado por createFormTypes()
+        // (corrió antes que este método) — el cliente arma el payload sin
+        // conocer los IDs autogenerados de sus propios formTypes.
+        $formTypesByName = $evento->formTypes()->pluck('id', 'name');
+
+        $data = array_map(function ($a) use ($evento, $formTypesByName) {
+            $formTypeId = $a->formTypeId ?? ($a->formTypeName ? $formTypesByName->get($a->formTypeName) : null);
+
+            return [
+                'event_id'      => $evento->id,
+                'form_type_id'  => $formTypeId,
+                'fecha'         => $a->fecha,
+                'hora_inicio'   => $a->horaInicio,
+                'hora_fin'      => $a->horaFin,
+                'titulo'        => $a->titulo,
+                'descripcion'   => $a->descripcion,
+                'ponente'       => $a->ponente,
+                'ponente_cargo' => $a->ponenteCargo,
+                'sala'          => $a->sala,
+                'icono'         => $a->icono,
+                'orden'         => $a->orden,
+                'created_at'    => now(),
+                'updated_at'    => now(),
+            ];
+        }, $dto->agenda);
+
+        AgendaItem::insert($data);
     }
 
     private function createFormTypes(Evento $evento, EventoDTO $dto): void
@@ -241,6 +276,7 @@ class EventoService
             'formTypes.formularioCampos.options',
             'promoCodes',
             'auspiciadores',
+            'agendaItems',
             'organizador.formasPagoSeleccionadas',
         ]);
     }

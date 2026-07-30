@@ -89,6 +89,7 @@ class EventoController extends Controller
         $eventos = $eventos->with('formTypes.formularioCampos.options');
         $eventos = $eventos->with('organizador.formasPagoSeleccionadas');
         $eventos = $eventos->with('auspiciadores');
+        $eventos = $eventos->with('agendaItems');
 
         // Tamaño de página configurable, acotado para evitar pedir el catálogo completo.
         $perPage = (int) $request->query('per_page', 12);
@@ -161,7 +162,7 @@ class EventoController extends Controller
 
         return response()->json([
             'success' => true,
-            'eventos' => new EventoResource($event->loadMissing(['coordinates', 'routes', 'promoCodes','categories','formTypes.souvenirs','formTypes.formularioCampos.options','organizador.formasPagoSeleccionadas','auspiciadores'])),
+            'eventos' => new EventoResource($event->loadMissing(['coordinates', 'routes', 'promoCodes','categories','formTypes.souvenirs','formTypes.formularioCampos.options','organizador.formasPagoSeleccionadas','auspiciadores','agendaItems'])),
         ]);
 
        // return   new EventoResource($event);

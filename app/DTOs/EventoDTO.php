@@ -31,6 +31,8 @@ class EventoDTO
         public array $promoCodes,
         /** @var AuspiciadorDTO[] */
         public array $auspiciadores,
+        /** @var AgendaItemDTO[] */
+        public array $agenda,
     ) {}
 
     public static function fromArray(array $data): self
@@ -73,6 +75,10 @@ class EventoDTO
             auspiciadores: array_map(
                 fn(array $a) => AuspiciadorDTO::fromArray($a),
                 $data['auspiciadores'] ?? []
+            ),
+            agenda: array_map(
+                fn(array $a) => AgendaItemDTO::fromArray($a),
+                $data['agenda'] ?? []
             ),
         );
     }

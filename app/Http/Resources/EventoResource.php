@@ -75,6 +75,7 @@ class EventoResource extends JsonResource
        //   'hasDonation'                 =>$this->hasDonation,
             'promoCodes'                 =>PromoCodeResource::collection($this->whenLoaded('promoCodes')),  // Códigos promocionales del evento
             'auspiciadores'              =>AuspiciadorResource::collection($this->whenLoaded('auspiciadores')),  // Auspiciadores del evento (carrusel de logos)
+            'agenda'                     =>AgendaItemResource::collection($this->whenLoaded('agendaItems')),  // Agenda del evento (sesiones/ponentes/salas o cronograma del día)
     //        'contador_visitas'          =>$this->contador_visitas
     ];
     

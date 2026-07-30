@@ -131,11 +131,12 @@ class NotificacionService
             return;
         }
 
-        $mailable = $mailableFactory();
-
         foreach ($destinatarios as $correo) {
             try {
-                Mail::to($correo)->send($mailable);
+                // Instancia nueva por destinatario: reusar la misma Mailable en
+                // varios Mail::to()->send() acumula destinatarios (Mailable::to()
+                // hace append, no replace), exponiendo cada correo a los demás.
+                Mail::to($correo)->send($mailableFactory());
             } catch (\Throwable $e) {
                 // No dejamos que una falla de SMTP tumbe el flujo de registro/pago
                 // que disparó esta notificación — se loguea y sigue.
@@ -143,7 +144,7 @@ class NotificacionService
             }
         }
 
-        $this->guardarCopiaAuditoria($registration, $tipo, $mailable);
+        $this->guardarCopiaAuditoria($registration, $tipo, $mailableFactory());
 
         $this->registrarEnvio($registration, $tipo, 'email');
     }
