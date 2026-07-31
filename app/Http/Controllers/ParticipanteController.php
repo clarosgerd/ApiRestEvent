@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Evento;
 use App\Models\Participante;
 use App\Http\Requests\StoreParticipanteRequest;
 use App\Http\Requests\UpdateParticipanteRequest;
@@ -87,5 +88,51 @@ class ParticipanteController extends Controller
     public function destroy(Participante $participante)
     {
         //
+    }
+
+    /**
+     * Carga masiva de número de corredor y chip, matcheando por
+     * numero_documento dentro del evento indicado (es el único dato
+     * garantizado desde la inscripción — ver
+     * brain/PLAN-RESULTADOS-EQUIPOS-31072026.md §1).
+     *
+     * Body: { "items": [ { "numero_documento": "...", "numero_corredor": "...", "chip": "..." }, ... ] }
+     */
+    public function numeracionBulk(Request $request, Evento $event): JsonResponse
+    {
+        $data = $request->validate([
+            'items'                       => ['required', 'array', 'min:1'],
+            'items.*.numero_documento'    => ['required', 'string'],
+            'items.*.numero_corredor'     => ['nullable', 'string', 'max:50'],
+            'items.*.chip'                => ['nullable', 'string', 'max:50'],
+        ]);
+
+        $actualizados  = 0;
+        $noEncontrados = [];
+
+        foreach ($data['items'] as $item) {
+            $participante = Participante::whereHas('registration', function ($q) use ($event) {
+                    $q->where('evento_id', $event->id);
+                })
+                ->where('numero_documento', $item['numero_documento'])
+                ->first();
+
+            if (!$participante) {
+                $noEncontrados[] = $item['numero_documento'];
+                continue;
+            }
+
+            $participante->update([
+                'numero_corredor' => $item['numero_corredor'] ?? $participante->numero_corredor,
+                'chip'            => $item['chip'] ?? $participante->chip,
+            ]);
+            $actualizados++;
+        }
+
+        return response()->json([
+            'success'        => true,
+            'actualizados'   => $actualizados,
+            'no_encontrados' => $noEncontrados,
+        ]);
     }
 }

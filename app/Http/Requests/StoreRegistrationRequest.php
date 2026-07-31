@@ -46,6 +46,8 @@ class StoreRegistrationRequest extends FormRequest
             '*.participantes.*.correo' => ['required','email'],
             '*.participantes.*.numeroDocumento' => ['required'],
             '*.participantes.*.categoria' => ['required'],
+            '*.participantes.*.equipoId' => ['nullable','integer'],
+            '*.participantes.*.quiereDelivery' => ['nullable','boolean'],
             '*.participantes.*.precioCategoria' => ['required','numeric'],
             '*.participantes.*.nacimiento' => ['required','array'],
             '*.participantes.*.nacimiento.dia' => ['required','numeric'],

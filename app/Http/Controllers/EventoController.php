@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\Evento;
+use App\Models\Registration;
+use App\Services\ReferenceQrService;
 use App\DTOs\EventoDTO;
 use App\Http\Requests\StoreEventosRequest;
 use App\Http\Requests\UpdateEventosRequest;
@@ -13,6 +15,8 @@ use App\Filters\EventoFilter;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use App\Jobs\SendWhatsappMessageJob;
+use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Support\Str;
 
 class EventoController extends Controller
 {
@@ -90,6 +94,7 @@ class EventoController extends Controller
         $eventos = $eventos->with('organizador.formasPagoSeleccionadas');
         $eventos = $eventos->with('auspiciadores');
         $eventos = $eventos->with('agendaItems');
+        $eventos = $eventos->with('equipos');
 
         // Tamaño de página configurable, acotado para evitar pedir el catálogo completo.
         $perPage = (int) $request->query('per_page', 12);
@@ -162,10 +167,82 @@ class EventoController extends Controller
 
         return response()->json([
             'success' => true,
-            'eventos' => new EventoResource($event->loadMissing(['coordinates', 'routes', 'promoCodes','categories','formTypes.souvenirs','formTypes.formularioCampos.options','organizador.formasPagoSeleccionadas','auspiciadores','agendaItems'])),
+            'eventos' => new EventoResource($event->loadMissing(['coordinates', 'routes', 'promoCodes','categories','formTypes.souvenirs','formTypes.formularioCampos.options','organizador.formasPagoSeleccionadas','auspiciadores','agendaItems','equipos'])),
         ]);
 
        // return   new EventoResource($event);
+    }
+
+    /**
+     * PDF público de la agenda completa del evento — todos los días, ítems
+     * generales y por cada tipo de formulario. Sin datos de participantes,
+     * pensado para descargar/compartir desde la página del evento antes de
+     * inscribirse.
+     */
+    public function agendaPdf(Evento $event)
+    {
+        $event->loadMissing(['agendaItems', 'formTypes']);
+
+        $formTypeNames = $event->formTypes->pluck('name', 'id');
+
+        $items = $event->agendaItems->sortBy([
+            ['fecha', 'asc'],
+            ['hora_inicio', 'asc'],
+            ['orden', 'asc'],
+        ])->values();
+
+        $dias = $items->groupBy(fn ($item) => $item->fecha ?? '');
+
+        $estructura = $dias->map(function ($itemsDelDia) use ($formTypeNames) {
+            return [
+                'general' => $itemsDelDia->whereNull('form_type_id')->values(),
+                'porTipo' => $itemsDelDia->whereNotNull('form_type_id')
+                    ->groupBy('form_type_id')
+                    ->mapWithKeys(fn ($grupo, $formTypeId) => [
+                        ($formTypeNames[$formTypeId] ?? 'Otro') => $grupo->values(),
+                    ]),
+            ];
+        });
+
+        $pdf = Pdf::loadView('tickets.agenda', [
+            'evento'     => $event,
+            'estructura' => $estructura,
+        ]);
+
+        return $pdf->stream('agenda-' . Str::slug($event->nombre) . '.pdf');
+    }
+
+    /**
+     * Gafetes/credenciales para imprimir en bulk antes del evento — uno por
+     * participante inscrito (excluye cancelados/fallidos), con nombre,
+     * categoría/rol y un QR de la referencia para check-in. Pensado para
+     * congresos, pero sirve para cualquier evento.
+     */
+    public function gafetesPdf(Evento $event)
+    {
+        $registrations = Registration::where('evento_id', $event->id)
+            ->whereNotIn('pago_status', ['cancelled', 'failed'])
+            ->with('participants')
+            ->get();
+
+        $items = [];
+        foreach ($registrations as $registration) {
+            foreach ($registration->participants as $participante) {
+                $items[] = [
+                    'nombre'     => trim($participante->nombre . ' ' . $participante->apellido),
+                    'categoria'  => $participante->categoria,
+                    'referencia' => $registration->referencia,
+                    'qr'         => ReferenceQrService::toBase64Png($registration->referencia),
+                ];
+            }
+        }
+
+        $pdf = Pdf::loadView('tickets.gafetes', [
+            'evento' => $event,
+            'filas'  => array_chunk($items, 3),
+        ]);
+
+        return $pdf->stream('gafetes-' . Str::slug($event->nombre) . '.pdf');
     }
 
     /**

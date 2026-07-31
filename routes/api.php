@@ -7,6 +7,9 @@ use App\Http\Controllers\PersonaController;
 use App\Http\Controllers\RegistrationController;
 use App\Http\Controllers\EventoController;
 use App\Http\Controllers\PromoCodeController;
+use App\Http\Controllers\ParticipanteController;
+use App\Http\Controllers\ResultadoController;
+use App\Http\Controllers\EquipoController;
 
 Route::get('/user', function (Request $request) {
     return $request->user();
@@ -16,6 +19,8 @@ Route::get('/user', function (Request $request) {
 
 Route::group(['prefix' => 'v1','namespace' => 'App\Http\Controllers'], function () {
     Route::apiResource('/event',EventoController::class);
+    Route::get('/event/{event}/agenda-pdf', [EventoController::class, 'agendaPdf']);
+    Route::get('/event/{event}/gafetes-pdf', [EventoController::class, 'gafetesPdf']);
     Route::apiResource('/coordinate',CoordinateController::class);
     Route::apiResource('/route',RouteController::class);
     Route::apiResource('/category',CategoryController::class);
@@ -42,6 +47,19 @@ Route::group(['prefix' => 'v1','namespace' => 'App\Http\Controllers'], function 
     Route::get('/registrations/{reference}/generarToken',[RegistrationController::class, 'generarToken']);
     Route::get('/registrations/{reference}/estadoTransaccion',[RegistrationController::class, 'estadoTransaccion']);
     Route::get('/registrations/{reference}/generaQr',[RegistrationController::class, 'generaQr']);
+
+    // Numeración de corredor/chip y resultados de carrera — ver
+    // brain/PLAN-RESULTADOS-EQUIPOS-31072026.md
+    Route::patch('/registrations/{reference}/participantes/{participante}/numeracion', [RegistrationController::class, 'updateNumeracion']);
+    Route::post('/event/{event}/participantes/numeracion/bulk', [ParticipanteController::class, 'numeracionBulk']);
+    Route::post('/event/{event}/resultados/bulk', [ResultadoController::class, 'bulk']);
+
+    // Catálogo de equipos por evento (inscripción individual con hasTeam)
+    Route::get('/event/{event}/equipos', [EquipoController::class, 'index']);
+    Route::post('/event/{event}/equipos', [EquipoController::class, 'store']);
+
+    // Resultados del participante logueado (individual + equipo)
+    Route::get('/personas/me/resultados', [ResultadoController::class, 'mios'])->middleware('auth:sanctum');
 
 
     Route::get('/promo/{id}/code/{promocode}',[PromoCodeController::class, 'promoCode']);

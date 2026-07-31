@@ -99,6 +99,11 @@ protected $casts = [
                     ->orderBy('fecha')->orderBy('hora_inicio')->orderBy('orden');
     }
 
+    public function equipos()
+    {
+       return $this->hasMany('App\Models\Equipo', 'event_id')->orderBy('nombre');
+    }
+
     public function organizador()
     {
         return $this->belongsTo(Organizador::class, 'organizador_id');

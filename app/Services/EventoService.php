@@ -197,6 +197,8 @@ class EventoService
                 'permite_inscripcion_grupal' => $formTypeDTO->permiteInscripcionGrupal,
                 'max_integrantes_grupo'      => $formTypeDTO->maxIntegrantesGrupo,
                 'descuento_registrante_pct'  => $formTypeDTO->descuentoRegistrantePct,
+                'has_team'                   => $formTypeDTO->hasTeam,
+                'has_delivery'               => $formTypeDTO->hasDelivery,
             ]);
 
             $this->createSouvenirs($formType, $formTypeDTO->souvenirs);

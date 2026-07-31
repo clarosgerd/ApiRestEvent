@@ -23,6 +23,8 @@ class FormTypeDTO
         public bool $permiteInscripcionGrupal,
         public int $maxIntegrantesGrupo,
         public float $descuentoRegistrantePct,
+        public bool $hasTeam,
+        public bool $hasDelivery,
         /** @var SouvenirFormDTO[] */
         public array $souvenirs,
         /** @var FormularioCamposDTO[] */
@@ -50,6 +52,8 @@ class FormTypeDTO
             permiteInscripcionGrupal: (bool) ($data['permite_inscripcion_grupal'] ?? false),
             maxIntegrantesGrupo: (int) ($data['max_integrantes_grupo'] ?? 10),
             descuentoRegistrantePct: (float) ($data['descuento_registrante_pct'] ?? 0.10),
+            hasTeam: (bool) ($data['hasTeam'] ?? $data['has_team'] ?? false),
+            hasDelivery: (bool) ($data['hasDelivery'] ?? $data['has_delivery'] ?? false),
             souvenirs: array_map(
                 fn(array $s) => SouvenirFormDTO::fromArray($s),
                 $data['souvenirs'] ?? []

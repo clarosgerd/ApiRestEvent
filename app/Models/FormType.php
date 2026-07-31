@@ -29,6 +29,8 @@ class FormType extends Model
         'costo_polera',
         'hasQuestion',
         'permite_inscripcion_grupal',
+        'has_team',
+        'has_delivery',
         'max_integrantes_grupo',
         'descuento_registrante_pct',
         'hasQuestion',

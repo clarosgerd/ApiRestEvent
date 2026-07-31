@@ -24,6 +24,8 @@ class ParticipanteResource extends JsonResource
             'genero' => $this->genero,
             'tipoDocumento' => $this->tipo_documento,
             'numeroDocumento' => $this->numero_documento,
+            'numeroCorredor' => $this->numero_corredor,
+            'chip' => $this->chip,
             'polera' => $this->polera,
             'precioPolera' => (float)$this->precio_polera,
             'nacimiento' => [
@@ -52,6 +54,9 @@ class ParticipanteResource extends JsonResource
             ),
 
             'categoria' => (string)$this->categoria,
+            'equipoId' => $this->equipo_id,
+            'quiereDelivery' => (bool) $this->quiere_delivery,
+            'estadoDelivery' => $this->estado_delivery,
             'precioCategoria' => (float)$this->precio_categoria,
             'donacion' => (float)$this->donacion,
             'promoDescuento' => (float)$this->promo_descuento,

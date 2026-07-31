@@ -31,7 +31,9 @@ class ParticipantDTO
         public float $donation,
         public float $promoDiscount,
         public string $promoCode,
-        public float $subtotal
+        public float $subtotal,
+        public ?int $equipoId = null,
+        public bool $quiereDelivery = false
 
     ){}
 
@@ -69,7 +71,9 @@ class ParticipantDTO
             donation: (float) $data['donacion'],
             promoDiscount: (float) $data['promoDescuento'],
             promoCode: $data['promoCodigo'] ?? '',
-            subtotal: (float) $data['subtotal']
+            subtotal: (float) $data['subtotal'],
+            equipoId: isset($data['equipoId']) ? (int) $data['equipoId'] : null,
+            quiereDelivery: (bool) ($data['quiereDelivery'] ?? false)
         );
     }
 }

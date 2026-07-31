@@ -12,6 +12,7 @@ use App\Http\Resources\RegistrationResource;
 use App\Http\Resources\PaginatedRegistrationCollectionResource;
 use App\Http\Resources\RegistrationCollectionResource;
 use App\Http\Resources\PersonaResource;
+use App\Http\Resources\ParticipanteResource;
 use App\Models\Registration;
 use App\Models\Participante;
 use App\Services\RegistrationService;
@@ -297,6 +298,32 @@ public function estadoTransaccion(
             'message'       => 'Inscripción pagada actualizada correctamente.',
             'costo_adicion' => $result['costo_adicion'],
             'data'          => new RegistrationCollectionResource($result['registration']),
+        ]);
+    }
+
+    /**
+     * Asignar/actualizar número de corredor y chip de un participante —
+     * manual, uno por uno (staff en la entrega de kits). Para carga masiva
+     * ver ParticipanteController::numeracionBulk.
+     */
+    public function updateNumeracion(Request $request, string $reference, int $participante): JsonResponse
+    {
+        $data = $request->validate([
+            'numero_corredor' => ['nullable', 'string', 'max:50'],
+            'chip'            => ['nullable', 'string', 'max:50'],
+        ]);
+
+        $registration = Registration::where('referencia', $reference)->firstOrFail();
+
+        $participanteModel = Participante::where('registration_id', $registration->id)
+            ->where('id', $participante)
+            ->firstOrFail();
+
+        $participanteModel->update($data);
+
+        return response()->json([
+            'success'      => true,
+            'participante' => new ParticipanteResource($participanteModel),
         ]);
     }
 

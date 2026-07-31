@@ -25,6 +25,8 @@ class Participante extends Model
         'genero',
         'tipo_documento',
         'numero_documento',
+        'numero_corredor',
+        'chip',
         'polera',
         'precio_polera',
         'fecha_nacimiento',
@@ -34,6 +36,9 @@ class Participante extends Model
         'ciudad',
         'telefono',
         'categoria',
+        'equipo_id',
+        'quiere_delivery',
+        'estado_delivery',
         'precio_categoria',
         'donacion',
         'promo_descuento',
@@ -44,6 +49,7 @@ class Participante extends Model
    protected $casts = [
 
         'fecha_nacimiento' => 'date',
+        'quiere_delivery' => 'boolean',
         'precio_polera' => 'decimal:2',
         'precio_categoria' => 'decimal:2',
         'donacion' => 'decimal:2',
@@ -68,5 +74,15 @@ class Participante extends Model
      public function answers(): HasMany
     {
         return $this->hasMany(Answer::class);
+    }
+
+    public function resultado(): HasOne
+    {
+        return $this->hasOne(Resultado::class);
+    }
+
+    public function equipo(): BelongsTo
+    {
+        return $this->belongsTo(Equipo::class);
     }
 }

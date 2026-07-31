@@ -2,6 +2,93 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/).
 
+## 2026-07-31
+
+Cinco requerimientos nuevos del organizador (`elascenso/event/brain/PRD-Resultados`):
+numeración de corredor/chip, resultados de carrera en bulk, inscripción individual con
+equipo, delivery de kits, y gafetes/credenciales imprimibles. Todo sobre el stack actual,
+sin esperar la migración a Blade (ver `brain/PLAN-MIGRACION-LARAVEL-BLADE-30072026.md`
+en `elascenso/event`, que sigue pausada).
+
+### Added
+- **Numeración de corredor/chip** (`participantes.numero_corredor`/`chip`): actualización
+  manual (`PATCH /registrations/{reference}/participantes/{participante}/numeracion`) y
+  masiva por documento (`POST /event/{event}/participantes/numeracion/bulk`, reporta
+  `no_encontrados`).
+- **Resultados de carrera** (tabla `resultados` nueva): `POST /event/{event}/resultados/bulk`,
+  matchea por chip → número de corredor → número de documento (en ese orden), upsert
+  idempotente, filas sin match se guardan igual con `participante_id` null y se reportan en
+  `no_vinculados` para resolver a mano.
+- **Inscripción individual con equipo** (`form_types.has_team`, tabla `equipos`,
+  `participantes.equipo_id`): opt-in del participante (no automático), catálogo de equipos
+  precargado por el organizador (`GET/POST /event/{event}/equipos`), validado server-side en
+  `RegistrationService::validateEquipo()` (equipo obligatorio y debe pertenecer al evento).
+- **Delivery de kits** (`form_types.has_delivery`, `participantes.quiere_delivery`/
+  `estado_delivery`): opt-in igual que equipos, validado en
+  `RegistrationService::validateDelivery()`. Dashboard sin login vía link firmado
+  (`DeliveryController`, mismo patrón que `OrganizadorDashboardController`): HTML
+  (`GET /organizador/evento/{evento}/delivery`), CSV, y **JSON de consumo**
+  (`GET .../delivery.json`) para que la empresa de delivery integre esta info a su propio
+  sistema — incluye un link firmado por participante para marcar
+  pendiente→confirmado→entregado (responde JSON o redirect según `Accept`). Comando
+  `delivery:generar-link {evento}` imprime los 3 links.
+- **Resultados del participante logueado** (`GET /personas/me/resultados`, `auth:sanctum`):
+  reusa el matching de `RegistrationController::mine()` (documento/correo). Por evento:
+  resultado propio, comparativo dentro de la misma categoría, y si tiene equipo — compañeros
+  + ranking agregado del equipo (suma de tiempos de finishers) contra los demás equipos del
+  evento.
+- **Gafetes/credenciales en bulk** (`GET /event/{event}/gafetes-pdf`): PDF con un gafete por
+  participante inscrito (excluye cancelados/fallidos) — nombre, categoría/rol, QR de la
+  referencia para check-in (reusa `ReferenceQrService`, mismo QR que el e-ticket). Grilla de
+  3 columnas, pensado para imprimir y cortar.
+- `FormTypeDTO`/`EventoService::createFormTypes()` ahora aceptan `hasTeam`/`hasDelivery` en
+  la creación de evento en un solo request (`POST /event`) — antes solo se podían activar
+  editando el form_type después de creado.
+
+### Fixed
+- Ninguno de los endpoints nuevos tiene protección de auth todavía (mismo criterio que
+  `EventoController` hoy) — decisión explícita del usuario, pendiente hasta que exista un
+  sistema de roles/permisos completo (ver `brain/informe-backend-producto-30072026.md` §5).
+
+### Verified
+- Los 3 endpoints de numeración/resultados probados contra datos reales del evento 58
+  (bulk con filas sin match, upsert idempotente confirmado reenviando el mismo bulk).
+- Equipos: los 3 casos de validación probados end-to-end (sin equipo → 422, equipo de otro
+  evento → 422, equipo válido → 201).
+- Delivery: los 3 casos de opt-in probados (form_type sin delivery → 422, con delivery → 201
+  con `estadoDelivery: "pendiente"`, sin pedirlo → 201 con `estadoDelivery: null`); transición
+  completa pendiente→confirmado→entregado vía link firmado; firma inválida → 403.
+- `/personas/me/resultados` probado con un escenario real (2 equipos, 3 participantes,
+  resultados de carrera) — comparativo por categoría y ranking de equipo correctos.
+- Todos los datos de prueba usados para verificar (menos la demo deliberada de abajo) se
+  revirtieron después de cada prueba.
+
+### Demo (persistente, no revertida)
+- Evento 59 "Maratón Corporativo Andes 2026": 3 equipos, 6 participantes con resultados
+  cargados. Estado corregido a `closed` (fecha 2026-07-20) porque ya tiene resultados
+  oficiales. Login de demo: `ana.flores.demo@example.net` / `Demo12345`.
+- Evento 60 "Carrera Nocturna Valle 2026": 5 participantes, 4 con delivery en distintos
+  estados (pendiente/confirmado/entregado) para mostrar variedad real en el dashboard.
+- Evento 8 "Jornada de Voluntariado": se le agregaron 6 participantes de demo
+  (Ponente/Staff/Asistente) para poder probar el PDF de gafetes.
+
+### Added (continuación, mismo día)
+- **`form_types.requiere_categoria` conectado** (existía en la BD desde el inicio del
+  proyecto, default `true`, pero nunca se exponía en `FormTypeResource` ni se usaba en el
+  frontend — la selección de categoría era obligatoria siempre, sin excepción). Ahora se
+  expone como `requiereCategoria` en la API; el frontend oculta la sección de categoría y
+  salta su validación cuando es `false`.
+- 3 form_types nuevos en el evento 8 (`Voluntario`, `Ayudante`, `Staff`, ids 87/88/89):
+  `requiere_categoria=false`, sin camiseta/equipo/delivery, precio 0 — inscripción de solo
+  información personal para roles de congreso. Creados directo en BD (sin pasar por
+  `FormTypeController::store()`, que sigue siendo un stub vacío — agregar form_types a un
+  evento ya creado no tiene endpoint todavía, decisión explícita de no construirlo ahora).
+
+### Verified
+- Registro real bajo `form_types_id=87` (Voluntario) sin categoría seleccionada: 201, con
+  `categoria: "Voluntario"` y `precioCategoria: 0` guardados correctamente. Dato de prueba
+  revertido después.
+
 ## 2026-07-28
 
 Diagnóstico del recordatorio de pago a 30 días (confirmado funcionando en la corrida de

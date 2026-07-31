@@ -6,6 +6,7 @@ use App\DTOs\ParticipantDTO;
 use App\DTOs\RegistrationDTO;
 use App\Models\Participante;
 use App\Models\FormType;
+use App\Models\Equipo;
 use App\Models\Persona;
 use App\Models\PromoCode;
 use App\Models\SouvenirParticipante;
@@ -79,6 +80,8 @@ class RegistrationService
             
             foreach ($dto->participants as $participant) {
                 $this->validateParticipantRegistration($dto, $participant);
+                $this->validateEquipo($dto, $participant);
+                $this->validateDelivery($dto, $participant);
             }
 
             $this->validateDuplicateParticipants($dto);
@@ -221,6 +224,9 @@ class RegistrationService
             'ciudad' => $dto->city,
             'telefono' => $dto->phone,
             'categoria' => $dto->category,
+            'equipo_id' => $dto->equipoId,
+            'quiere_delivery' => $dto->quiereDelivery,
+            'estado_delivery' => $dto->quiereDelivery ? 'pendiente' : null,
             'precio_categoria' => $dto->categoryPrice,
             'donacion' => $dto->donation,
             'promo_descuento' => $dto->promoDiscount,
@@ -406,6 +412,9 @@ class RegistrationService
             'ciudad'           => $data['ciudad'] ?? '',
             'telefono'         => $data['telefono'] ?? '',
             'categoria'        => $data['categoria'],
+            'equipo_id'        => $data['equipoId'] ?? null,
+            'quiere_delivery'  => $data['quiereDelivery'] ?? false,
+            'estado_delivery'  => ($data['quiereDelivery'] ?? false) ? 'pendiente' : null,
             'precio_categoria' => $data['precioCategoria'],
             'donacion'         => $data['donacion'] ?? 0,
             'promo_descuento'  => $data['promoDescuento'] ?? 0,
@@ -548,6 +557,61 @@ private function validateParticipantRegistration(
         );
     }
 }
+    /**
+     * Si el form_type tiene has_team=1 (inscripción individual con
+     * pertenencia a un equipo, ver
+     * brain/PLAN-RESULTADOS-EQUIPOS-31072026.md §3), el equipo es
+     * obligatorio y debe pertenecer al mismo evento.
+     */
+    private function validateEquipo(
+        RegistrationDTO $registrationDTO,
+        ParticipantDTO $participantDTO
+    ): void {
+        $formType = FormType::find($registrationDTO->formId);
+
+        if (!$formType || !$formType->has_team) {
+            return;
+        }
+
+        if (!$participantDTO->equipoId) {
+            throw new \DomainException(
+                'Este tipo de inscripción requiere seleccionar un equipo.'
+            );
+        }
+
+        $equipoValido = Equipo::where('id', $participantDTO->equipoId)
+            ->where('event_id', $registrationDTO->eventId)
+            ->exists();
+
+        if (!$equipoValido) {
+            throw new \DomainException(
+                "El equipo seleccionado no pertenece al evento {$registrationDTO->eventId}."
+            );
+        }
+    }
+
+    /**
+     * quiereDelivery es opt-in (checkbox en el formulario, no automático) —
+     * solo válido si el form_type ofrece esa opción. Ver
+     * brain/PLAN-DELIVERY-31072026.md.
+     */
+    private function validateDelivery(
+        RegistrationDTO $registrationDTO,
+        ParticipantDTO $participantDTO
+    ): void {
+        if (!$participantDTO->quiereDelivery) {
+            return;
+        }
+
+        $formType = FormType::find($registrationDTO->formId);
+
+        if (!$formType || !$formType->has_delivery) {
+            throw new \DomainException(
+                'Este tipo de inscripción no ofrece delivery del kit.'
+            );
+        }
+    }
+
    private function validateDuplicateParticipants(
     RegistrationDTO $dto
 ): void {
