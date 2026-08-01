@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "DEPLOY_CPANEL.md",
+                "file": "Informes/diagnostico_proyecto.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "DEPLOY_CPANEL"
+              "title": "diagnostico_proyecto"
             }
           }
         ]
@@ -41,7 +41,9 @@
               "type": "file-explorer",
               "state": {
                 "sortOrder": "alphabetical",
-                "autoReveal": false
+                "autoReveal": false,
+                "showSearch": false,
+                "searchQuery": ""
               },
               "icon": "lucide-folder-closed",
               "title": "Explorador de archivos"
@@ -195,9 +197,10 @@
   "active": "2d20ecbd0f1a769c",
   "lastOpenFiles": [
     "DEPLOY_CPANEL.md",
+    "Propuesta_WhatsApp_Meta_Cloud_API.md",
+    "REQUERIMIENTO_ACTUALIZACION_PAGADAS.md",
     "INFORME-DEVOPS-DBA-NOTIFICACIONES.md",
     "implementacion_qr_pagos.md",
-    "Propuesta_WhatsApp_Meta_Cloud_API.md",
     "implementacion_registro_evento.md",
     "plantilla-bug.md",
     "TEST_PLAN_STAKEHOLDERS desactualizado.md",
@@ -209,7 +212,6 @@
     "eventos_seed_50.json",
     "cambios_2026_07_19.md",
     "Informes",
-    "REQUERIMIENTO_ACTUALIZACION_PAGADAS.md",
     "TEST_PLAN_STAKEHOLDERS.md",
     "snuggly-foraging-mccarthy.md",
     "README.md",

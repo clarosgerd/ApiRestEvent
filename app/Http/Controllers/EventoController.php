@@ -3,8 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\Evento;
+use App\Models\EventoNotification;
 use App\Models\Registration;
 use App\Services\ReferenceQrService;
+use App\Actions\EnviarDashboardOrganizadorAction;
 use App\DTOs\EventoDTO;
 use App\Http\Requests\StoreEventosRequest;
 use App\Http\Requests\UpdateEventosRequest;
@@ -142,6 +144,40 @@ class EventoController extends Controller
             'message' => 'Evento registrado correctamente.',
             'eventos' => new EventoResource($evento),
         ], 201);
+    }
+
+    /**
+     * Publica un evento — pasa de borrador (el contrato con el organizador
+     * todavía no está firmado) a elegible para mostrarse/inscribirse. Este
+     * es el único momento en que se envía el correo con el link del
+     * dashboard de organizador (y de delivery, si aplica): un evento recién
+     * creado (borrador) todavía puede cambiar de forma, así que no tiene
+     * sentido avisarle al organizador hasta que esté publicado.
+     */
+    public function publicar(Evento $event): JsonResponse
+    {
+        if ($event->publicado) {
+            return response()->json([
+                'success' => false,
+                'error'   => 'Este evento ya está publicado.',
+            ], 422);
+        }
+
+        $event->update(['publicado' => true]);
+
+        app(EnviarDashboardOrganizadorAction::class)->handle($event->fresh(['formTypes', 'organizador']));
+        EventoNotification::create([
+            'evento_id'  => $event->id,
+            'tipo'       => 'evento_publicado_dashboard_organizador',
+            'canal'      => 'email',
+            'enviado_at' => now(),
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Evento publicado correctamente.',
+            'eventos' => new EventoResource($event->fresh()->loadMissing(['coordinates', 'routes', 'promoCodes', 'categories', 'formTypes.souvenirs', 'formTypes.formularioCampos.options', 'organizador.formasPagoSeleccionadas', 'auspiciadores', 'agendaItems', 'equipos'])),
+        ]);
     }
 
     /**

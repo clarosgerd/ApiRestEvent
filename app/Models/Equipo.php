@@ -13,11 +13,17 @@ class Equipo extends Model
     protected $fillable = [
         'event_id',
         'nombre',
+        'club_id',
     ];
 
     public function evento(): BelongsTo
     {
         return $this->belongsTo(Evento::class, 'event_id');
+    }
+
+    public function club(): BelongsTo
+    {
+        return $this->belongsTo(Club::class, 'club_id');
     }
 
     public function participantes(): HasMany

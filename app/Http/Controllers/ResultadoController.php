@@ -2,10 +2,11 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Equipo;
 use App\Models\Evento;
 use App\Models\Participante;
 use App\Models\Resultado;
+use App\Support\ProgresoHistorico;
+use App\Support\RankingEquipos;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -117,6 +118,11 @@ class ResultadoController extends Controller
                     'estado'            => $resultado->estado,
                 ],
                 'comparativoCategoria' => $this->comparativoCategoria($eventoId, $participante),
+                'progreso'             => ProgresoHistorico::paraIdentidad(
+                    $participante->numero_documento,
+                    $participante->correo,
+                    $participante->categoria
+                ),
                 'equipo'               => $participante->equipo_id
                     ? $this->resultadosEquipo($eventoId, $participante)
                     : null,
@@ -141,7 +147,7 @@ class ResultadoController extends Controller
             ->with('participante')
             ->get()
             ->filter(fn ($r) => $r->participante !== null)
-            ->sortBy(fn ($r) => $this->tiempoASegundos($r->tiempo_oficial))
+            ->sortBy(fn ($r) => RankingEquipos::tiempoASegundos($r->tiempo_oficial))
             ->values()
             ->map(fn ($r, $i) => [
                 'nombre'        => trim($r->participante->nombre . ' ' . $r->participante->apellido),
@@ -165,20 +171,7 @@ class ResultadoController extends Controller
             ->get()
             ->filter(fn ($r) => $r->participante !== null);
 
-        $ranking = Equipo::where('event_id', $eventoId)
-            ->get()
-            ->map(function (Equipo $equipo) use ($eventoId) {
-                $segundos = Resultado::where('event_id', $eventoId)
-                    ->where('estado', 'finisher')
-                    ->whereHas('participante', fn ($q) => $q->where('equipo_id', $equipo->id))
-                    ->get()
-                    ->sum(fn ($r) => $this->tiempoASegundos($r->tiempo_oficial));
-
-                return ['equipoId' => $equipo->id, 'nombre' => $equipo->nombre, 'segundos' => $segundos];
-            })
-            ->filter(fn ($e) => $e['segundos'] > 0)
-            ->sortBy('segundos')
-            ->values();
+        $ranking = RankingEquipos::paraEvento($eventoId);
 
         $posicion = $ranking->search(fn ($e) => $e['equipoId'] === $participante->equipo_id);
 
@@ -195,32 +188,11 @@ class ResultadoController extends Controller
                 'totalEquipos' => $ranking->count(),
                 'tabla'       => $ranking->map(fn ($e) => [
                     'nombre'         => $e['nombre'],
-                    'tiempoTotal'    => $this->segundosATiempo($e['segundos']),
+                    'tiempoTotal'    => RankingEquipos::segundosATiempo($e['segundos']),
                     'esPropio'       => $e['equipoId'] === $participante->equipo_id,
                 ])->values()->all(),
             ],
         ];
-    }
-
-    private function tiempoASegundos(?string $tiempo): int
-    {
-        if (!$tiempo) {
-            return 0;
-        }
-
-        $partes = array_map('intval', explode(':', $tiempo));
-        while (count($partes) < 3) {
-            array_unshift($partes, 0);
-        }
-
-        [$h, $m, $s] = $partes;
-
-        return ($h * 3600) + ($m * 60) + $s;
-    }
-
-    private function segundosATiempo(int $segundos): string
-    {
-        return sprintf('%02d:%02d:%02d', intdiv($segundos, 3600), intdiv($segundos % 3600, 60), $segundos % 60);
     }
 
     private function resolverParticipante(Evento $event, array $item): ?Participante

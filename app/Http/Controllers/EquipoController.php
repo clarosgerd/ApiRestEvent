@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Resources\EquipoResource;
+use App\Models\Club;
 use App\Models\Equipo;
 use App\Models\Evento;
 use Illuminate\Http\JsonResponse;
@@ -36,10 +37,24 @@ class EquipoController extends Controller
 
         $creados = collect($data['equipos'])
             ->unique()
-            ->map(fn ($nombre) => Equipo::firstOrCreate([
-                'event_id' => $event->id,
-                'nombre'   => $nombre,
-            ]))
+            ->map(function ($nombre) use ($event) {
+                $equipo = Equipo::firstOrCreate([
+                    'event_id' => $event->id,
+                    'nombre'   => $nombre,
+                ]);
+
+                // Si el nombre matchea un club del catálogo global, se
+                // vincula automáticamente para que el club vea este evento
+                // en su historial — ver PLAN-CLUBES-31072026.md §1.
+                if (!$equipo->club_id) {
+                    $club = Club::whereRaw('LOWER(nombre) = ?', [mb_strtolower($nombre)])->first();
+                    if ($club) {
+                        $equipo->update(['club_id' => $club->id]);
+                    }
+                }
+
+                return $equipo;
+            })
             ->values();
 
         return response()->json([

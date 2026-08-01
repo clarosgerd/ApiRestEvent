@@ -45,7 +45,12 @@ class EventoDTO
             localTime: $data['localTime'] ?? '',
             direccion: $data['location'] ?? $data['direccion'] ?? '',
             status: $data['status'] ?? 'open',
-            publicado: (bool) ($data['publicado'] ?? true),
+            // Todo evento nace como borrador — es el contrato entre el
+            // organizador y nosotros; recién es elegible para publicarse
+            // (ver EventoController::publicar()) una vez firmado. Un
+            // caller explícito puede forzar `publicado: true` si de
+            // verdad lo necesita, pero el default ya no es "publicado".
+            publicado: (bool) ($data['publicado'] ?? false),
             hasDonation: (bool) ($data['hasDonation'] ?? false),
             organizadorId: isset($data['organizador_id']) ? (int) $data['organizador_id'] : null,
             videoUrl: $data['video'] ?? $data['video_url'] ?? null,

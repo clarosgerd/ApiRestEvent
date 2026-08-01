@@ -47,6 +47,10 @@ return [
         'driver' => 'sanctum',
         'provider' => 'personas',
     ],
+    'clubes' => [
+        'driver' => 'sanctum',
+        'provider' => 'clubes',
+    ],
     ],
 
     /*
@@ -80,6 +84,10 @@ return [
         'personas' => [
             'driver' => 'eloquent',
             'model' => App\Models\Persona::class, // Verifica que tu namespace sea correcto
+        ],
+        'clubes' => [
+            'driver' => 'eloquent',
+            'model' => App\Models\Club::class,
         ],
     ],
 

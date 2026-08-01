@@ -89,6 +89,122 @@ en `elascenso/event`, que sigue pausada).
   `categoria: "Voluntario"` y `precioCategoria: 0` guardados correctamente. Dato de prueba
   revertido después.
 
+### Added (continuación, mismo día — correo de dashboard al crear evento)
+- Nuevo `App\Actions\EnviarDashboardOrganizadorAction`: genera el link firmado de
+  `organizador.dashboard` (y el de `delivery.dashboard` si algún `form_type` del evento tiene
+  `has_delivery`), reúne destinatarios (`organizador.email` + `User::whereIn('role',
+  ['admin','superadmin'])`) y envía una instancia nueva del Mailable por destinatario —mismo
+  patrón anti-acumulación de `RecordatorioDashboardOrganizador`—.
+- Nuevo `App\Mail\EventoDashboardMail` + vista `emails/evento-dashboard.blade.php`: igual
+  estilo visual que el recordatorio de 15 días, pero de propósito general (se usa tanto al
+  crear el evento como en reenvíos a demanda); el botón de delivery solo aparece si
+  `$deliveryUrl` no es null.
+- `EventoController::store()` ahora dispara esa acción justo después de crear el evento y
+  registra un `EventoNotification` (`tipo: evento_creado_dashboard_organizador`) para
+  trazabilidad — no se usa como gate de reenvío, solo auditoría.
+- Nuevo comando `notificaciones:enviar-dashboard-organizador {evento}` para reenviar el
+  correo a demanda en cualquier momento (organizador perdió el correo, quiere volver a
+  compartir el link, etc.), sin esperar el aviso automático de 15 días.
+
+### Verified
+- Evento de prueba creado vía API con un `form_type` con `hasDelivery: true`: quedó registrado
+  el `EventoNotification` correcto; `EnviarDashboardOrganizadorAction` intentó enviar a 2
+  destinatarios (organizador + 1 admin). El envío al organizador falló (dato preexistente:
+  `organizadores.id=1` tiene el email mal cargado como `gerdclarosgmail.com`, sin `@` — no se
+  corrigió, es un problema de datos preexistente fuera de alcance). El envío al admin
+  (`gerdclaros@gmail.com`) sí se procesó contra el SMTP real configurado en `.env` local —
+  **ojo**: este entorno de desarrollo local manda correos reales de verdad, no hay
+  sandbox/log driver, así que cualquier prueba futura que dispare estos flujos entrega un
+  correo real a una bandeja real. Evento y datos de prueba borrados después.
+- Comando `notificaciones:enviar-dashboard-organizador` verificado registrado en
+  `php artisan list` (no se ejecutó de nuevo contra datos reales para evitar otro envío real).
+
+### Fixed
+- `organizadores.id=1` (el organizador default usado cuando no se manda `organizador_id`)
+  tenía el email mal cargado (`gerdclarosgmail.com`, sin `@`) — corregido a
+  `gerdclaros@gmail.com` en la base local y en UAT.
+
+### Added (continuación, mismo día — Landing de Equipo/Club)
+- Plan completo en `elascenso/event/brain/PLAN-CLUBES-31072026.md`. Nueva entidad
+  `Club` (catálogo global, alta directo en BD por ahora, sin endpoint) independiente
+  del `equipo` por-evento que ya existía — `equipos.club_id` (nullable) vincula un
+  equipo de un evento puntual a un club persistente que participa en varios eventos.
+- `App\Models\Club` con Sanctum (`HasApiTokens`), guard/provider `clubes` en
+  `config/auth.php` (mismo patrón que `personas`).
+- `ClubController`: `POST /club/login`, `POST /club/logout`, `GET /club/me`,
+  `GET /club/me/landing` (login propio, sin depender de un link firmado).
+- `EquipoController::store()` vincula automáticamente un `equipo` a un `club`
+  existente si el nombre coincide (case-insensitive) — no crea clubes nuevos desde
+  ahí, solo los vincula si ya existen en el catálogo.
+- Extraída `App\Support\RankingEquipos` (antes vivía inline en
+  `ResultadoController::resultadosEquipo()`) para reusar el cálculo de ranking de
+  equipo tanto en "Mis Resultados" como en la landing del club.
+
+### Verified
+- Club de prueba vinculado por nombre al equipo ya existente del evento 59: login,
+  landing (evento 59, ranking 2/3, 2 integrantes con tiempos) y logout, todo
+  correcto.
+- `personas/me/resultados` re-verificado después del refactor de `RankingEquipos`:
+  mismo output exacto que antes del cambio.
+
+### Pending
+- Frontend de login/landing del club en `elascenso/event` — no implementado
+  todavía.
+
+### Added (continuación, mismo día — evento nace como borrador, publicar explícito)
+- Un equipo externo va a desarrollar un frontend nuevo para administrar/crear eventos.
+  Pregunta que surgió: ¿cómo se entera `ApiRestEvent` de cuándo activar el envío de los
+  links privados (dashboard de organizador/delivery)? Se decidió que el disparador no sea
+  la creación del evento sino una acción explícita de "publicar": **un evento creado nace
+  como borrador** (`publicado` ahora defaultea a `false` en `EventoDTO::fromArray()`, antes
+  era `true`) — representa el contrato entre el organizador y nosotros antes de firmarse;
+  recién es elegible para publicarse una vez confirmado.
+- `EventoController::store()` ya **no** dispara `EnviarDashboardOrganizadorAction` — se
+  movió a un endpoint nuevo `PATCH /event/{event}/publicar`
+  (`EventoController::publicar()`): pasa `publicado` de `false` a `true`, dispara el correo
+  del dashboard, y registra `EventoNotification` (`tipo:
+  evento_publicado_dashboard_organizador` — renombrado desde
+  `evento_creado_dashboard_organizador` para reflejar el disparador correcto). Idempotente:
+  si el evento ya está publicado, devuelve 422 sin reenviar el correo.
+
+### Fixed
+- Bug propio detectado en pruebas: el parámetro del nuevo método `publicar()` se llamaba
+  `$evento` pero la ruta usa `{event}` — el resto de `EventoController` usa siempre
+  `$event`, así que el route-model-binding implícito de Laravel no lo resolvía (nombres no
+  coinciden) y llegaba `null`, rompiendo `EnviarDashboardOrganizadorAction::handle()`.
+  Corregido a `$event` para que coincida con el resto del archivo.
+
+### Verified
+- Evento de prueba creado (ya sin body `publicado`): confirmado `publicado: false` y sin
+  intento de envío de correo ni `EventoNotification`. `PATCH .../publicar`: primera vez 200
+  (correo intentado, `EventoNotification` creada), segunda vez 422 ("Este evento ya está
+  publicado."). Datos de prueba borrados después.
+
+### Added (continuación, mismo día — cuadro comparativo de progreso entre eventos)
+- Pedido a partir de la landing de club: si un participante corrió la misma categoría/
+  distancia en más de un evento, ver si mejoró o no. Nuevo `App\Support\ProgresoHistorico`
+  (`paraIdentidad(numeroDocumento, correo, categoria)`): busca todas las participaciones de
+  esa misma persona (matcheada por documento o correo, igual criterio que `mios()`) en la
+  **misma categoría exacta** — comparar 10K contra 5K no tiene sentido, así que distancias
+  distintas no se cruzan — ordenadas cronológicamente por `evento.fecha_inicio`, marcando
+  `mejora` (`true`/`false`/`null` en la primera) y `diferenciaSegundos` contra la
+  participación anterior.
+- Expuesto como `progreso` en `GET /personas/me/resultados` (`ResultadoController::mios()`)
+  y en `GET /club/me/landing` (`ClubController::landing()`, por integrante) — mismo cálculo
+  reusado en los dos endpoints.
+
+### Verified
+- Escenario real: evento de prueba nuevo (10K, fecha posterior al evento 59 demo),
+  registrando a Ana Flores con un tiempo más rápido (00:40:00 vs su 00:42:15 del evento 59,
+  misma categoría 10K). `progreso` en ambos endpoints devolvió las 2 participaciones en
+  orden cronológico con `mejora: true` y `diferenciaSegundos: 135` en la segunda. Bruno
+  Rojas (sin segunda carrera) siguió con un solo elemento y `mejora: null`, correcto. Todos
+  los datos de prueba (evento, registro, participante, resultado) borrados después.
+- Efecto secundario encontrado (no es un bug de esta sesión, comportamiento preexistente):
+  `RegistrationService::syncPersonas()` regenera la contraseña de una `Persona` ya existente
+  cada vez que se procesa una inscripción para su mismo documento/correo — el password de
+  prueba de Ana tuvo que resetearse a mano después de re-registrarla para esta prueba.
+
 ## 2026-07-28
 
 Diagnóstico del recordatorio de pago a 30 días (confirmado funcionando en la corrida de

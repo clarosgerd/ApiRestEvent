@@ -10,6 +10,7 @@ use App\Http\Controllers\PromoCodeController;
 use App\Http\Controllers\ParticipanteController;
 use App\Http\Controllers\ResultadoController;
 use App\Http\Controllers\EquipoController;
+use App\Http\Controllers\ClubController;
 
 Route::get('/user', function (Request $request) {
     return $request->user();
@@ -21,6 +22,7 @@ Route::group(['prefix' => 'v1','namespace' => 'App\Http\Controllers'], function 
     Route::apiResource('/event',EventoController::class);
     Route::get('/event/{event}/agenda-pdf', [EventoController::class, 'agendaPdf']);
     Route::get('/event/{event}/gafetes-pdf', [EventoController::class, 'gafetesPdf']);
+    Route::patch('/event/{event}/publicar', [EventoController::class, 'publicar']);
     Route::apiResource('/coordinate',CoordinateController::class);
     Route::apiResource('/route',RouteController::class);
     Route::apiResource('/category',CategoryController::class);
@@ -60,6 +62,13 @@ Route::group(['prefix' => 'v1','namespace' => 'App\Http\Controllers'], function 
 
     // Resultados del participante logueado (individual + equipo)
     Route::get('/personas/me/resultados', [ResultadoController::class, 'mios'])->middleware('auth:sanctum');
+
+    // Login propio del club + landing con historial/ranking privado — ver
+    // elascenso/event/brain/PLAN-CLUBES-31072026.md
+    Route::post('/club/login', [ClubController::class, 'login']);
+    Route::post('/club/logout', [ClubController::class, 'logout'])->middleware('auth:sanctum');
+    Route::get('/club/me', [ClubController::class, 'me'])->middleware('auth:sanctum');
+    Route::get('/club/me/landing', [ClubController::class, 'landing'])->middleware('auth:sanctum');
 
 
     Route::get('/promo/{id}/code/{promocode}',[PromoCodeController::class, 'promoCode']);
