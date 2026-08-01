@@ -37,6 +37,10 @@ class EventoService
                 'hasPromoCode'        => !empty($dto->promoCodes),
                 'video_url'           => $dto->videoUrl ?? '',
                 'imagen_portada_url'  => $dto->imagenPortadaUrl ?? '',
+                // Default navy: mismo color que ya usaban gafetes/certificados antes de
+                // que esto fuera configurable — un evento sin colorHex propio no cambia
+                // de aspecto.
+                'color_hex'           => $dto->colorHex ?: '#022858',
 
                 // organizador_id: usa el que venga en el request (validado contra
                 // organizadores.id en StoreEventosRequest) — si no se manda,

@@ -17,6 +17,7 @@ class EventoDTO
         public ?int $organizadorId,
         public ?string $videoUrl,
         public ?string $imagenPortadaUrl,
+        public ?string $colorHex,
         public ?string $deslinde,
         public ?string $deslindePdfUrl,
         /** @var CoordinateDTO[] */
@@ -55,6 +56,7 @@ class EventoDTO
             organizadorId: isset($data['organizador_id']) ? (int) $data['organizador_id'] : null,
             videoUrl: $data['video'] ?? $data['video_url'] ?? null,
             imagenPortadaUrl: $data['image'] ?? $data['imagen_portada_url'] ?? null,
+            colorHex: $data['colorHex'] ?? $data['color_hex'] ?? null,
             deslinde: $data['deslinde'] ?? null,
             deslindePdfUrl: $data['deslinde_pdf_url'] ?? null,
             coordinates: array_map(

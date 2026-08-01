@@ -37,6 +37,7 @@ class EventoResource extends JsonResource
      //       'url_slug'                  =>$this->url_slug,
      //       'keyword'                   =>$this->keyword,
             'image'                     =>$this->imagen_portada_url,
+            'colorHex'                  =>$this->color_hex,
             'video'                     =>$this->video_url,
             'description'               =>$this->descripcion,
             'longDescription'           =>$this->longDescription,

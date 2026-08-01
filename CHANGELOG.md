@@ -2,6 +2,71 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/).
 
+## 2026-08-01
+
+### Changed
+- **Corrección de alcance en la personalización de gafetes** (mismo día, tras revisión del
+  usuario): los gafetes **no** usan el color de marca del evento (`eventos.color_hex`) —
+  usan `form_types.color`, por registro. Un evento con varios tipos de formulario
+  (Individual, Grupal, Voluntario...) ahora distingue cada uno con su propio color en la
+  mesa de acreditación, en vez de que todos los gafetes salgan iguales. Los certificados
+  **no cambiaron** — siguen usando `eventos.color_hex` + `imagen_portada_url`, sin tocar.
+  Validación de color centralizada en `EventoController::safeHex()`, usada por ambos
+  endpoints (antes la validaba cada blade por separado). Probado contra el evento 59 real:
+  `form_types.color` ya tenía un valor real (`#00bad2`, sin necesidad de datos de prueba) y
+  se ve aplicado en los 6 gafetes; certificados se probó por separado con un `color_hex` de
+  evento temporal (`#7b2cbf`, revertido después) para confirmar que sigue siendo
+  independiente del form_type.
+
+### Added
+- **Cuadro para foto en gafetes** (`tickets/gafetes.blade.php`): recuadro `4cm x 4cm`
+  centrado entre el rol y el QR, con borde punteado y etiqueta "Foto 4x4cm" — placeholder
+  para pegar una foto física antes de imprimir (sin subida digital, es puro layout de
+  impresión). Usa unidades `cm` directas, que dompdf respeta contra el tamaño físico de
+  página, sin necesidad de convertir a px. Probado contra el evento 59 real (6 gafetes) —
+  el recuadro entra cómodo en la grilla de 3 columnas sin desbordar la tarjeta.
+- **Certificados de asistencia/participación en bulk** (`GET /event/{event}/certificados-pdf`):
+  extensión directa del patrón de `gafetesPdf` (mismo filtro de inscripciones no
+  canceladas/fallidas, mismo `Pdf::loadView`), un certificado por página en A4 horizontal. Dos
+  variantes según `form_types.requiere_categoria` de la inscripción:
+  - `true` (carreras): **certificado de participación**, solo para participantes con un
+    `Resultado` cargado y `estado = 'finisher'` (dns/dnf/dsq quedan afuera, mismo criterio que
+    el ranking de equipo) — incluye categoría (resuelta por nombre, no el id crudo),
+    tiempo oficial y posición general/categoría.
+  - `false` (congresos, staff, voluntariado): **certificado de asistencia** simple, para
+    cualquier inscripción pagada, sin depender de resultados — usa `participantes.categoria`
+    como rol (mismo campo que ya usa `gafetesPdf`, ahí guarda el nombre del form_type cuando
+    no hay categoría real).
+  - Probado end-to-end contra datos reales: evento 59 (6 finishers reales, categorías 5K/10K
+    resueltas correctamente, sin páginas en blanco) y evento 8 (con una inscripción/participante
+    de prueba creada y borrada después, para validar la rama de asistencia — no había ninguna
+    registrada todavía contra los form_types `Voluntario`/`Ayudante`/`Staff`).
+- **Personalización por evento de gafetes y certificados** ("Nivel 1", ver
+  `elascenso/event/brain/informe-backend-producto-30072026.md` §9): logo y color de marca ya
+  no están hardcodeados en los dos templates.
+  - **`eventos.color_hex`** (columna nueva, string(7) nullable): a diferencia de `color_id`
+    (columna vieja sin tabla de colores detrás, siempre `1` — nunca funcionó de verdad),
+    este campo se guarda tal cual lo manda el organizador (`colorHex` en `POST /event`,
+    ver `StoreEventosRequest`/`EventoDTO`/`EventoService::create()`). Sin valor, cae al navy
+    `#022858` que ya usaban ambos templates. **Validado con regex hex en el propio blade**
+    antes de interpolarlo dentro de `<style>` — es texto del organizador, y sin ese chequeo
+    un valor no-hex podría romper el CSS del documento completo.
+  - **Logo**: reusa `imagen_portada_url` (ya era un campo real end-to-end, a diferencia de
+    `logo_url` que también estaba hardcodeado — se decidió no abrir un campo nuevo para esto,
+    ver informe §9 para el detalle de la decisión). dompdf tiene `enable_remote` en `false`
+    por defecto (protección anti-SSRF razonable, no se tocó a nivel global) — una URL externa
+    cruda en el `<img>` del PDF salía como ícono roto. Se resolvió con
+    `EventoController::logoDataUri()`: descarga la imagen server-side (`Http::timeout(5)`) y
+    la pasa a la vista como data URI base64, mismo patrón que `ReferenceQrService` ya usa
+    para el QR. Best-effort — si falla (timeout, 404, no es imagen), el PDF se genera igual,
+    sin logo.
+  - Probado con un color (`#b3261e`) e imagen (`picsum.photos`) temporales en el evento 59
+    real, contra ambos endpoints — confirmado que el logo se embebe y el color se aplica en
+    borde/nombre/rol/stats; datos de prueba revertidos a `NULL` después.
+  - **`EventoController::update()` sigue siendo un stub vacío** (gap ya documentado, ver
+    `project_features_resultados_equipos_delivery` en memoria) — hoy `colorHex` solo se puede
+    fijar al crear el evento, no editarlo después, mismo límite que el resto de los campos.
+
 ## 2026-07-31
 
 Cinco requerimientos nuevos del organizador (`elascenso/event/brain/PRD-Resultados`):

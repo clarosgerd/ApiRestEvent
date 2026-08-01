@@ -26,6 +26,7 @@ class StoreEventosRequest extends FormRequest
             'hasDonation'           => 'nullable|boolean',
             'video'                 => 'nullable|string|max:255',
             'image'                 => 'nullable|string|max:255',
+            'colorHex'              => 'nullable|string|max:7',
             'deslinde'              => 'nullable|string|max:500',
             'deslinde_pdf_url'      => 'nullable|string|max:500',
 

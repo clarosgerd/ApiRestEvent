@@ -13,6 +13,7 @@
     text-align: center;
     background: #ffffff;
   }
+  .badge .logo { max-height: 32px; max-width: 90%; margin-bottom: 6px; }
   .badge .eventName {
     font-size: 9px; text-transform: uppercase; letter-spacing: 1px;
     color: #00acbe; font-weight: bold; margin-bottom: 8px;
@@ -23,7 +24,19 @@
     padding: 3px 12px; border-radius: 20px; margin-bottom: 12px;
     background: #eef2f1; color: #022858;
   }
-  .badge .role.ponente { background: #022858; color: #ffffff; }
+  .badge .photo-box {
+    width: 4cm; height: 4cm;
+    margin: 0 auto 12px;
+    border: 1px dashed #b0bac8;
+    background: #f7f9fb;
+    display: table;
+  }
+  .badge .photo-box .label {
+    display: table-cell;
+    vertical-align: middle;
+    text-align: center;
+    color: #a0aab8; font-size: 9px; text-transform: uppercase; letter-spacing: 1px;
+  }
   .badge img.qr { width: 72px; height: 72px; }
   .badge .ref { font-size: 8px; color: #607080; margin-top: 6px; letter-spacing: 1px; }
 </style>
@@ -38,11 +51,19 @@
   <table class="grid">
     <tr>
       @foreach ($fila as $item)
+        @php
+          $itemColor = $item['color'] ?? '#022858';
+          $esPonente = strtolower($item['categoria']) === 'ponente';
+        @endphp
         <td class="badge-cell">
-          <div class="badge">
+          <div class="badge" style="border-color: {{ $itemColor }};">
+            @if (!empty($logo))
+              <img class="logo" src="{{ $logo }}">
+            @endif
             <div class="eventName">{{ $evento->nombre }}</div>
-            <div class="name">{{ $item['nombre'] }}</div>
-            <div class="role {{ strtolower($item['categoria']) }}">{{ $item['categoria'] }}</div><br>
+            <div class="name" style="color: {{ $itemColor }};">{{ $item['nombre'] }}</div>
+            <div class="role" style="background: {{ $esPonente ? $itemColor : '#eef2f1' }}; color: {{ $esPonente ? '#ffffff' : $itemColor }};">{{ $item['categoria'] }}</div><br>
+            <div class="photo-box"><span class="label">Foto<br>4x4cm</span></div>
             <img class="qr" src="data:image/png;base64,{{ $item['qr'] }}">
             <div class="ref">{{ $item['referencia'] }}</div>
           </div>

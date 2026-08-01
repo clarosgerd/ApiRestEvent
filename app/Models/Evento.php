@@ -41,6 +41,7 @@ class Evento extends Model
         'url_virtual', // URL de la plataforma virtual
         'aforo_total', // Capacidad máxima de asistentes
         'color_id', // Color asociado al evento
+        'color_hex', // Color de marca del evento, ej. '#022858' — usado en gafetes/certificados
         'logo_url', // URL del logo del evento
         'imagen_portada_url', // URL de la imagen de portada del evento
         'icono_url', // URL del icono del evento

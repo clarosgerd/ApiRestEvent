@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Category;
 use App\Models\Evento;
 use App\Models\EventoNotification;
 use App\Models\Registration;
@@ -18,6 +19,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use App\Jobs\SendWhatsappMessageJob;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 
 class EventoController extends Controller
@@ -253,22 +255,31 @@ class EventoController extends Controller
      * participante inscrito (excluye cancelados/fallidos), con nombre,
      * categoría/rol y un QR de la referencia para check-in. Pensado para
      * congresos, pero sirve para cualquier evento.
+     *
+     * Color por gafete: **no** usa la marca del evento (`color_hex`) — cada
+     * gafete toma el color de `form_types.color`, así que un evento con
+     * varios tipos de formulario (Individual, Grupal, Voluntario...) puede
+     * distinguirlos a simple vista en la mesa de acreditación. Sin color
+     * propio en el form_type, cae al navy por defecto.
      */
     public function gafetesPdf(Evento $event)
     {
         $registrations = Registration::where('evento_id', $event->id)
             ->whereNotIn('pago_status', ['cancelled', 'failed'])
-            ->with('participants')
+            ->with(['participants', 'formType'])
             ->get();
 
         $items = [];
         foreach ($registrations as $registration) {
+            $color = $this->safeHex($registration->formType->color ?? null);
+
             foreach ($registration->participants as $participante) {
                 $items[] = [
                     'nombre'     => trim($participante->nombre . ' ' . $participante->apellido),
                     'categoria'  => $participante->categoria,
                     'referencia' => $registration->referencia,
                     'qr'         => ReferenceQrService::toBase64Png($registration->referencia),
+                    'color'      => $color,
                 ];
             }
         }
@@ -276,9 +287,116 @@ class EventoController extends Controller
         $pdf = Pdf::loadView('tickets.gafetes', [
             'evento' => $event,
             'filas'  => array_chunk($items, 3),
+            'logo'   => $this->logoDataUri($event->imagen_portada_url),
         ]);
 
         return $pdf->stream('gafetes-' . Str::slug($event->nombre) . '.pdf');
+    }
+
+    /**
+     * Descarga la imagen de portada del evento y la devuelve como data URI
+     * — dompdf tiene `enable_remote` en `false` por defecto (protección
+     * anti-SSRF razonable, no se toca a nivel global) así que una URL
+     * externa cruda en el `<img>` del PDF sale rota. Mismo criterio que
+     * `ReferenceQrService::toBase64Png()`: el PDF solo recibe bytes ya
+     * resueltos, nunca una URL que él mismo tenga que ir a buscar.
+     * Best-effort: si falla (timeout, no es imagen, 404), el PDF se genera
+     * igual, simplemente sin logo.
+     */
+    private function logoDataUri(?string $url): ?string
+    {
+        if (empty($url)) {
+            return null;
+        }
+
+        try {
+            $response = Http::timeout(5)->get($url);
+            $mime = $response->header('Content-Type') ?: '';
+
+            if (! $response->successful() || ! str_starts_with($mime, 'image/')) {
+                return null;
+            }
+
+            return 'data:' . $mime . ';base64,' . base64_encode($response->body());
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
+    /**
+     * Valida que un color venga en formato hex antes de dejarlo llegar a un
+     * bloque <style> del PDF — es un campo que carga el organizador
+     * (`form_types.color` / `eventos.color_hex`), así que un valor no-hex
+     * colado hasta ahí podría romper el CSS del documento entero.
+     */
+    private function safeHex(?string $hex, string $fallback = '#022858'): string
+    {
+        return preg_match('/^#[0-9a-fA-F]{6}$/', (string) $hex) ? $hex : $fallback;
+    }
+
+    /**
+     * Certificados en bulk para imprimir/entregar en el evento — uno por
+     * participante elegible, un PDF por página (orientación horizontal).
+     * Dos variantes según el form_type de la inscripción:
+     * - `requiere_categoria = true` (carreras): "certificado de
+     *   participación", solo para quienes tienen un Resultado cargado con
+     *   estado `finisher` (dns/dnf/dsq quedan afuera, igual que el ranking
+     *   de equipo — ver brain/PLAN-RESULTADOS-EQUIPOS-31072026.md), incluye
+     *   tiempo oficial y posición.
+     * - `requiere_categoria = false` (congresos, staff, voluntariado):
+     *   "certificado de asistencia" simple, para cualquier inscripción
+     *   pagada — no depende de resultados.
+     */
+    public function certificadosPdf(Evento $event)
+    {
+        $event->loadMissing('categories');
+        $categoryNames = $event->categories->pluck('name', 'id');
+
+        $registrations = Registration::where('evento_id', $event->id)
+            ->whereNotIn('pago_status', ['cancelled', 'failed'])
+            ->with(['formType', 'participants.resultado'])
+            ->get();
+
+        $items = [];
+        foreach ($registrations as $registration) {
+            $formType = $registration->formType;
+            $requiereCategoria = $formType ? (bool) $formType->requiere_categoria : true;
+
+            foreach ($registration->participants as $participante) {
+                if ($requiereCategoria) {
+                    $resultado = $participante->resultado;
+                    if (! $resultado || $resultado->estado !== 'finisher') {
+                        continue;
+                    }
+
+                    $items[] = [
+                        'tipo'              => 'participacion',
+                        'nombre'            => trim($participante->nombre . ' ' . $participante->apellido),
+                        'categoria'         => $categoryNames[$participante->categoria] ?? $participante->categoria,
+                        'tiempoOficial'     => $resultado->tiempo_oficial,
+                        'posicionGeneral'   => $resultado->posicion_general,
+                        'posicionCategoria' => $resultado->posicion_categoria,
+                        'referencia'        => $registration->referencia,
+                    ];
+                } else {
+                    $items[] = [
+                        'tipo'       => 'asistencia',
+                        'nombre'     => trim($participante->nombre . ' ' . $participante->apellido),
+                        'rol'        => $participante->categoria,
+                        'referencia' => $registration->referencia,
+                    ];
+                }
+            }
+        }
+
+        $pdf = Pdf::loadView('tickets.certificados', [
+            'evento' => $event,
+            'items'  => $items,
+            'logo'   => $this->logoDataUri($event->imagen_portada_url),
+            'brand'  => $this->safeHex($event->color_hex),
+        ])->setPaper('a4', 'landscape');
+
+        return $pdf->stream('certificados-' . Str::slug($event->nombre) . '.pdf');
     }
 
     /**

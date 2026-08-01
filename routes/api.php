@@ -22,6 +22,7 @@ Route::group(['prefix' => 'v1','namespace' => 'App\Http\Controllers'], function 
     Route::apiResource('/event',EventoController::class);
     Route::get('/event/{event}/agenda-pdf', [EventoController::class, 'agendaPdf']);
     Route::get('/event/{event}/gafetes-pdf', [EventoController::class, 'gafetesPdf']);
+    Route::get('/event/{event}/certificados-pdf', [EventoController::class, 'certificadosPdf']);
     Route::patch('/event/{event}/publicar', [EventoController::class, 'publicar']);
     Route::apiResource('/coordinate',CoordinateController::class);
     Route::apiResource('/route',RouteController::class);
