@@ -87,6 +87,44 @@ class EventoService
         });
     }
 
+    /**
+     * Actualiza los campos escalares del evento — no toca categorías,
+     * form_types, promo_codes, coordenadas, ruta ni agenda, que tienen sus
+     * propios endpoints de edición (ver Category/FormType/PromoCode/
+     * Coordinate/RouteController).
+     */
+    public function update(Evento $evento, array $data): Evento
+    {
+        $map = [
+            'name'             => 'nombre',
+            'description'      => 'descripcion',
+            'longDescription'  => 'longDescription',
+            'date'             => 'fecha_inicio',
+            'localTime'        => 'localTime',
+            'location'         => 'direccion',
+            'status'           => 'estado_evento_id',
+            'hasDonation'      => 'hasDonation',
+            'video'            => 'video_url',
+            'image'            => 'imagen_portada_url',
+            'colorHex'         => 'color_hex',
+            'deslinde'         => 'deslinde',
+            'deslinde_pdf_url' => 'deslinde_pdf_url',
+        ];
+
+        $attributes = [];
+        foreach ($map as $requestKey => $column) {
+            if (array_key_exists($requestKey, $data)) {
+                $attributes[$column] = $data[$requestKey];
+            }
+        }
+
+        if (!empty($attributes)) {
+            $evento->update($attributes);
+        }
+
+        return $this->loadRelations($evento);
+    }
+
     private function createCoordinates(Evento $evento, EventoDTO $dto): void
     {
         if (empty($dto->coordinates)) return;

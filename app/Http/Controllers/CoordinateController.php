@@ -9,10 +9,15 @@ use App\Http\Resources\CoordinateResource;
 use App\Http\Resources\CoordinateCollection;
 use App\Filters\CoordinateFilter;
 use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
+use App\Http\Controllers\Concerns\AuthorizesEventoScope;
+use App\Services\AdminAuditLogger;
 
 
 class CoordinateController extends Controller
 {
+    use AuthorizesEventoScope;
+
     /**
      * Display a listing of the resource.
      */
@@ -36,9 +41,20 @@ class CoordinateController extends Controller
     /**
      * Store a newly created resource in storage.
      */
-    public function store(StoreCoordinateRequest $request)
+    public function store(StoreCoordinateRequest $request): JsonResponse
     {
-        //
+        $data = $request->validated();
+        $this->assertCanWriteEvento((int) $data['event_id']);
+
+        $coordinate = Coordinate::create($data);
+
+        AdminAuditLogger::log('create', 'coordinate', $coordinate->id, (int) $coordinate->event_id, null, $coordinate->toArray());
+
+        return response()->json([
+            'success'    => true,
+            'message'    => 'Coordenada creada correctamente.',
+            'coordinate' => new CoordinateResource($coordinate),
+        ], 201);
     }
 
     /**
@@ -67,16 +83,40 @@ class CoordinateController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(UpdateCoordinateRequest $request, Coordinate $coordinate)
+    public function update(UpdateCoordinateRequest $request, Coordinate $coordinate): JsonResponse
     {
-        //
+        $this->assertCanWriteEvento((int) $coordinate->event_id);
+
+        $before = $coordinate->toArray();
+        $coordinate->update($request->validated());
+
+        AdminAuditLogger::log('update', 'coordinate', $coordinate->id, (int) $coordinate->event_id, $before, $coordinate->toArray());
+
+        return response()->json([
+            'success'    => true,
+            'message'    => 'Coordenada actualizada correctamente.',
+            'coordinate' => new CoordinateResource($coordinate),
+        ]);
     }
 
     /**
      * Remove the specified resource from storage.
+     *
+     * Sin guarda de inscripciones: es dato geográfico puro, ningún
+     * participante lo referencia.
      */
-    public function destroy(Coordinate $coordinate)
+    public function destroy(Coordinate $coordinate): JsonResponse
     {
-        //
+        $this->assertCanWriteEvento((int) $coordinate->event_id);
+
+        $before = $coordinate->toArray();
+        $coordinate->delete();
+
+        AdminAuditLogger::log('delete', 'coordinate', $coordinate->id, (int) $coordinate->event_id, $before, null);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Coordenada eliminada correctamente.',
+        ]);
     }
 }

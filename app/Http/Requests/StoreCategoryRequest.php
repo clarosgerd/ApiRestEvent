@@ -12,7 +12,7 @@ class StoreCategoryRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return false;
+        return true;
     }
 
     /**
@@ -23,7 +23,16 @@ class StoreCategoryRequest extends FormRequest
     public function rules(): array
     {
         return [
-            //
+            'event_id'        => 'required|integer|exists:eventos,id',
+            'name'            => 'required|string|max:255',
+            'price'           => 'required|numeric|min:0',
+            'description'     => 'nullable|string',
+            'color'           => 'nullable|string|max:7',
+            'formulario_id'   => 'nullable|integer',
+            'sexo_id'         => 'nullable|integer',
+            'edad_min'        => 'nullable|integer|min:0',
+            'edad_max'        => 'nullable|integer|min:0',
+            'calculo_edad_id' => 'nullable|integer',
         ];
     }
 }

@@ -12,18 +12,46 @@ class UpdateFormTypeRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return false;
+        return true;
     }
 
     /**
      * Get the validation rules that apply to the request.
+     *
+     * Mismo set de campos que StoreFormTypeRequest, todos opcionales — no
+     * incluye souvenirs/preguntas (esos se administran vía SouvenirController
+     * / preguntas del formulario, no se resincronizan en un PUT/PATCH de
+     * form_type suelto).
      *
      * @return array<string, ValidationRule|array<mixed>|string>
      */
     public function rules(): array
     {
         return [
-            //
+            'name'                       => 'sometimes|string|max:255',
+            'icon'                       => 'sometimes|string|max:255',
+            'description'                => 'sometimes|string',
+            'tipo'                       => 'sometimes|nullable|string',
+            'cupo_total'                 => 'sometimes|integer|min:0',
+            'precio_base'                => 'sometimes|numeric|min:0',
+            'costo_edicion'              => 'sometimes|numeric|min:0',
+            'tiempo_expiracion_min'      => 'sometimes|integer|min:0',
+            'color'                      => 'sometimes|string|max:7',
+            'moneda'                     => 'sometimes|nullable|boolean',
+            'activo'                     => 'sometimes|nullable|boolean',
+            'permite_lista_espera'       => 'sometimes|nullable|boolean',
+            'requiere_categoria'         => 'sometimes|nullable|boolean',
+            'requiere_talla'             => 'sometimes|nullable|boolean',
+            'requiere_distancia'         => 'sometimes|nullable|boolean',
+            'hasshirt'                   => 'sometimes|nullable|boolean',
+            'costo_polera'               => 'sometimes|nullable|numeric|min:0',
+            'permite_inscripcion_grupal' => 'sometimes|nullable|boolean',
+            'max_integrantes_grupo'      => 'sometimes|nullable|integer|min:1',
+            'descuento_registrante_pct'  => 'sometimes|nullable|numeric|min:0|max:1',
+            'hasQuestion'                => 'sometimes|nullable|boolean',
+            'texto_boton'                => 'sometimes|nullable|string|max:60',
+            'has_team'                   => 'sometimes|nullable|boolean',
+            'has_delivery'               => 'sometimes|nullable|boolean',
         ];
     }
 }

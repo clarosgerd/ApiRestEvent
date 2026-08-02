@@ -14,7 +14,9 @@ use App\Http\Requests\UpdateEventosRequest;
 use App\Http\Resources\EventoCollection;
 use App\Http\Resources\EventoResource;
 use App\Services\EventoService;
+use App\Services\AdminAuditLogger;
 use App\Filters\EventoFilter;
+use App\Http\Controllers\Concerns\AuthorizesEventoScope;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use App\Jobs\SendWhatsappMessageJob;
@@ -24,6 +26,8 @@ use Illuminate\Support\Str;
 
 class EventoController extends Controller
 {
+    use AuthorizesEventoScope;
+
     public function __construct(
         private readonly EventoService $service
     ) {}
@@ -138,8 +142,15 @@ class EventoController extends Controller
      */
     public function store(StoreEventosRequest $request): JsonResponse
     {
+        // Crear un evento nuevo (no editar uno existente) es una acción de
+        // super_admin — un admin scoped a un solo evento no tiene ningún
+        // evento_id nuevo al que quedar asociado automáticamente.
+        $this->assertIsSuperAdmin();
+
         $dto = EventoDTO::fromArray($request->validated());
         $evento = $this->service->create($dto);
+
+        AdminAuditLogger::log('create', 'evento', $evento->id, $evento->id, null, $evento->toArray());
 
         return response()->json([
             'success' => true,
@@ -158,6 +169,8 @@ class EventoController extends Controller
      */
     public function publicar(Evento $event): JsonResponse
     {
+        $this->assertCanWriteEvento($event->id);
+
         if ($event->publicado) {
             return response()->json([
                 'success' => false,
@@ -174,6 +187,8 @@ class EventoController extends Controller
             'canal'      => 'email',
             'enviado_at' => now(),
         ]);
+
+        AdminAuditLogger::log('publicar', 'evento', $event->id, $event->id, ['publicado' => false], ['publicado' => true]);
 
         return response()->json([
             'success' => true,
@@ -410,17 +425,51 @@ class EventoController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(UpdateEventosRequest $request, Evento $evento)
+    public function update(UpdateEventosRequest $request, Evento $event): JsonResponse
     {
-        //
+        $this->assertCanWriteEvento($event->id);
+
+        $before = $event->toArray();
+        $event = $this->service->update($event, $request->validated());
+
+        AdminAuditLogger::log('update', 'evento', $event->id, $event->id, $before, $event->toArray());
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Evento actualizado correctamente.',
+            'eventos' => new EventoResource($event),
+        ]);
     }
 
     /**
      * Remove the specified resource from storage.
+     *
+     * Se rechaza (409) solo cuando el evento tiene participantes Y está
+     * publicado a la vez — regla confirmada por el usuario, ver
+     * brain/PLAN-PANEL-ADMIN-EVENTOS-02082026.md §1.1. Deja pasar a
+     * propósito un evento publicado sin participantes, o uno con
+     * participantes de prueba pero aún en borrador.
      */
-    public function destroy(Evento $evento)
+    public function destroy(Evento $event): JsonResponse
     {
-        //
+        $this->assertCanWriteEvento($event->id);
+
+        if ($event->publicado && $event->registrations()->exists()) {
+            return response()->json([
+                'success' => false,
+                'error'   => 'No se puede eliminar un evento publicado que ya tiene participantes.',
+            ], 409);
+        }
+
+        $before = $event->toArray();
+        $event->delete();
+
+        AdminAuditLogger::log('delete', 'evento', $event->id, $event->id, $before, null);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Evento eliminado correctamente.',
+        ]);
     }
 
 

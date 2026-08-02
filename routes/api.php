@@ -11,6 +11,9 @@ use App\Http\Controllers\ParticipanteController;
 use App\Http\Controllers\ResultadoController;
 use App\Http\Controllers\EquipoController;
 use App\Http\Controllers\ClubController;
+use App\Http\Controllers\AdminAuthController;
+use App\Http\Controllers\AdminUserController;
+use App\Http\Controllers\AdminAuditLogController;
 
 Route::get('/user', function (Request $request) {
     return $request->user();
@@ -19,15 +22,40 @@ Route::get('/user', function (Request $request) {
 
 
 Route::group(['prefix' => 'v1','namespace' => 'App\Http\Controllers'], function () {
-    Route::apiResource('/event',EventoController::class);
+    // Lectura pública — la SPA de inscripción (elascenso/event) depende de
+    // que estas rutas sigan sin auth. No mover al grupo protegido de abajo.
+    Route::apiResource('/event',EventoController::class)->only(['index', 'show']);
     Route::get('/event/{event}/agenda-pdf', [EventoController::class, 'agendaPdf']);
     Route::get('/event/{event}/gafetes-pdf', [EventoController::class, 'gafetesPdf']);
     Route::get('/event/{event}/certificados-pdf', [EventoController::class, 'certificadosPdf']);
-    Route::patch('/event/{event}/publicar', [EventoController::class, 'publicar']);
-    Route::apiResource('/coordinate',CoordinateController::class);
-    Route::apiResource('/route',RouteController::class);
-    Route::apiResource('/category',CategoryController::class);
-    Route::apiResource('/form-type',FormTypeController::class);
+    Route::apiResource('/coordinate',CoordinateController::class)->only(['index', 'show']);
+    Route::apiResource('/route',RouteController::class)->only(['index', 'show']);
+    Route::apiResource('/category',CategoryController::class)->only(['index', 'show']);
+    Route::apiResource('/form-type',FormTypeController::class)->only(['index', 'show']);
+    Route::apiResource('/promo-code',PromoCodeController::class)->only(['index', 'show']);
+
+    // Escritura — panel de administración de eventos (ver
+    // brain/PLAN-PANEL-ADMIN-EVENTOS-02082026.md), protegido con guard
+    // `admins` (super_admin ve todo, admin scoped a un evento — el scoping
+    // real se valida dentro de cada controlador vía AuthorizesEventoScope,
+    // el middleware acá solo exige "es un AdminUser válido").
+    Route::middleware('auth:admins')->group(function () {
+        Route::apiResource('/event', EventoController::class)->only(['store', 'update', 'destroy']);
+        Route::patch('/event/{event}/publicar', [EventoController::class, 'publicar']);
+        Route::apiResource('/coordinate', CoordinateController::class)->only(['store', 'update', 'destroy']);
+        Route::apiResource('/route', RouteController::class)->only(['store', 'update', 'destroy']);
+        Route::apiResource('/category', CategoryController::class)->only(['store', 'update', 'destroy']);
+        Route::apiResource('/form-type', FormTypeController::class)->only(['store', 'update', 'destroy']);
+        Route::apiResource('/promo-code', PromoCodeController::class)->only(['store', 'update', 'destroy']);
+
+        Route::post('/admin/logout', [AdminAuthController::class, 'logout']);
+        Route::get('/admin/me', [AdminAuthController::class, 'me']);
+        Route::apiResource('/admin/users', AdminUserController::class)->except(['create', 'edit']);
+        Route::get('/admin/audit-logs', [AdminAuditLogController::class, 'index']);
+    });
+
+    Route::post('/admin/login', [AdminAuthController::class, 'login']);
+
     Route::get('persona/me', [PersonaController::class, 'me'])->middleware('auth:sanctum');
     Route::apiResource('/persona',PersonaController::class)->middleware('auth:sanctum');
     Route::post('persona/register', [PersonaController::class, 'register']);

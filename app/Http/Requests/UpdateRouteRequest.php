@@ -12,7 +12,7 @@ class UpdateRouteRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return false;
+        return true;
     }
 
     /**
@@ -23,7 +23,9 @@ class UpdateRouteRequest extends FormRequest
     public function rules(): array
     {
         return [
-            //
+            'lat'   => 'sometimes|numeric',
+            'lng'   => 'sometimes|numeric',
+            'label' => 'sometimes|string|max:500',
         ];
     }
 }

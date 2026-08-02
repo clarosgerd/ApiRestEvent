@@ -12,7 +12,7 @@ class UpdateCoordinateRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return false;
+        return true;
     }
 
     /**
@@ -23,7 +23,8 @@ class UpdateCoordinateRequest extends FormRequest
     public function rules(): array
     {
         return [
-            //
+            'lat' => 'sometimes|numeric',
+            'lng' => 'sometimes|numeric',
         ];
     }
 }

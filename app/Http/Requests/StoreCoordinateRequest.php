@@ -12,7 +12,7 @@ class StoreCoordinateRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return false;
+        return true;
     }
 
     /**
@@ -23,7 +23,9 @@ class StoreCoordinateRequest extends FormRequest
     public function rules(): array
     {
         return [
-            //
+            'event_id' => 'required|integer|exists:eventos,id',
+            'lat'      => 'required|numeric',
+            'lng'      => 'required|numeric',
         ];
     }
 }

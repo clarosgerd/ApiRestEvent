@@ -3,13 +3,20 @@
 namespace App\Http\Controllers;
 
 use App\Models\Category;
+use App\Models\Participante;
 use App\Http\Requests\StoreCategoryRequest;
 use App\Http\Requests\UpdateCategoryRequest;
-use Illuminate\Http\Request; 
+use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
 use App\Filters\CategoryFilter;
-use  App\Http\Resource\CategoryResource;
+use App\Http\Resources\CategoryResource;
+use App\Http\Resources\CategoryCollection;
+use App\Http\Controllers\Concerns\AuthorizesEventoScope;
+use App\Services\AdminAuditLogger;
 class CategoryController extends Controller
 {
+    use AuthorizesEventoScope;
+
     /**
      * Display a listing of the resource.
      */
@@ -33,9 +40,20 @@ class CategoryController extends Controller
     /**
      * Store a newly created resource in storage.
      */
-    public function store(StoreCategoryRequest $request)
+    public function store(StoreCategoryRequest $request): JsonResponse
     {
-        //
+        $data = $request->validated();
+        $this->assertCanWriteEvento((int) $data['event_id']);
+
+        $category = Category::create($data);
+
+        AdminAuditLogger::log('create', 'categoria', $category->id, (int) $category->event_id, null, $category->toArray());
+
+        return response()->json([
+            'success'  => true,
+            'message'  => 'Categoría creada correctamente.',
+            'category' => new CategoryResource($category),
+        ], 201);
     }
 
     /**
@@ -59,16 +77,54 @@ class CategoryController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(UpdateCategoryRequest $request, Category $category)
+    public function update(UpdateCategoryRequest $request, Category $category): JsonResponse
     {
-        //
+        $this->assertCanWriteEvento((int) $category->event_id);
+
+        $before = $category->toArray();
+        $category->update($request->validated());
+
+        AdminAuditLogger::log('update', 'categoria', $category->id, (int) $category->event_id, $before, $category->toArray());
+
+        return response()->json([
+            'success'  => true,
+            'message'  => 'Categoría actualizada correctamente.',
+            'category' => new CategoryResource($category),
+        ]);
     }
 
     /**
      * Remove the specified resource from storage.
+     *
+     * Bloquea (409) si algún participante del evento ya se inscribió con
+     * esta categoría — `Participante.categoria` guarda el id de la
+     * categoría (ver certificadosPdf/gafetesPdf en EventoController).
+     * Regla confirmada por el usuario: aplica siempre, sin importar si el
+     * evento está publicado.
      */
-    public function destroy(Category $category)
+    public function destroy(Category $category): JsonResponse
     {
-        //
+        $this->assertCanWriteEvento((int) $category->event_id);
+
+        $enUso = Participante::where('categoria', (string) $category->id)
+            ->whereHas('registration', fn ($q) => $q->where('evento_id', $category->event_id))
+            ->exists();
+
+        if ($enUso) {
+            return response()->json([
+                'success' => false,
+                'error'   => 'No se puede eliminar esta categoría: ya tiene participantes inscritos.',
+            ], 409);
+        }
+
+        $before = $category->toArray();
+        $category->delete();
+
+        AdminAuditLogger::log('delete', 'categoria', $category->id, (int) $category->event_id, $before, null);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Categoría eliminada correctamente.',
+        ]);
     }
 }

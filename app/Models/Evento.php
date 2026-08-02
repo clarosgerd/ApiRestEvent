@@ -4,11 +4,12 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Evento extends Model
 {
     /** @use HasFactory<\Database\Factories\EventosFactory> */
-    use HasFactory;
+    use HasFactory, SoftDeletes;
     protected $primaryKey = 'id';
     protected $table = 'eventos';
     protected $fillable = [
@@ -103,6 +104,11 @@ protected $casts = [
     public function equipos()
     {
        return $this->hasMany('App\Models\Equipo', 'event_id')->orderBy('nombre');
+    }
+
+    public function registrations()
+    {
+       return $this->hasMany('App\Models\Registration', 'evento_id');
     }
 
     public function organizador()

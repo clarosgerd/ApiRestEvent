@@ -51,6 +51,10 @@ return [
         'driver' => 'sanctum',
         'provider' => 'clubes',
     ],
+    'admins' => [
+        'driver' => 'sanctum',
+        'provider' => 'admins',
+    ],
     ],
 
     /*
@@ -88,6 +92,10 @@ return [
         'clubes' => [
             'driver' => 'eloquent',
             'model' => App\Models\Club::class,
+        ],
+        'admins' => [
+            'driver' => 'eloquent',
+            'model' => App\Models\AdminUser::class,
         ],
     ],
 

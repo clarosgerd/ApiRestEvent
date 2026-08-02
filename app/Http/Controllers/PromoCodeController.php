@@ -10,9 +10,13 @@ use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use App\Http\Resources\PromoCodeResource;
 use App\Http\Resources\PromoCodeCollection;
-use App\Filters\PromoCodeFilter;    
+use App\Filters\PromoCodeFilter;
+use App\Http\Controllers\Concerns\AuthorizesEventoScope;
+use App\Services\AdminAuditLogger;
 class PromoCodeController extends Controller
 {
+    use AuthorizesEventoScope;
+
     /**
      * Display a listing of the resource.
      */
@@ -37,29 +41,40 @@ class PromoCodeController extends Controller
     /**
      * Store a newly created resource in storage.
      */
-    public function store(StorePromoCodeRequest $request)
+    public function store(StorePromoCodeRequest $request): JsonResponse
     {
-        //
+        $data = $request->validated();
+        $this->assertCanWriteEvento((int) $data['event_id']);
+
+        $promoCode = PromoCode::create($data);
+
+        AdminAuditLogger::log('create', 'promo_code', $promoCode->id, (int) $promoCode->event_id, null, $promoCode->toArray());
+
+        return response()->json([
+            'success'   => true,
+            'message'   => 'Código de promoción creado correctamente.',
+            'promoCode' => new PromoCodeResource($promoCode),
+        ], 201);
     }
 
     /**
      * Display the specified resource.
      */
-    public function show(PromoCode $promoCode)
+    public function show(PromoCode $promo_code)
     {
         //
         $includePromoCode = request()->query('includePromoCode');
         if ($includePromoCode) {
-            return new PromoCodeResource($promoCode->loadMissing('promoCodes'));
+            return new PromoCodeResource($promo_code->loadMissing('promoCodes'));
         }
 
-        return new PromoCodeResource($promoCode);
+        return new PromoCodeResource($promo_code);
     }
 
     /**
      * Show the form for editing the specified resource.
      */
-    public function edit(PromoCode $promoCode)
+    public function edit(PromoCode $promo_code)
     {
         //
     }
@@ -67,17 +82,49 @@ class PromoCodeController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(UpdatePromoCodeRequest $request, PromoCode $promoCode)
+    public function update(UpdatePromoCodeRequest $request, PromoCode $promo_code): JsonResponse
     {
-        //
+        $this->assertCanWriteEvento((int) $promo_code->event_id);
+
+        $before = $promo_code->toArray();
+        $promo_code->update($request->validated());
+
+        AdminAuditLogger::log('update', 'promo_code', $promo_code->id, (int) $promo_code->event_id, $before, $promo_code->toArray());
+
+        return response()->json([
+            'success'   => true,
+            'message'   => 'Código de promoción actualizado correctamente.',
+            'promoCode' => new PromoCodeResource($promo_code),
+        ]);
     }
 
     /**
      * Remove the specified resource from storage.
+     *
+     * Bloquea (409) si el código ya fue usado — PromoCode trackea su
+     * propio uso (`usado` + `registration_id`), no hace falta consultar
+     * Participante.
      */
-    public function destroy(PromoCode $promoCode)
+    public function destroy(PromoCode $promo_code): JsonResponse
     {
-        //
+        $this->assertCanWriteEvento((int) $promo_code->event_id);
+
+        if ($promo_code->usado || $promo_code->registration_id) {
+            return response()->json([
+                'success' => false,
+                'error'   => 'No se puede eliminar este código de promoción: ya fue utilizado.',
+            ], 409);
+        }
+
+        $before = $promo_code->toArray();
+        $promo_code->delete();
+
+        AdminAuditLogger::log('delete', 'promo_code', $promo_code->id, (int) $promo_code->event_id, $before, null);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Código de promoción eliminado correctamente.',
+        ]);
     }
 
      public function promoCode(Request $request,string $id ,string $promocode):JsonResponse

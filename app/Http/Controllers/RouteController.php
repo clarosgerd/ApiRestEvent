@@ -6,12 +6,17 @@ use App\Models\Route;
 use App\Http\Requests\StoreRouteRequest;
 use App\Http\Requests\UpdateRouteRequest;
 use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
 use App\Filters\RouteFilter;
 use App\Http\Resources\RouteCollection;
 use App\Http\Resources\RouteResource;
+use App\Http\Controllers\Concerns\AuthorizesEventoScope;
+use App\Services\AdminAuditLogger;
 
 class RouteController extends Controller
 {
+    use AuthorizesEventoScope;
+
     /**
      * Display a listing of the resource.
      */
@@ -35,9 +40,20 @@ class RouteController extends Controller
     /**
      * Store a newly created resource in storage.
      */
-    public function store(StoreRouteRequest $request)
+    public function store(StoreRouteRequest $request): JsonResponse
     {
-        //
+        $data = $request->validated();
+        $this->assertCanWriteEvento((int) $data['event_id']);
+
+        $route = Route::create($data);
+
+        AdminAuditLogger::log('create', 'route', $route->id, (int) $route->event_id, null, $route->toArray());
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Ruta creada correctamente.',
+            'route'   => new RouteResource($route),
+        ], 201);
     }
 
     /**
@@ -65,16 +81,40 @@ class RouteController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(UpdateRouteRequest $request, Route $route)
+    public function update(UpdateRouteRequest $request, Route $route): JsonResponse
     {
-        //
+        $this->assertCanWriteEvento((int) $route->event_id);
+
+        $before = $route->toArray();
+        $route->update($request->validated());
+
+        AdminAuditLogger::log('update', 'route', $route->id, (int) $route->event_id, $before, $route->toArray());
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Ruta actualizada correctamente.',
+            'route'   => new RouteResource($route),
+        ]);
     }
 
     /**
      * Remove the specified resource from storage.
+     *
+     * Sin guarda de inscripciones: es dato geográfico puro, ningún
+     * participante lo referencia.
      */
-    public function destroy(Route $route)
+    public function destroy(Route $route): JsonResponse
     {
-        //
+        $this->assertCanWriteEvento((int) $route->event_id);
+
+        $before = $route->toArray();
+        $route->delete();
+
+        AdminAuditLogger::log('delete', 'route', $route->id, (int) $route->event_id, $before, null);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Ruta eliminada correctamente.',
+        ]);
     }
 }
