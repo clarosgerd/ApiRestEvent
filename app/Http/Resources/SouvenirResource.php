@@ -15,7 +15,7 @@ class SouvenirResource extends JsonResource
     public function toArray(Request $request): array
     {
       return [
-          //  'id'              =>$this->id,
+            'id'              =>$this->id,
             'form_types_id'            =>$this->form_types_id ,
             'name'            =>$this->name ,
             'icon'            =>$this->icon,

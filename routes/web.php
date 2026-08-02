@@ -3,6 +3,11 @@
 use App\Http\Controllers\MarketingOptOutController;
 use App\Http\Controllers\OrganizadorDashboardController;
 use App\Http\Controllers\DeliveryController;
+use App\Http\Controllers\OpsAuthController;
+use App\Http\Controllers\OpsBackupController;
+use App\Http\Controllers\OpsJobController;
+use App\Http\Controllers\OpsLinkController;
+use App\Http\Controllers\OpsLogController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -45,3 +50,28 @@ Route::get('/organizador/evento/{evento}/delivery.json', [DeliveryController::cl
 // directo desde la tabla del dashboard, sin sesión/CSRF de por medio.
 Route::get('/organizador/evento/{evento}/delivery/{participante}/estado', [DeliveryController::class, 'updateEstado'])
     ->name('delivery.dashboard.update-estado');
+
+// ── Panel de operaciones (/ops) — jobs, logs, backups a Google Drive,
+// enlaces de organizador/delivery. Login propio (guard `web` nativo,
+// tabla `users`), completamente aparte de admin-eventos (admin_users) y
+// de la SPA de inscripción (persona/club).
+Route::get('/ops/login', [OpsAuthController::class, 'showLogin'])->name('ops.login.show');
+Route::post('/ops/login', [OpsAuthController::class, 'login'])->name('ops.login');
+
+Route::middleware('auth')->prefix('ops')->name('ops.')->group(function () {
+    Route::post('/logout', [OpsAuthController::class, 'logout'])->name('logout');
+
+    Route::get('/jobs', [OpsJobController::class, 'index'])->name('jobs');
+    Route::post('/jobs/{uuid}/retry', [OpsJobController::class, 'retry'])->name('jobs.retry');
+    Route::delete('/jobs/failed/{uuid}', [OpsJobController::class, 'forget'])->name('jobs.forget');
+    Route::delete('/jobs/{id}', [OpsJobController::class, 'destroy'])->whereNumber('id')->name('jobs.destroy');
+
+    Route::get('/logs', [OpsLogController::class, 'index'])->name('logs');
+
+    Route::get('/backups', [OpsBackupController::class, 'index'])->name('backups');
+    Route::post('/backups/run', [OpsBackupController::class, 'run'])->name('backups.run');
+    Route::get('/backups/{backupRun}/download', [OpsBackupController::class, 'download'])->name('backups.download');
+
+    Route::get('/enlaces', [OpsLinkController::class, 'index'])->name('enlaces');
+    Route::get('/enlaces/{evento}', [OpsLinkController::class, 'show'])->name('enlaces.show');
+});

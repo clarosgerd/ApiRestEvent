@@ -12,7 +12,7 @@ class StoreSouvenirRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return false;
+        return true;
     }
 
     /**
@@ -23,7 +23,10 @@ class StoreSouvenirRequest extends FormRequest
     public function rules(): array
     {
         return [
-            //
+            'form_types_id' => 'required|integer|exists:form_types,id',
+            'name'          => 'required|string|max:255',
+            'icon'          => 'nullable|string|max:10',
+            'price'         => 'required|numeric|min:0',
         ];
     }
 }

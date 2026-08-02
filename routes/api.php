@@ -33,6 +33,9 @@ Route::group(['prefix' => 'v1','namespace' => 'App\Http\Controllers'], function 
     Route::apiResource('/category',CategoryController::class)->only(['index', 'show']);
     Route::apiResource('/form-type',FormTypeController::class)->only(['index', 'show']);
     Route::apiResource('/promo-code',PromoCodeController::class)->only(['index', 'show']);
+    Route::apiResource('/souvenir',SouvenirController::class)->only(['index', 'show']);
+    Route::apiResource('/auspiciador',AuspiciadorController::class)->only(['index', 'show']);
+    Route::apiResource('/agenda-item',AgendaItemController::class)->only(['index', 'show']);
 
     // Escritura — panel de administración de eventos (ver
     // brain/PLAN-PANEL-ADMIN-EVENTOS-02082026.md), protegido con guard
@@ -42,11 +45,15 @@ Route::group(['prefix' => 'v1','namespace' => 'App\Http\Controllers'], function 
     Route::middleware('auth:admins')->group(function () {
         Route::apiResource('/event', EventoController::class)->only(['store', 'update', 'destroy']);
         Route::patch('/event/{event}/publicar', [EventoController::class, 'publicar']);
+        Route::patch('/event/{event}/despublicar', [EventoController::class, 'despublicar']);
         Route::apiResource('/coordinate', CoordinateController::class)->only(['store', 'update', 'destroy']);
         Route::apiResource('/route', RouteController::class)->only(['store', 'update', 'destroy']);
         Route::apiResource('/category', CategoryController::class)->only(['store', 'update', 'destroy']);
         Route::apiResource('/form-type', FormTypeController::class)->only(['store', 'update', 'destroy']);
         Route::apiResource('/promo-code', PromoCodeController::class)->only(['store', 'update', 'destroy']);
+        Route::apiResource('/souvenir', SouvenirController::class)->only(['store', 'update', 'destroy']);
+        Route::apiResource('/auspiciador', AuspiciadorController::class)->only(['store', 'update', 'destroy']);
+        Route::apiResource('/agenda-item', AgendaItemController::class)->only(['store', 'update', 'destroy']);
 
         Route::post('/admin/logout', [AdminAuthController::class, 'logout']);
         Route::get('/admin/me', [AdminAuthController::class, 'me']);

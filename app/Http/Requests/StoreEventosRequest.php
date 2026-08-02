@@ -65,6 +65,7 @@ class StoreEventosRequest extends FormRequest
             'formTypes.*.descuento_registrante_pct'  => 'nullable|numeric|min:0|max:1',
             'formTypes.*.hasTeam'                    => 'nullable|boolean',
             'formTypes.*.hasDelivery'                => 'nullable|boolean',
+            'formTypes.*.requiere_categoria'         => 'nullable|boolean',
 
             'formTypes.*.souvenirs'           => 'nullable|array',
             'formTypes.*.souvenirs.*.name'    => 'required_with:formTypes.*.souvenirs|string|max:255',

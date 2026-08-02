@@ -60,6 +60,16 @@ return [
             'report' => false,
         ],
 
+        // Destino de spatie/laravel-backup (ver config/backup.php) — cuenta
+        // de servicio de Google, no OAuth (ver App\Providers\GoogleDriveServiceProvider).
+        // GOOGLE_DRIVE_FOLDER_ID es el ID de una carpeta de Drive normal
+        // compartida con el email de la cuenta de servicio como Editor.
+        'google' => [
+            'driver' => 'google',
+            'serviceAccountPath' => env('GOOGLE_DRIVE_SERVICE_ACCOUNT_PATH', storage_path('app/google-drive-service-account.json')),
+            'sharedFolderId' => env('GOOGLE_DRIVE_FOLDER_ID'),
+        ],
+
     ],
 
     /*

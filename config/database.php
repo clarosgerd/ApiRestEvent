@@ -62,6 +62,14 @@ return [
             'options' => extension_loaded('pdo_mysql') ? array_filter([
                 (PHP_VERSION_ID >= 80500 ? Mysql::ATTR_SSL_CA : PDO::MYSQL_ATTR_SSL_CA) => env('MYSQL_ATTR_SSL_CA'),
             ]) : [],
+            // Leído por spatie/laravel-backup (DbDumperFactory) para armar
+            // el comando mysqldump. Solo hace falta si el binario no está
+            // en el PATH del proceso PHP — típico en XAMPP local
+            // (C:\xampp\mysql\bin); en la mayoría de los hosts Linux ya
+            // está en el PATH y esto queda vacío/no-op.
+            'dump' => array_filter([
+                'dump_binary_path' => env('MYSQLDUMP_BINARY_PATH'),
+            ]),
         ],
 
         'mariadb' => [

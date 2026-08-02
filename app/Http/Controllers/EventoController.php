@@ -198,6 +198,41 @@ class EventoController extends Controller
     }
 
     /**
+     * Revierte un evento publicado a borrador — a diferencia de publicar(),
+     * no dispara ningún correo (es solo un cambio de estado interno).
+     * Bloqueado si el evento ya tiene participantes inscritos, para no
+     * ocultar un evento del que ya hay gente inscrita/pagando.
+     */
+    public function despublicar(Evento $event): JsonResponse
+    {
+        $this->assertCanWriteEvento($event->id);
+
+        if (!$event->publicado) {
+            return response()->json([
+                'success' => false,
+                'error'   => 'Este evento no está publicado.',
+            ], 422);
+        }
+
+        if ($event->registrations()->exists()) {
+            return response()->json([
+                'success' => false,
+                'error'   => 'No se puede despublicar un evento que ya tiene participantes inscritos.',
+            ], 409);
+        }
+
+        $event->update(['publicado' => false]);
+
+        AdminAuditLogger::log('despublicar', 'evento', $event->id, $event->id, ['publicado' => true], ['publicado' => false]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Evento despublicado correctamente.',
+            'eventos' => new EventoResource($event->fresh()->loadMissing(['coordinates', 'routes', 'promoCodes', 'categories', 'formTypes.souvenirs', 'formTypes.formularioCampos.options', 'organizador.formasPagoSeleccionadas', 'auspiciadores', 'agendaItems', 'equipos'])),
+        ]);
+    }
+
+    /**
      * Display the specified resource.
      */
     public function show(Evento $event): JsonResponse

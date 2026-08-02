@@ -12,7 +12,7 @@ class UpdateSouvenirRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return false;
+        return true;
     }
 
     /**
@@ -23,7 +23,9 @@ class UpdateSouvenirRequest extends FormRequest
     public function rules(): array
     {
         return [
-            //
+            'name'  => 'sometimes|string|max:255',
+            'icon'  => 'sometimes|nullable|string|max:10',
+            'price' => 'sometimes|numeric|min:0',
         ];
     }
 }

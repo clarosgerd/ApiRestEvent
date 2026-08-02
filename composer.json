@@ -12,7 +12,9 @@
         "laravel/framework": "^12.0",
         "laravel/sanctum": "^4.0",
         "laravel/tinker": "^2.10.1",
-        "rmyndharis/openwa": "^0.1.0"
+        "masbug/flysystem-google-drive-ext": "^2.5",
+        "rmyndharis/openwa": "^0.1.0",
+        "spatie/laravel-backup": "^9.3"
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",

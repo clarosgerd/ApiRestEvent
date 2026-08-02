@@ -25,6 +25,7 @@ class FormTypeDTO
         public float $descuentoRegistrantePct,
         public bool $hasTeam,
         public bool $hasDelivery,
+        public bool $requiereCategoria,
         /** @var SouvenirFormDTO[] */
         public array $souvenirs,
         /** @var FormularioCamposDTO[] */
@@ -54,6 +55,7 @@ class FormTypeDTO
             descuentoRegistrantePct: (float) ($data['descuento_registrante_pct'] ?? 0.10),
             hasTeam: (bool) ($data['hasTeam'] ?? $data['has_team'] ?? false),
             hasDelivery: (bool) ($data['hasDelivery'] ?? $data['has_delivery'] ?? false),
+            requiereCategoria: (bool) ($data['requiere_categoria'] ?? true),
             souvenirs: array_map(
                 fn(array $s) => SouvenirFormDTO::fromArray($s),
                 $data['souvenirs'] ?? []

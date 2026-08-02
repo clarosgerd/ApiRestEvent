@@ -2,16 +2,22 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\FormType;
 use App\Models\Souvenir;
+use App\Models\SouvenirParticipante;
 use App\Http\Requests\StoreSouvenirRequest;
 use App\Http\Requests\UpdateSouvenirRequest;
 use App\Http\Resources\SouvenirCollection;
 use App\Http\Resources\SouvenirResource;
 use App\Filters\SouvenirFilter;
+use App\Http\Controllers\Concerns\AuthorizesEventoScope;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class SouvenirController extends Controller
 {
+    use AuthorizesEventoScope;
+
     /**
      * Display a listing of the resource.
      */
@@ -36,9 +42,19 @@ class SouvenirController extends Controller
     /**
      * Store a newly created resource in storage.
      */
-    public function store(StoreSouvenirRequest $request)
+    public function store(StoreSouvenirRequest $request): JsonResponse
     {
-        //
+        $data = $request->validated();
+        $formType = FormType::findOrFail($data['form_types_id']);
+        $this->assertCanWriteEvento((int) $formType->event_id);
+
+        $souvenir = Souvenir::create($data);
+
+        return response()->json([
+            'success'  => true,
+            'message'  => 'Souvenir creado correctamente.',
+            'souvenir' => new SouvenirResource($souvenir),
+        ], 201);
     }
 
     /**
@@ -66,16 +82,42 @@ class SouvenirController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(UpdateSouvenirRequest $request, Souvenir $souvenir)
+    public function update(UpdateSouvenirRequest $request, Souvenir $souvenir): JsonResponse
     {
-        //
+        $this->assertCanWriteEvento((int) $souvenir->formType->event_id);
+
+        $souvenir->update($request->validated());
+
+        return response()->json([
+            'success'  => true,
+            'message'  => 'Souvenir actualizado correctamente.',
+            'souvenir' => new SouvenirResource($souvenir),
+        ]);
     }
 
     /**
      * Remove the specified resource from storage.
+     *
+     * Bloquea (409) si algún participante ya seleccionó este souvenir.
      */
-    public function destroy(Souvenir $souvenir)
+    public function destroy(Souvenir $souvenir): JsonResponse
     {
-        //
+        $this->assertCanWriteEvento((int) $souvenir->formType->event_id);
+
+        $enUso = SouvenirParticipante::where('souvenir_id', $souvenir->id)->exists();
+
+        if ($enUso) {
+            return response()->json([
+                'success' => false,
+                'error'   => 'No se puede eliminar este souvenir: ya fue seleccionado por un participante.',
+            ], 409);
+        }
+
+        $souvenir->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Souvenir eliminado correctamente.',
+        ]);
     }
 }

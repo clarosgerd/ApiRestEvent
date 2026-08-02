@@ -241,6 +241,7 @@ class EventoService
                 'descuento_registrante_pct'  => $formTypeDTO->descuentoRegistrantePct,
                 'has_team'                   => $formTypeDTO->hasTeam,
                 'has_delivery'               => $formTypeDTO->hasDelivery,
+                'requiere_categoria'         => $formTypeDTO->requiereCategoria,
             ]);
 
             $this->createSouvenirs($formType, $formTypeDTO->souvenirs);

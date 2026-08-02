@@ -45,3 +45,10 @@ Schedule::command('notificaciones:marketing-mensual')->daily()->appendOutputTo($
 // fecha_inicio caiga exactamente 15 días en el futuro (idempotente vía
 // evento_notifications, igual patrón que registration_notifications).
 Schedule::command('notificaciones:recordatorio-dashboard-organizador')->daily()->appendOutputTo($schedulerLog);
+
+// ── Backup diario de la BD a Google Drive (panel /ops/backups) ──────────
+// backup:clean corre después para no purgar el backup recién creado —
+// su estrategia de retención (config/backup.php) nunca borra el más
+// reciente de todos modos, pero mantiene el orden lógico.
+Schedule::command('backup:run --only-db')->daily()->appendOutputTo($schedulerLog);
+Schedule::command('backup:clean')->daily()->appendOutputTo($schedulerLog);
