@@ -413,7 +413,7 @@ class EventoController extends Controller
             foreach ($registration->participants as $participante) {
                 $items[] = [
                     'nombre'     => trim($participante->nombre . ' ' . $participante->apellido),
-                    'categoria'  => $participante->categoria,
+                    'categoria'  => $registration->formType->name ?? $participante->categoria,
                     'referencia' => $registration->referencia,
                     'qr'         => ReferenceQrService::toBase64Png($registration->referencia),
                     'color'      => $color,
@@ -426,6 +426,7 @@ class EventoController extends Controller
         // A4 horizontal (mismo patrón que certificadosPdf) para que entren 3
         // gafetes por fila con margen de sobra; en A4 vertical con los
         // márgenes default de dompdf, 3×7cm queda muy justo/desborda.
+
         $pdf = Pdf::loadView('tickets.gafetes', [
             'evento' => $event,
             'filas'  => array_chunk($items, 3),
