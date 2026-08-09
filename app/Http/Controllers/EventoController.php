@@ -5,7 +5,12 @@ namespace App\Http\Controllers;
 use App\Models\Category;
 use App\Models\Evento;
 use App\Models\EventoNotification;
+use App\Models\Participante;
 use App\Models\Registration;
+use App\Models\TipoEvento;
+use App\Http\Resources\CoordinateResource;
+use App\Http\Resources\RouteResource;
+use App\Http\Resources\CategoryResource;
 use App\Services\ReferenceQrService;
 use App\Actions\EnviarDashboardOrganizadorAction;
 use App\DTOs\EventoDTO;
@@ -15,6 +20,7 @@ use App\Http\Resources\EventoCollection;
 use App\Http\Resources\EventoResource;
 use App\Services\EventoService;
 use App\Services\AdminAuditLogger;
+use App\Support\DashboardInscripcionesData;
 use App\Filters\EventoFilter;
 use App\Http\Controllers\Concerns\AuthorizesEventoScope;
 use Illuminate\Http\Request;
@@ -103,6 +109,8 @@ class EventoController extends Controller
         $eventos = $eventos->with('auspiciadores');
         $eventos = $eventos->with('agendaItems');
         $eventos = $eventos->with('equipos');
+        $eventos = $eventos->with('tipoEvento');
+        $eventos = $eventos->with('subtipoEvento');
 
         // Tamaño de página configurable, acotado para evitar pedir el catálogo completo.
         $perPage = (int) $request->query('per_page', 12);
@@ -233,6 +241,21 @@ class EventoController extends Controller
     }
 
     /**
+     * Dashboard de inscripciones (total/pagados/pendientes/cancelados/
+     * fallidos, por categoría y por tipo de formulario) para el panel de
+     * administración — mismo cálculo que ya se manda por correo al
+     * organizador vía link firmado (ver OrganizadorDashboardController /
+     * App\Support\DashboardInscripcionesData), ahora también disponible
+     * autenticado (super_admin o el admin asignado a este evento).
+     */
+    public function dashboardInscripciones(Evento $event): JsonResponse
+    {
+        $this->assertCanWriteEvento($event->id);
+
+        return response()->json(['success' => true] + DashboardInscripcionesData::paraEvento($event));
+    }
+
+    /**
      * Display the specified resource.
      */
     public function show(Evento $event): JsonResponse
@@ -255,10 +278,74 @@ class EventoController extends Controller
 
         return response()->json([
             'success' => true,
-            'eventos' => new EventoResource($event->loadMissing(['coordinates', 'routes', 'promoCodes','categories','formTypes.souvenirs','formTypes.formularioCampos.options','organizador.formasPagoSeleccionadas','auspiciadores','agendaItems','equipos'])),
+            'eventos' => new EventoResource($event->loadMissing(['coordinates', 'routes', 'promoCodes','categories','formTypes.souvenirs','formTypes.formularioCampos.options','organizador.formasPagoSeleccionadas','auspiciadores','agendaItems','equipos','tipoEvento','subtipoEvento'])),
         ]);
 
        // return   new EventoResource($event);
+    }
+
+    /**
+     * Endpoint de consumo, público, para un sistema externo (archivo
+     * histórico de resultados, cronometraje, etc.) — ver
+     * brain/PLAN-ENDPOINT-CONSUMO-05082026.md. Solo eventos **cerrados** y
+     * de disciplina deportiva real (excluye "Congreso / No aplica", ver
+     * migración 2026_08_05_120000_add_congreso_tipo_evento), con su
+     * ruta/coordenadas/categorías, y solo los participantes **pagados** que
+     * ya tienen número de corredor **y** chip asignados (si falta
+     * cualquiera de los dos, no sale — no tendría sentido en un archivo de
+     * resultados). Campos de participante acotados a propósito a lo pedido
+     * (sexo, categoría, número de corredor, chip) — sin nombre, documento,
+     * correo ni teléfono: es un endpoint público, sin login.
+     *
+     * `?evento_id=` opcional para pedir un solo evento en vez de todos los
+     * cerrados.
+     */
+    public function consumo(Request $request): JsonResponse
+    {
+        $tipoCongresoIds = TipoEvento::where('nombre', 'Congreso / No aplica')->pluck('id');
+
+        $query = Evento::where('estado_evento_id', 'closed')
+            ->whereNotIn('tipo_evento_id', $tipoCongresoIds)
+            ->with(['coordinates', 'routes', 'categories', 'tipoEvento', 'subtipoEvento'])
+            ->orderByDesc('fecha_inicio');
+
+        if ($request->filled('evento_id')) {
+            $query->where('id', $request->integer('evento_id'));
+        }
+
+        $eventos = $query->get();
+
+        return response()->json([
+            'success' => true,
+            'eventos' => $eventos->map(function (Evento $evento) {
+                $participantes = Participante::whereHas('registration', function ($q) use ($evento) {
+                        $q->where('evento_id', $evento->id)->where('pago_status', 'paid');
+                    })
+                    ->whereNotNull('numero_corredor')
+                    ->whereNotNull('chip')
+                    ->get(['nombre', 'apellido', 'alias', 'genero', 'categoria', 'numero_corredor', 'chip']);
+
+                return [
+                    'id' => $evento->id,
+                    'name' => $evento->nombre,
+                    'date' => $evento->fecha_inicio,
+                    'location' => $evento->direccion,
+                    'tipoEvento' => $evento->tipoEvento?->nombre,
+                    'subtipoEvento' => $evento->subtipoEvento?->nombre,
+                    'coordinates' => CoordinateResource::collection($evento->coordinates),
+                    'route' => RouteResource::collection($evento->routes),
+                    'categories' => CategoryResource::collection($evento->categories),
+                    'participantes' => $participantes->map(fn (Participante $p) => [
+                        'nombre' => $p->nombre.' '.$p->apellido,
+                        'alias' => $p->alias,
+                        'genero' => $p->genero,
+                        'categoria' => $p->categoria,
+                        'numeroCorredor' => $p->numero_corredor,
+                        'chip' => $p->chip,
+                    ]),
+                ];
+            }),
+        ]);
     }
 
     /**
@@ -334,11 +421,15 @@ class EventoController extends Controller
             }
         }
 
+        // Gafete físico de 7x5cm (ver figura de referencia del organizador) —
+        // sin logo/nombre de evento/foto/referencia, solo nombre + QR + rol.
+        // A4 horizontal (mismo patrón que certificadosPdf) para que entren 3
+        // gafetes por fila con margen de sobra; en A4 vertical con los
+        // márgenes default de dompdf, 3×7cm queda muy justo/desborda.
         $pdf = Pdf::loadView('tickets.gafetes', [
             'evento' => $event,
             'filas'  => array_chunk($items, 3),
-            'logo'   => $this->logoDataUri($event->imagen_portada_url),
-        ]);
+        ])->setPaper('a4', 'landscape');
 
         return $pdf->stream('gafetes-' . Str::slug($event->nombre) . '.pdf');
     }

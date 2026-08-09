@@ -21,6 +21,7 @@ class SubtipoEventoSeeder extends Seeder
             'Caminata' => ['Caminata Familiar', 'Caminata Solidaria'],
             'Triatlón' => ['Sprint', 'Olímpico', 'Half Ironman'],
             'Natación' => ['Aguas Abiertas', 'Piscina'],
+            'Congreso / No aplica' => ['General'],
         ];
 
         foreach ($subtipos as $tipoNombre => $nombres) {

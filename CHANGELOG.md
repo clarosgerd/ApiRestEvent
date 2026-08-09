@@ -2,6 +2,249 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/).
 
+## 2026-08-09 (continuación — Fase 2 de ChronoTrack)
+
+DNS/DNF real, botón "Sincronizar ahora" en `admin-eventos`, leaderboard
+completo por evento, y corrección del ranking de equipos para no mezclar
+categorías/distancias — pedido explícito del usuario el mismo día del MVP.
+
+### Added
+- **Detección de DNS/DNF**: `ChronoTrackClient::intervalsParciales()` +
+  `entriesDeCarrera()`; `ChronoTrackSyncService::sincronizar()` cruza
+  `/entry` contra los intervals (completo + parciales) de cada carrera —
+  bib en un checkpoint parcial pero no en el completo → `dnf`; en ningún
+  lado → `dns`. Verificado contra el evento real 93491: 23 dns / 0 dnf
+  (matemática exacta contra 299/280 y 114/109 confirmados vs. finishers).
+- **`GET /event/{event}/resultados`** (`ResultadoController::porEvento`,
+  auth:sanctum): leaderboard completo del evento por categoría — conteo
+  inscritos/finished/dnf/dns, tabla con rank general + rank de género,
+  equipos de esa categoría. Reemplaza a `comparativoCategoria()` (que solo
+  daba la categoría propia) para el rediseño del frontend.
+- **`POST /event/{event}/chronotrack/sincronizar`**
+  (`ResultadoController::sincronizarChronoTrack`, mismo `assertCanWriteEvento`
+  que el resto del panel): mismo camino que el comando artisan, para el
+  botón nuevo del panel.
+
+### Changed
+- **`RankingEquipos::paraEvento()`** acepta un `$categoria` opcional que
+  acota la suma de tiempos del equipo a integrantes de esa categoría —
+  evita que un equipo "gane" solo por correr una distancia más corta
+  mezclada en el mismo evento (issue documentado desde
+  `project_demo_eventos_equipos_delivery`). `null` (default) mantiene el
+  comportamiento viejo para `ClubController`. `resultadosEquipo()` ya pasa
+  la categoría del participante.
+
+### Fixed
+- **`comparativoCategoria()` ordenaba mal desde que existen filas
+  dns/dnf**: `tiempoASegundos(null)` da `0`, así que colaban en el primer
+  puesto. Fix: filtrar `estado='finisher'` antes de ordenar.
+- **`ResultadoController::mios()` devolvía el id crudo de categoría, no el
+  nombre** (mismo bug que `DashboardInscripcionesData`, ver entrada
+  anterior de hoy) — se agregó `categoriaId` (id, para matchear) y
+  `categoria` ahora resuelve el nombre real.
+
+### Verified
+- Sync completo contra el evento real 93491: 412 resultados (389 finishers
+  del MVP + 23 dns), 0 duplicados en una segunda corrida.
+- `porEvento()` con datos sintéticos (5 participantes, 1 dns): rank general
+  y rank de género exactos, dns excluido del leaderboard pero contado en
+  las estadísticas.
+- Botón del panel probado con Playwright contra `admin-eventos` local real:
+  mismos números que la corrida por CLI. Timeout de
+  `ApiRestEventClient::forward()` (default 15s) no alcanzaba para la
+  cadena de llamadas reales a ChronoTrack — subido a 120s en esa llamada
+  puntual.
+
+## 2026-08-09
+
+Sync de resultados desde ChronoTrack (MVP, solo lectura) y fix de nombres de
+categoría en el dashboard de inscripciones, encontrado por el usuario en el
+correo real de publicación durante una corrida de QA E2E en UAT.
+
+### Added
+- **Sync de resultados desde ChronoTrack** — nueva columna
+  `eventos.chronotrack_event_id` (expuesta en alta/edición de evento, mismo
+  patrón que `color_hex`); `App\Services\ChronoTrackClient` (auth "Test Auth
+  Scheme" contra `api.chronotrack.com`, lista intervals de distancia
+  completa y pagina resultados); `App\Services\ChronoTrackSyncService`
+  (transforma resultados de ChronoTrack — bib/tiempo/posición — al formato
+  del bulk existente); comando `chronotrack:sincronizar {evento}`
+  (`App\Console\Commands\ChronoTrackSincronizar`). Solo consumo — no
+  creamos ni administramos nada en ChronoTrack, el `chronotrack_event_id`
+  lo obtiene el organizador allá. MVP a mano, sin botón en `admin-eventos`
+  ni scheduler todavía. Probado en vivo contra un evento real de un cliente
+  (389 finishers reales, idempotente).
+
+### Changed
+- **`ResultadoController::bulk()`**: la lógica de matching/upsert
+  (chip→número de corredor→número de documento) se extrajo a
+  `App\Support\ResultadosBulkImporter::importar()` — la usan tanto la carga
+  manual (`bulk()`) como el sync de ChronoTrack nuevo, una sola fuente de
+  verdad. Sin cambios de comportamiento/output en `bulk()`.
+
+### Fixed
+- **Dashboard de inscripciones mostraba el id de categoría, no el nombre**
+  ("90009" en vez de "5K") — tanto en el panel `admin-eventos` como en el
+  dashboard emailado sin login. `DashboardInscripcionesData::paraEvento()`
+  agrupaba "Por categoría" por `$p->categoria` (el id) sin resolverlo a
+  nombre, a diferencia de "Por tipo de formulario" (que sí tenía
+  `nombresFormTypes`). Fix: nuevo `nombresCategorias` (mismo patrón), usado
+  en `organizador/dashboard.blade.php` (tabla + botones de descarga CSV por
+  categoría) y en `admin-eventos/.../dashboard-inscripciones.blade.php`.
+
+### Verified
+- `chronotrack:sincronizar` contra un evento real (2 intervals, 389
+  resultados guardados con tiempo/posición exactos; corrido dos veces sin
+  duplicar; participantes sin match reportados en `no_vinculados` sin
+  romper el resto del import).
+- Fix de categorías reverificado en vivo contra UAT en los dos lugares
+  (panel y link firmado del correo): "5K"/"10K" en vez de los ids, botones
+  de descarga con la misma etiqueta corregida.
+
+## 2026-08-07
+
+Dashboard de inscripciones y edición restringida de participante en el panel
+`admin-eventos`; numeración de corredor/chip cargable al momento de la entrega
+en el POS de `elascenso/delivery`; rediseño de gafetes a 7x5cm; fix de auth en
+UAT para `admin-eventos`.
+
+### Added
+- **`GET /event/{event}/dashboard-inscripciones`** (`EventoController::dashboardInscripciones`,
+  `auth:admins`): mismo conteo (total/pagados/pendientes/cancelados/fallidos, por categoría y
+  por tipo de formulario) que ya se manda por correo al organizador, ahora también disponible
+  autenticado dentro del panel. Lógica extraída a `App\Support\DashboardInscripcionesData::paraEvento()`
+  (estático, mismo patrón que `RankingEquipos`/`ProgresoHistorico`), reusada tanto acá como en
+  `OrganizadorDashboardController::show()`/`exportCsv()` (refactor sin cambiar el output — mismo
+  conteo verificado antes/después).
+- **`PATCH /event/v1/participantes/{participante}`** (`ParticipanteController::update`, antes un
+  stub vacío sin ruta registrada): edición restringida de un participante desde el panel —
+  whitelist real en `UpdateParticipanteRequest::rules()` (nombre, apellido, alias, correo,
+  teléfono, dirección, ciudad, género, fecha de nacimiento, y `polera` solo si el participante ya
+  tiene una asignada). Nunca toca categoría/precio/souvenirs/donación/promo/equipo/delivery/
+  subtotal ni numeración de corredor/chip (eso sigue siendo `porEvento`/`numeracionBulk`/
+  `updateNumeracion`). Auditado con `AdminAuditLogger`. `porEvento()` se extendió (mismo endpoint,
+  no uno nuevo) para devolver también esos campos de contacto.
+- **`GET /organizador/evento/{evento}/participantes/{documento}/numeracion`**
+  (`OrganizadorDashboardController::actualizarNumeracionSitio`, link firmado, sin login): permite
+  a `elascenso/delivery` empujar de vuelta número de corredor/chip cargados a mano en el POS de
+  retiro en sitio, cuando el proveedor externo no llegó a tiempo — mismo patrón que
+  `DeliveryController::updateEstado()`, pero matcheando por `numero_documento` (no hay id de
+  participante en ese flujo). El CSV que `delivery` ya consumía
+  (`OrganizadorDashboardController::exportCsv`) ahora trae 3 columnas nuevas:
+  `NumeroCorredor`, `Chip`, `ActualizarNumeracionUrl` (esta última generada por fila).
+- **Gafetes rediseñados a 7x5cm** (`tickets/gafetes.blade.php`), a pedido del organizador con una
+  foto de referencia de sus gafetes físicos actuales: se sacaron logo del evento, nombre del
+  evento, recuadro de foto y referencia; queda nombre arriba, QR abajo-izquierda y la
+  categoría/rol duplicada abajo-derecha. `gafetesPdf()` pasa a `setPaper('a4', 'landscape')`
+  (mismo patrón que `certificadosPdf`) — en A4 vertical con los márgenes default de dompdf, 3
+  gafetes de 7cm por fila no entraban con margen.
+
+### Fixed
+- **Bug de modelo de caja en dompdf** encontrado al verificar el rediseño de gafetes: un
+  `display: table` con filas de distinta cantidad de celdas (nombre = 1 celda, QR+rol = 2
+  celdas) rompía el ancho/alto consistente de la tabla — el borde del gafete salía partido en
+  dos cajitas en vez de un rectángulo único. Corregido usando un `div` de bloque normal con
+  `width`/`height`/`border` explícitos para el gafete, y `display: table` solo para la fila
+  interna QR+rol (mismo patrón ya probado en `.photo-box`/`.label`). Verificado con un PDF real
+  contra el evento 59 antes y después del fix.
+
+### Fixed
+- **`/ops/enlaces` no exponía el link de "Participantes CSV"**
+  (`organizador.dashboard.export`) — el único de los links firmados que
+  necesita `elascenso/delivery` para configurar `/retiro` (POS de retiro en
+  sitio), que no se puede generar en UAT con `php artisan
+  organizador:generar-link` porque ahí no hay SSH. Agregado a
+  `OpsLinkController::show()`, mismo patrón que los otros 3 links ya
+  expuestos.
+
+### Security
+- **`admin-eventos` no mandaba `X-Auth-Token`** en `ApiRestEventClient::buildHeaders()` — el
+  hosting cPanel de UAT corre PHP vía mod_lsapi, que no reenvía el header `Authorization` (bug ya
+  documentado y arreglado en `elascenso/event` el 25/07, pero `admin-eventos` es un cliente nuevo
+  que nunca recibió el mismo fix). Causaba `Unauthenticated.` en toda escritura del panel en UAT
+  (crear/editar/publicar evento, etc.) aunque funcionara perfecto en local. Agregado el mismo
+  header de respaldo que ya usa `elascenso/event`.
+
+## 2026-08-05
+
+Numeración de corredor/chip y carga masiva de inscripciones, ambas desde el panel
+`admin-eventos` — ver `elascenso/event/brain/PLAN-NUMERACION-PANEL-05082026.md` y
+`PLAN-REGISTRO-MANUAL-CSV-05082026.md`.
+
+### Added
+- **`GET /event/{event}/participantes`** (`ParticipanteController::porEvento`): primer
+  listado real de participantes de un evento — no existía ninguno antes (el `index()` viejo
+  estaba roto y sin ruta registrada). Filtrable por `?categoria=`. Devuelve `id`, `referencia`
+  de la inscripción, datos personales básicos y `numeroCorredor`/`chip`.
+- **`POST /event/{event}/registro-manual/bulk`** (`RegistrationController::importarBulk`),
+  **solo `super_admin`**: crea una inscripción independiente por fila (`tipo_pago=pendiente`,
+  `pago_status=pending`) a partir de un CSV subido desde el panel — evento, tipo de
+  formulario y categoría fijos para todo el archivo, precio = solo categoría + cargo de
+  servicio (5%), sin souvenirs/promo/donación/equipo/delivery. Rechaza de entrada un
+  `form_type` con `has_team`. Reutiliza `RegistrationService::create()` tal cual, así que cada
+  participante importado queda con su cuenta `Persona` sincronizada automáticamente, igual
+  que un registro online. Responde con `creados[]`/`errores[]` por fila — una fila con error
+  no aborta el resto del lote.
+
+### Security
+- **Numeración de corredor/chip ahora requiere autenticación** — `GET
+  /event/{event}/participantes`, `PATCH .../numeracion` y `POST .../numeracion/bulk` (estos
+  dos, agregados el 31/07 sin protección, ver `PLAN-RESULTADOS-EQUIPOS-31072026.md` §1) se
+  movieron al grupo `auth:admins`, con `AuthorizesEventoScope::assertCanWriteEvento()` —
+  mismo scoping que el resto del panel: `super_admin` sin restricción, `admin` solo su
+  evento asignado. `POST /event/{event}/resultados/bulk` (cronometraje) se dejó
+  deliberadamente sin auth — lo sube directo el software de cronometraje, sin panel de por
+  medio.
+- `POST /event/{event}/registro-manual/bulk` exige además `assertIsSuperAdmin()` — un `admin`
+  scoped recibe 403 aunque tenga sesión válida.
+
+### Fixed
+- **`numeracionBulk` no dejaba borrar un número ya asignado dejando la celda en blanco.**
+  Usaba `$item['numero_corredor'] ?? $participante->numero_corredor`; como una celda vacía
+  del CSV llega como `null` explícito, `??` lo trataba igual que "la clave no vino" y
+  mantenía el valor viejo. Cambiado a `array_key_exists()` por campo — si la clave está
+  presente (aunque sea `null`), se asigna tal cual. Encontrado y arreglado el mismo día, tras
+  confirmar con el usuario que corregir numeración ya asignada (chip fallado, corredor dado
+  de baja) es el caso normal, no la excepción.
+
+### Verified
+- Playwright, navegador real, contra `event_testing`: scoping de permisos (403 para `admin`
+  fuera de su evento, o intentando `registro-manual` sin ser `super_admin`), edición manual y
+  por CSV de numeración (incluido borrar dejando la celda vacía), y carga masiva de
+  inscripciones (2 creadas + 1 rechazada por documento duplicado, totales y `pago_status`
+  correctos en base, `Persona` sincronizada). Datos de prueba de `registro-manual` borrados
+  al cerrar (cada fila dispara un correo real); los de numeración se dejaron vivos como
+  fixture (evento 63, "Carrera de Prueba Stepper").
+
+### Added (continuación, mismo día — endpoint de consumo + tipo_evento_id real)
+- **`tipo_evento_id`/`subtipo_evento_id` conectados de punta a punta** — antes hardcodeados en
+  `1` para todo evento desde `EventoService::create()` (los 62 eventos reales quedan como
+  estaban, sin tocar datos de producción; se corrigen a mano desde el panel de a uno).
+  `EventoDTO`, `StoreEventosRequest`/`UpdateEventosRequest`, `EventoService::update()`
+  (agregado al mapa de campos editables) y `EventoResource` (expone `tipoEventoId`/
+  `tipoEvento`/`subtipoEventoId`/`subtipoEvento`, antes comentado).
+- **Nueva fila de catálogo "Congreso / No aplica"** en `tipos_evento` (+ subtipo "General") —
+  las 6 filas anteriores eran todas disciplinas deportivas, ninguna representaba un evento no
+  deportivo, y la columna es `NOT NULL`. Ver
+  `database/migrations/2026_08_05_120000_add_congreso_tipo_evento.php`.
+- **`GET /tipos-evento`** (`TipoEventoController`, público): catálogo con subtipos anidados,
+  para poblar selects — usado por `admin-eventos`.
+- **`GET /event/consumo`** (`EventoController::consumo`, público, sin auth): eventos
+  `estado_evento_id=closed` y de disciplina deportiva real (excluye "Congreso / No aplica"),
+  con `coordinates`/`route`/`categories`, y solo participantes con `pago_status=paid` **y**
+  `numero_corredor`/`chip` ambos asignados. Expone deliberadamente solo `genero`, `categoria`,
+  `numeroCorredor`, `chip` — sin nombre/documento/correo/teléfono, por ser público sin login.
+  `?evento_id=` opcional. Debe resolverse antes del `apiResource('/event', ...)` en
+  `routes/api.php` (mismo cuidado que `/registrations/by-pay-order`).
+
+### Fixed (continuación, mismo día)
+- **`EventoService::update()` reventaba al guardar un evento con `longDescription`, `deslinde`,
+  `imagen_portada_url` o `video_url` vacíos** (`Column '...' cannot be null`) — esas 4 columnas
+  son `NOT NULL` sin default desde la migración original de `eventos`, pero
+  `UpdateEventosRequest` las marca `nullable` (el panel debe poder vaciarlas). `create()` ya
+  coercía `null → ''`; a `update()` le faltaba la misma coerción. Bug preexistente, no
+  relacionado con lo de arriba — encontrado al verificar el guardado de `tipo_evento_id`.
+
 ## 2026-08-01
 
 ### Changed

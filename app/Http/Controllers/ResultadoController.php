@@ -2,17 +2,52 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\AuthorizesEventoScope;
+use App\Models\Category;
 use App\Models\Evento;
 use App\Models\Participante;
 use App\Models\Resultado;
+use App\Services\ChronoTrackSyncService;
 use App\Support\ProgresoHistorico;
 use App\Support\RankingEquipos;
+use App\Support\ResultadosBulkImporter;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
 class ResultadoController extends Controller
 {
+    use AuthorizesEventoScope;
+
+    /**
+     * Botón "Sincronizar ahora" del panel de administración — mismo camino
+     * que el comando artisan `chronotrack:sincronizar`, expuesto como
+     * endpoint autenticado para admin-eventos. Ver
+     * brain/groovy-chasing-ladybug.md Parte B.
+     */
+    public function sincronizarChronoTrack(Evento $event, ChronoTrackSyncService $service): JsonResponse
+    {
+        $this->assertCanWriteEvento($event->id);
+
+        if (!$event->chronotrack_event_id) {
+            return response()->json([
+                'success' => false,
+                'error'   => 'Este evento no tiene chronotrack_event_id configurado.',
+            ], 422);
+        }
+
+        try {
+            $resultado = $service->sincronizar($event);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'success' => false,
+                'error'   => 'Falló la sincronización con ChronoTrack: ' . $e->getMessage(),
+            ], 502);
+        }
+
+        return response()->json(['success' => true] + $resultado);
+    }
+
     /**
      * Carga masiva de resultados de carrera, matcheando por chip, número de
      * corredor o número de documento (en ese orden de prioridad) dentro del
@@ -41,44 +76,90 @@ class ResultadoController extends Controller
             'items.*.estado'                 => ['nullable', Rule::in(['finisher', 'dns', 'dnf', 'dsq'])],
         ]);
 
-        $procesados   = 0;
-        $noVinculados = [];
+        $resultado = ResultadosBulkImporter::importar($event, $data['items']);
 
-        foreach ($data['items'] as $item) {
-            $participante = $this->resolverParticipante($event, $item);
+        return response()->json(['success' => true] + $resultado);
+    }
 
-            $llave = $participante
-                ? ['event_id' => $event->id, 'participante_id' => $participante->id]
-                : [
-                    'event_id'         => $event->id,
-                    'participante_id'  => null,
-                    'chip'             => $item['chip'] ?? null,
-                    'numero_corredor'  => $item['numero_corredor'] ?? null,
-                    'numero_documento' => $item['numero_documento'] ?? null,
-                ];
+    /**
+     * Leaderboard completo de un evento, por categoría — no solo "mi
+     * categoría" como `comparativoCategoria()`. Pensado para reemplazar la
+     * tabla chica de "Mis Resultados" por una vista tipo ChronoTrack:
+     * conteo Started/Finished/DNF/DNS + tabla completa con rank general y
+     * rank de género, más el ranking de equipos de esa misma categoría.
+     * Ver brain/groovy-chasing-ladybug.md (Parte C).
+     */
+    public function porEvento(Request $request, Evento $event): JsonResponse
+    {
+        $persona = $request->user();
 
-            Resultado::updateOrCreate($llave, [
-                'chip'               => $item['chip'] ?? null,
-                'numero_corredor'    => $item['numero_corredor'] ?? null,
-                'numero_documento'   => $item['numero_documento'] ?? null,
-                'tiempo_oficial'     => $item['tiempo_oficial'] ?? null,
-                'tiempo_chip'        => $item['tiempo_chip'] ?? null,
-                'posicion_general'   => $item['posicion_general'] ?? null,
-                'posicion_categoria' => $item['posicion_categoria'] ?? null,
-                'posicion_genero'    => $item['posicion_genero'] ?? null,
-                'estado'             => $item['estado'] ?? 'finisher',
-            ]);
-
-            $procesados++;
-            if (!$participante) {
-                $noVinculados[] = $item;
-            }
+        $misParticipanteIds = [];
+        if ($persona) {
+            $misParticipanteIds = Participante::whereHas('registration', fn ($q) => $q->where('evento_id', $event->id))
+                ->where(function ($q) use ($persona) {
+                    $q->where('numero_documento', $persona->numero_documento)
+                      ->orWhere('correo', $persona->email);
+                })
+                ->pluck('id')
+                ->all();
         }
 
+        $resultados = Resultado::where('event_id', $event->id)
+            ->with('participante')
+            ->get()
+            ->filter(fn ($r) => $r->participante !== null);
+
+        $porCategoria = $event->categories->map(function ($categoria) use ($resultados, $event, $misParticipanteIds) {
+            $deCategoria = $resultados->filter(fn ($r) => (string) $r->participante->categoria === (string) $categoria->id);
+
+            $finishers = $deCategoria->filter(fn ($r) => $r->estado === 'finisher')
+                ->sortBy(fn ($r) => RankingEquipos::tiempoASegundos($r->tiempo_oficial))
+                ->values();
+
+            $contadorGenero = [];
+            $leaderboard = $finishers->map(function ($r, $i) use (&$contadorGenero, $misParticipanteIds) {
+                $genero = $r->participante->genero;
+                $contadorGenero[$genero] = ($contadorGenero[$genero] ?? 0) + 1;
+
+                return [
+                    'posicionGeneral' => $i + 1,
+                    'posicionGenero'  => $contadorGenero[$genero],
+                    'bib'             => $r->numero_corredor,
+                    'nombre'          => trim($r->participante->nombre . ' ' . $r->participante->apellido),
+                    'genero'          => $genero,
+                    'tiempoOficial'   => $r->tiempo_oficial,
+                    'esPropio'        => in_array($r->participante_id, $misParticipanteIds, true),
+                ];
+            })->values()->all();
+
+            $equipos = RankingEquipos::paraEvento($event->id, (string) $categoria->id)
+                ->map(fn ($e, $i) => [
+                    'posicion'    => $i + 1,
+                    'nombre'      => $e['nombre'],
+                    'tiempoTotal' => RankingEquipos::segundosATiempo($e['segundos']),
+                ])
+                ->values()
+                ->all();
+
+            return [
+                'categoriaId'      => $categoria->id,
+                'categoriaNombre'  => $categoria->name,
+                'inscritos'        => $deCategoria->count(),
+                'finished'         => $finishers->count(),
+                'dnf'              => $deCategoria->where('estado', 'dnf')->count(),
+                'dns'              => $deCategoria->where('estado', 'dns')->count(),
+                'leaderboard'      => $leaderboard,
+                'equipos'          => $equipos,
+            ];
+        })->values()->all();
+
         return response()->json([
-            'success'       => true,
-            'procesados'    => $procesados,
-            'no_vinculados' => $noVinculados,
+            'success' => true,
+            'data'    => [
+                'eventoId'     => $event->id,
+                'eventoNombre' => $event->nombre,
+                'categorias'   => $porCategoria,
+            ],
         ]);
     }
 
@@ -109,7 +190,13 @@ class ResultadoController extends Controller
             return [
                 'eventoId'     => $eventoId,
                 'eventoNombre' => $participante->registration->evento_nombre,
-                'categoria'    => $participante->categoria,
+                // 'categoria' quedaba mostrando el id crudo en el frontend
+                // (mismo bug ya corregido en DashboardInscripcionesData —
+                // ver brain/groovy-chasing-ladybug.md). Se agrega el nombre
+                // resuelto sin quitar el id (el frontend lo sigue usando
+                // para matchear contra el leaderboard completo).
+                'categoriaId'  => $participante->categoria,
+                'categoria'    => Category::find($participante->categoria)?->name ?? $participante->categoria,
                 'resultado'    => [
                     'tiempoOficial'     => $resultado->tiempo_oficial,
                     'posicionGeneral'   => $resultado->posicion_general,
@@ -143,6 +230,10 @@ class ResultadoController extends Controller
     private function comparativoCategoria(int $eventoId, Participante $participante): array
     {
         return Resultado::where('event_id', $eventoId)
+            // 'finisher' explícito: desde que existen filas dns/dnf (sin
+            // tiempo_oficial), ordenarlas por tiempoASegundos()=0 las
+            // colaba en el primer puesto — ver ChronoTrackSyncService.
+            ->where('estado', 'finisher')
             ->whereHas('participante', fn ($q) => $q->where('categoria', $participante->categoria))
             ->with('participante')
             ->get()
@@ -171,7 +262,10 @@ class ResultadoController extends Controller
             ->get()
             ->filter(fn ($r) => $r->participante !== null);
 
-        $ranking = RankingEquipos::paraEvento($eventoId);
+        // Acotado a la categoría del participante — evita que equipos de otra
+        // distancia "ganen" el ranking solo por correr menos (ver
+        // RankingEquipos::paraEvento()).
+        $ranking = RankingEquipos::paraEvento($eventoId, $participante->categoria);
 
         $posicion = $ranking->search(fn ($e) => $e['equipoId'] === $participante->equipo_id);
 
@@ -193,29 +287,5 @@ class ResultadoController extends Controller
                 ])->values()->all(),
             ],
         ];
-    }
-
-    private function resolverParticipante(Evento $event, array $item): ?Participante
-    {
-        $base = fn () => Participante::whereHas('registration', function ($q) use ($event) {
-            $q->where('evento_id', $event->id);
-        });
-
-        if (!empty($item['chip'])) {
-            $p = $base()->where('chip', $item['chip'])->first();
-            if ($p) return $p;
-        }
-
-        if (!empty($item['numero_corredor'])) {
-            $p = $base()->where('numero_corredor', $item['numero_corredor'])->first();
-            if ($p) return $p;
-        }
-
-        if (!empty($item['numero_documento'])) {
-            $p = $base()->where('numero_documento', $item['numero_documento'])->first();
-            if ($p) return $p;
-        }
-
-        return null;
     }
 }

@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "Informes/diagnostico_proyecto.md",
+                "file": "DEPLOY_CPANEL.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "diagnostico_proyecto"
+              "title": "DEPLOY_CPANEL"
             }
           }
         ]
@@ -196,10 +196,11 @@
   },
   "active": "2d20ecbd0f1a769c",
   "lastOpenFiles": [
+    "INFORME-DEVOPS-DBA-NOTIFICACIONES.md",
+    "Informes/diagnostico_proyecto.md",
     "DEPLOY_CPANEL.md",
     "Propuesta_WhatsApp_Meta_Cloud_API.md",
     "REQUERIMIENTO_ACTUALIZACION_PAGADAS.md",
-    "INFORME-DEVOPS-DBA-NOTIFICACIONES.md",
     "implementacion_qr_pagos.md",
     "implementacion_registro_evento.md",
     "plantilla-bug.md",

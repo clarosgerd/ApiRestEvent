@@ -40,4 +40,15 @@ return [
     'session_id' => env('OPENWA_SESSION_ID'),
     ],
 
+    // Solo consumo (de solo lectura) — no creamos ni administramos nada en
+    // ChronoTrack, solo leemos resultados de eventos que el organizador ya
+    // registró ahí. Ver App\Services\ChronoTrackClient y
+    // brain/groovy-chasing-ladybug.md (sync de resultados, 09/08/2026).
+    'chronotrack' => [
+        'base_url'  => env('CHRONOTRACK_BASE_URL', 'https://api.chronotrack.com/api'),
+        'client_id' => env('CHRONOTRACK_CLIENT_ID'),
+        'user_id'   => env('CHRONOTRACK_USER_ID'),
+        'user_pass' => env('CHRONOTRACK_USER_PASS'),
+    ],
+
 ];

@@ -13,15 +13,29 @@ class RankingEquipos
      * tiempos de los integrantes `finisher`), de menor a mayor. Usado tanto
      * por "Mis Resultados" (ResultadoController) como por la landing del
      * club (ClubController).
+     *
+     * `$categoria`: si se pasa, la suma de cada equipo solo cuenta a los
+     * integrantes que corrieron esa categoría/distancia — evita que un
+     * equipo "gane" el ranking general solo por haber corrido una
+     * distancia más corta que otros equipos mezclados en el mismo evento
+     * (ver [[project_demo_eventos_equipos_delivery]]). `null` (default)
+     * mantiene el comportamiento histórico sin filtrar — lo sigue usando
+     * `ClubController`, que no tiene la categoría de un participante
+     * concreto para acotar.
      */
-    public static function paraEvento(int $eventoId): Collection
+    public static function paraEvento(int $eventoId, ?string $categoria = null): Collection
     {
         return Equipo::where('event_id', $eventoId)
             ->get()
-            ->map(function (Equipo $equipo) use ($eventoId) {
+            ->map(function (Equipo $equipo) use ($eventoId, $categoria) {
                 $segundos = Resultado::where('event_id', $eventoId)
                     ->where('estado', 'finisher')
-                    ->whereHas('participante', fn ($q) => $q->where('equipo_id', $equipo->id))
+                    ->whereHas('participante', function ($q) use ($equipo, $categoria) {
+                        $q->where('equipo_id', $equipo->id);
+                        if ($categoria !== null) {
+                            $q->where('categoria', $categoria);
+                        }
+                    })
                     ->get()
                     ->sum(fn ($r) => self::tiempoASegundos($r->tiempo_oficial));
 

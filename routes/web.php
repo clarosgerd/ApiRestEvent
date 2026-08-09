@@ -51,6 +51,14 @@ Route::get('/organizador/evento/{evento}/delivery.json', [DeliveryController::cl
 Route::get('/organizador/evento/{evento}/delivery/{participante}/estado', [DeliveryController::class, 'updateEstado'])
     ->name('delivery.dashboard.update-estado');
 
+// Push-back de numeración de corredor/chip desde el POS de retiro en sitio
+// de elascenso/delivery — mismo patrón sin sesión/CSRF que el de arriba,
+// pero por numero_documento (no hay id de participante en ese flujo). La
+// firma se valida a mano en el controller para poder ignorar
+// numero_corredor/chip en la query string.
+Route::get('/organizador/evento/{evento}/participantes/{documento}/numeracion', [OrganizadorDashboardController::class, 'actualizarNumeracionSitio'])
+    ->name('organizador.dashboard.actualizar-numeracion');
+
 // ── Panel de operaciones (/ops) — jobs, logs, backups a Google Drive,
 // enlaces de organizador/delivery. Login propio (guard `web` nativo,
 // tabla `users`), completamente aparte de admin-eventos (admin_users) y

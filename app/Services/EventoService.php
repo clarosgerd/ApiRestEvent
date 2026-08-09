@@ -41,6 +41,7 @@ class EventoService
                 // que esto fuera configurable — un evento sin colorHex propio no cambia
                 // de aspecto.
                 'color_hex'           => $dto->colorHex ?: '#022858',
+                'chronotrack_event_id' => $dto->chronotrackEventId,
 
                 // organizador_id: usa el que venga en el request (validado contra
                 // organizadores.id en StoreEventosRequest) — si no se manda,
@@ -48,11 +49,17 @@ class EventoService
                 // existentes que todavía no lo envían.
                 'organizador_id'         => $dto->organizadorId ?? 1,
 
+                // tipo_evento_id/subtipo_evento_id: ya expuestos de verdad
+                // (StoreEventosRequest/EventoResource) — default 1 ("Carrera de
+                // Ruta") si no viene, mismo criterio que organizador_id arriba,
+                // para no romper callers viejos. Ver
+                // brain/PLAN-ENDPOINT-CONSUMO-05082026.md.
+                'tipo_evento_id'         => $dto->tipoEventoId ?? 1,
+                'subtipo_evento_id'      => $dto->subtipoEventoId ?? 1,
+
                 // Columnas NOT NULL sin default en `eventos` que la API todavía no
                 // expone (ver migración 2026_06_28_214848_create_eventos_table) —
                 // se rellenan con valores neutros para que el INSERT no falle.
-                'tipo_evento_id'         => 1,
-                'subtipo_evento_id'      => 1,
                 'pais_id'                => 1,
                 'ciudad_id'              => 1,
                 'nombre_corto'           => Str::limit($dto->nombre, 60, ''),
@@ -107,14 +114,35 @@ class EventoService
             'video'            => 'video_url',
             'image'            => 'imagen_portada_url',
             'colorHex'         => 'color_hex',
+            'chronotrackEventId' => 'chronotrack_event_id',
             'deslinde'         => 'deslinde',
             'deslinde_pdf_url' => 'deslinde_pdf_url',
+            // Ver brain/PLAN-ENDPOINT-CONSUMO-05082026.md — permite corregir
+            // desde el panel eventos ya creados que quedaron con el default
+            // histórico (tipo_evento_id=1, "Carrera de Ruta") aunque en
+            // realidad sean un congreso u otra disciplina.
+            'tipo_evento_id'    => 'tipo_evento_id',
+            'subtipo_evento_id' => 'subtipo_evento_id',
         ];
+
+        // Columnas NOT NULL sin default en la migración original de `eventos`
+        // (longDescription, deslinde, imagen_portada_url, video_url) —
+        // UpdateEventosRequest las marca "nullable" porque el panel debe
+        // poder vaciarlas, pero un `null` real revienta el UPDATE con un
+        // "column cannot be null". `create()` ya coerce esto a '' — acá
+        // faltaba el mismo tratamiento. Encontrado el 05/08/2026 al
+        // verificar el campo tipo_evento_id nuevo (bug preexistente, sin
+        // relación con ese cambio).
+        $noNullables = ['longDescription', 'deslinde', 'imagen_portada_url', 'video_url'];
 
         $attributes = [];
         foreach ($map as $requestKey => $column) {
             if (array_key_exists($requestKey, $data)) {
-                $attributes[$column] = $data[$requestKey];
+                $value = $data[$requestKey];
+                if ($value === null && in_array($column, $noNullables, true)) {
+                    $value = '';
+                }
+                $attributes[$column] = $value;
             }
         }
 

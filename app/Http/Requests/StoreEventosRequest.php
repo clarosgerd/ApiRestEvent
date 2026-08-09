@@ -15,6 +15,8 @@ class StoreEventosRequest extends FormRequest
     {
         return [
             'organizador_id'        => 'nullable|integer|exists:organizadores,id',
+            'tipo_evento_id'        => 'nullable|integer|exists:tipos_evento,id',
+            'subtipo_evento_id'     => 'nullable|integer|exists:subtipos_evento,id',
             'name'                  => 'required|string|max:255',
             'description'           => 'required|string|max:500',
             'longDescription'       => 'nullable|string|max:500',
@@ -27,6 +29,7 @@ class StoreEventosRequest extends FormRequest
             'video'                 => 'nullable|string|max:255',
             'image'                 => 'nullable|string|max:255',
             'colorHex'              => 'nullable|string|max:7',
+            'chronotrackEventId'    => 'nullable|string|max:50',
             'deslinde'              => 'nullable|string|max:500',
             'deslinde_pdf_url'      => 'nullable|string|max:500',
 

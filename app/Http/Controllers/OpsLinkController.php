@@ -27,6 +27,11 @@ class OpsLinkController extends Controller
     {
         $links = [
             'Dashboard organizador' => URL::signedRoute('organizador.dashboard', ['evento' => $evento->id]),
+            // Consumido por elascenso/delivery en /retiro (EventoRetiroConfig.csv_url)
+            // para el POS de retiro en sitio — trae numeración de corredor/chip y el
+            // link de push-back por participante, no confundir con "Delivery CSV" de
+            // abajo (esa es para envíos a domicilio, datos distintos).
+            'Participantes CSV (retiro en sitio)' => URL::signedRoute('organizador.dashboard.export', ['evento' => $evento->id]),
             'Dashboard delivery (HTML)' => URL::signedRoute('delivery.dashboard', ['evento' => $evento->id]),
             'Delivery CSV' => URL::signedRoute('delivery.dashboard.export', ['evento' => $evento->id]),
             'Delivery JSON' => URL::signedRoute('delivery.dashboard.json', ['evento' => $evento->id]),

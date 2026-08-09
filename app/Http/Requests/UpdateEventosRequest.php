@@ -39,8 +39,11 @@ class UpdateEventosRequest extends FormRequest
             'video'            => 'sometimes|nullable|string|max:255',
             'image'            => 'sometimes|nullable|string|max:255',
             'colorHex'         => 'sometimes|nullable|string|max:7',
+            'chronotrackEventId' => 'sometimes|nullable|string|max:50',
             'deslinde'         => 'sometimes|nullable|string|max:500',
             'deslinde_pdf_url' => 'sometimes|nullable|string|max:500',
+            'tipo_evento_id'    => 'sometimes|nullable|integer|exists:tipos_evento,id',
+            'subtipo_evento_id' => 'sometimes|nullable|integer|exists:subtipos_evento,id',
         ];
     }
 }

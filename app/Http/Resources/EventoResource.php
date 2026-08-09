@@ -20,8 +20,12 @@ class EventoResource extends JsonResource
      return [
             'id'                        =>$this->id,
       //      'organizador_id'            =>$this->organizador_id,
-      //      'tipo_evento_id'            =>$this->tipo_evento_id,
-     //       'subtipo_evento_id'         =>$this->subtipo_evento_id,
+            // Ver brain/PLAN-ENDPOINT-CONSUMO-05082026.md — antes hardcodeado
+            // en 1 para todo evento, ya conectado de verdad.
+            'tipoEventoId'              =>$this->tipo_evento_id,
+            'tipoEvento'                =>$this->whenLoaded('tipoEvento', fn() => $this->tipoEvento?->nombre),
+            'subtipoEventoId'           =>$this->subtipo_evento_id,
+            'subtipoEvento'             =>$this->whenLoaded('subtipoEvento', fn() => $this->subtipoEvento?->nombre),
      //       'status'                    =>$this->estado_evento_id,
     //        'pais_id'                   =>$this->pais_id,
     //        'ciudad_id'                 =>$this->ciudad_id,
@@ -38,6 +42,7 @@ class EventoResource extends JsonResource
      //       'keyword'                   =>$this->keyword,
             'image'                     =>$this->imagen_portada_url,
             'colorHex'                  =>$this->color_hex,
+            'chronotrackEventId'        =>$this->chronotrack_event_id,
             'video'                     =>$this->video_url,
             'description'               =>$this->descripcion,
             'longDescription'           =>$this->longDescription,

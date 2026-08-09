@@ -15,6 +15,9 @@ use App\Http\Resources\PersonaResource;
 use App\Http\Resources\ParticipanteResource;
 use App\Models\Registration;
 use App\Models\Participante;
+use App\Models\Evento;
+use App\Models\Category;
+use App\Models\FormType;
 use App\Services\RegistrationService;
 use App\Services\QrService;
 use Illuminate\Http\JsonResponse;
@@ -22,9 +25,13 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
+use Carbon\Carbon;
+use App\Http\Controllers\Concerns\AuthorizesEventoScope;
 
 class RegistrationController extends Controller
 {
+    use AuthorizesEventoScope;
+
     public function __construct(
         private readonly RegistrationService $service,
         private readonly QrService $qrService
@@ -314,6 +321,7 @@ public function estadoTransaccion(
         ]);
 
         $registration = Registration::where('referencia', $reference)->firstOrFail();
+        $this->assertCanWriteEvento($registration->evento_id);
 
         $participanteModel = Participante::where('registration_id', $registration->id)
             ->where('id', $participante)
@@ -363,5 +371,142 @@ public function estadoTransaccion(
         }
 
         return response()->json($response);
+    }
+
+    /**
+     * Carga masiva de inscripciones desde el panel de administración —
+     * ver brain/PLAN-REGISTRO-MANUAL-CSV-05082026.md. Alcance acordado:
+     * solo super_admin, un evento + form_type + categoría fijos para
+     * todo el archivo (elegidos una sola vez, no por fila), cada fila
+     * del CSV se crea como **su propia inscripción independiente**
+     * (referencia propia, `pago_status = pending`) — no una sola
+     * inscripción grupal. Precio = solo precio de categoría + cargo de
+     * servicio (5%), sin souvenirs/promo/donación/equipo/delivery (por
+     * eso se rechaza de entrada un form_type con `has_team`, que exigiría
+     * un equipo por participante). Reutiliza
+     * `RegistrationService::create()` tal cual (mismas validaciones que
+     * el registro online: documento duplicado, cupo, etc.) — por eso
+     * cada participante importado también queda con su cuenta `Persona`
+     * sincronizada automáticamente (`RegistrationService::syncPersonas()`),
+     * sin trabajo extra acá.
+     */
+    public function importarBulk(Request $request, Evento $event): JsonResponse
+    {
+        $this->assertIsSuperAdmin();
+
+        $data = $request->validate([
+            'form_types_id' => ['required', 'integer'],
+            'categoria' => ['required', 'string'],
+            'participantes' => ['required', 'array', 'min:1'],
+            'participantes.*.numero_documento' => ['required', 'string'],
+            'participantes.*.tipo_documento' => ['required', 'string'],
+            'participantes.*.nombre' => ['required', 'string'],
+            'participantes.*.apellido' => ['required', 'string'],
+            'participantes.*.alias' => ['nullable', 'string'],
+            'participantes.*.genero' => ['required', 'string'],
+            'participantes.*.fecha_nacimiento' => ['required', 'date'],
+            'participantes.*.email' => ['required', 'email'],
+            'participantes.*.direccion' => ['required', 'string'],
+            'participantes.*.ciudad' => ['required', 'string'],
+            'participantes.*.telefono' => ['required', 'string'],
+            'participantes.*.contacto_emergencia_nombre' => ['required', 'string'],
+            'participantes.*.contacto_emergencia_telefono' => ['required', 'string'],
+            'participantes.*.contacto_emergencia_relacion' => ['required', 'string'],
+        ]);
+
+        $formType = FormType::where('id', $data['form_types_id'])
+            ->where('event_id', $event->id)
+            ->first();
+        if (!$formType) {
+            return response()->json(['success' => false, 'error' => 'El tipo de formulario no pertenece a este evento.'], 422);
+        }
+        if ($formType->has_team) {
+            return response()->json(['success' => false, 'error' => 'Este tipo de formulario requiere equipo — la carga masiva simple no lo soporta.'], 422);
+        }
+
+        $category = Category::where('event_id', $event->id)
+            ->whereRaw('LOWER(name) = ?', [mb_strtolower(trim($data['categoria']))])
+            ->first();
+        if (!$category) {
+            return response()->json(['success' => false, 'error' => "La categoría \"{$data['categoria']}\" no existe en este evento."], 422);
+        }
+
+        $precio = (float) $category->price;
+        $fee = round($precio * 0.05, 2);
+        $grandTotal = round($precio + $fee, 2);
+
+        $creados = [];
+        $errores = [];
+
+        foreach ($data['participantes'] as $i => $row) {
+            $fila = $i + 2; // +1 base 0→1, +1 fila de encabezado del CSV
+
+            try {
+                $nacimiento = Carbon::parse($row['fecha_nacimiento']);
+                $referencia = 'LA-' . strtoupper(substr(md5(uniqid((string) mt_rand(), true)), 0, 8));
+
+                $dto = \App\DTOs\RegistrationDTO::fromArray([
+                    'referencia' => $referencia,
+                    'fecha' => now()->toDateTimeString(),
+                    'evento_id' => $event->id,
+                    'evento_nombre' => $event->nombre,
+                    'form_types_id' => $formType->id,
+                    'tipo_pago' => 'pendiente',
+                    'pago_status' => 'pending',
+                    'pay_order_number' => null,
+                    'totales' => [
+                        'inscripcion' => $precio,
+                        'donacion' => 0,
+                        'souvenirs' => 0,
+                        'fee' => $fee,
+                        'descuento' => 0,
+                        'descuento_registrante' => 0,
+                        'grand_total' => $grandTotal,
+                    ],
+                    'participantes' => [[
+                        'nombre' => $row['nombre'],
+                        'apellido' => $row['apellido'],
+                        'alias' => $row['alias'] ?? '',
+                        'genero' => $row['genero'],
+                        'tipoDocumento' => $row['tipo_documento'],
+                        'numeroDocumento' => $row['numero_documento'],
+                        'polera' => '',
+                        'precioPolera' => 0,
+                        'nacimiento' => ['dia' => $nacimiento->day, 'mes' => $nacimiento->month, 'anio' => $nacimiento->year],
+                        'edad' => $nacimiento->age,
+                        'correo' => $row['email'],
+                        'direccion' => $row['direccion'],
+                        'ciudad' => $row['ciudad'],
+                        'telefono' => $row['telefono'],
+                        'contacto_emergencia' => [
+                            'nombre' => $row['contacto_emergencia_nombre'],
+                            'celular' => $row['contacto_emergencia_telefono'],
+                            'relacion' => $row['contacto_emergencia_relacion'],
+                        ],
+                        'souvenirs' => [],
+                        'answers' => [],
+                        'categoria' => $category->name,
+                        'precioCategoria' => $precio,
+                        'donacion' => 0,
+                        'promoDescuento' => 0,
+                        'promoCodigo' => '',
+                        'subtotal' => $precio,
+                    ]],
+                ]);
+
+                $this->service->create($dto);
+                $creados[] = ['fila' => $fila, 'numero_documento' => $row['numero_documento'], 'referencia' => $referencia];
+            } catch (\DomainException $e) {
+                $errores[] = ['fila' => $fila, 'numero_documento' => $row['numero_documento'] ?? null, 'error' => $e->getMessage()];
+            } catch (\Throwable $e) {
+                $errores[] = ['fila' => $fila, 'numero_documento' => $row['numero_documento'] ?? null, 'error' => 'Error inesperado: ' . $e->getMessage()];
+            }
+        }
+
+        return response()->json([
+            'success' => true,
+            'creados' => $creados,
+            'errores' => $errores,
+        ]);
     }
 }

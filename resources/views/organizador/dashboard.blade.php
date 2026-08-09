@@ -64,7 +64,7 @@
       <tbody>
         @forelse ($porCategoria as $categoria => $counts)
           <tr>
-            <td>{{ $categoria }}</td>
+            <td>{{ $nombresCategorias[$categoria] ?? $categoria }}</td>
             @foreach ($estados as $estado)
               <td class="num">{{ $counts[$estado] }}</td>
             @endforeach
@@ -113,7 +113,7 @@
       <div class="downloads-group">
         <h3>Por categoría</h3>
         @foreach ($porCategoria as $categoria => $counts)
-          <a class="btn secondary" href="{{ $exportBaseUrl }}&categoria={{ urlencode($categoria) }}">⬇ {{ $categoria }} ({{ $counts['total'] }})</a>
+          <a class="btn secondary" href="{{ $exportBaseUrl }}&categoria={{ urlencode($categoria) }}">⬇ {{ $nombresCategorias[$categoria] ?? $categoria }} ({{ $counts['total'] }})</a>
         @endforeach
       </div>
       @endif

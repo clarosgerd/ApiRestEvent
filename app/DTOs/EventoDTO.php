@@ -15,9 +15,15 @@ class EventoDTO
         public bool $publicado,
         public bool $hasDonation,
         public ?int $organizadorId,
+        public ?int $tipoEventoId,
+        public ?int $subtipoEventoId,
         public ?string $videoUrl,
         public ?string $imagenPortadaUrl,
         public ?string $colorHex,
+        // Id del evento en ChronoTrack, si el organizador ya registró la
+        // carrera ahí — solo lectura de nuestro lado, ver
+        // App\Services\ChronoTrackClient.
+        public ?string $chronotrackEventId,
         public ?string $deslinde,
         public ?string $deslindePdfUrl,
         /** @var CoordinateDTO[] */
@@ -54,9 +60,16 @@ class EventoDTO
             publicado: (bool) ($data['publicado'] ?? false),
             hasDonation: (bool) ($data['hasDonation'] ?? false),
             organizadorId: isset($data['organizador_id']) ? (int) $data['organizador_id'] : null,
+            // Default 1 ("Carrera de Ruta") si no viene: mismo comportamiento
+            // histórico para no romper callers que todavía no lo mandan (la
+            // SPA de inscripción nunca crea eventos). Ver
+            // brain/PLAN-ENDPOINT-CONSUMO-05082026.md.
+            tipoEventoId: isset($data['tipo_evento_id']) ? (int) $data['tipo_evento_id'] : null,
+            subtipoEventoId: isset($data['subtipo_evento_id']) ? (int) $data['subtipo_evento_id'] : null,
             videoUrl: $data['video'] ?? $data['video_url'] ?? null,
             imagenPortadaUrl: $data['image'] ?? $data['imagen_portada_url'] ?? null,
             colorHex: $data['colorHex'] ?? $data['color_hex'] ?? null,
+            chronotrackEventId: $data['chronotrackEventId'] ?? $data['chronotrack_event_id'] ?? null,
             deslinde: $data['deslinde'] ?? null,
             deslindePdfUrl: $data['deslinde_pdf_url'] ?? null,
             coordinates: array_map(
