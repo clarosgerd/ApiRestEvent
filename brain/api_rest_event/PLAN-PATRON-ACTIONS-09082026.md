@@ -2,10 +2,13 @@
 
 **Estado: las 3 fases implementadas y verificadas el 09/08/2026, en la
 rama `patronaction` (creada por el usuario como respaldo antes de
-arrancar). Plan completo, nada pendiente.** El roadmap completo abajo es
-el plan original tal como quedó aprobado; ver "## Registro de
-implementación" al final para el detalle de qué se hizo realmente y cómo
-se verificó.
+arrancar). Plan original completo, y ese mismo día se extendió además a
+`EventoService` (`CrearEventoAction`) — ver "## Extensión a
+EventoService" al final.** El roadmap completo abajo es el plan original
+tal como quedó aprobado; ver "## Registro de implementación" para el
+detalle de las 3 fases originales (`RegistrationService`/eventos
+publicar-despublicar/ChronoTrack), y la sección de extensión al final
+para `EventoService`.
 
 ## Contexto
 
@@ -285,3 +288,47 @@ riesgo de un WhatsApp real. Limpiado después.
 
 Nada de esto está commiteado dentro de esta sub-fase — el usuario ya
 había commiteado Fase 1+2 antes de arrancar la Fase 3.
+
+## Extensión a `EventoService` (mismo día, 09/08/2026, después de commitear la Fase 3)
+
+El usuario pidió extender el patrón a `EventoService` (356 líneas, 2
+métodos públicos: `create()`/`update()`) — mismo método de diagnóstico
+que la Fase 3: grepear cada `$this->metodo(` antes de asumir qué es
+compartido. Resultado: `create()` tiene **1 solo caller**
+(`EventoController::store()`) y sus 10 sub-helpers privados
+(`createCoordinates`, `createRoutes`, `createCategories`,
+`createFormTypes`+`createSouvenirs`+`createFormularioCampos`+
+`createQuestionOptions`, `createPromoCodes`, `createAuspiciadores`,
+`createAgendaItems`) **no tienen ningún otro caller** — todos exclusivos
+del flujo de creación, igual que pasó con los 4 validadores de la Fase 3.
+`update()` también tiene 1 solo caller y es un simple mapeo de campos (25
+líneas, sin sub-pasos) — **se decidió no convertirlo en Action**: no es
+un caso de uso complejo, forzarlo sería puro movimiento de código sin
+beneficio, mismo criterio que "Qué NO se toca" de más arriba.
+
+**Implementado**: `App\Actions\CrearEventoAction` — se lleva `create()`
+completo + los 10 sub-helpers (privados, tal cual, incluida la
+duplicación ya documentada y deliberada con
+`FormTypeService::createFormType()`, sin tocar). Inyecta `EventoService`
+solo para `loadRelations()` (el único colaborador real que sobrevivió —
+compartido por `create()`, ahora en la Action, y por `update()`, que se
+queda en el Service). `loadRelations()` pasó de `private` a `public`.
+`EventoController::store()` inyecta la Action por parámetro de método,
+mismo patrón que el resto. `EventoService` quedó en ~80 líneas.
+
+**Verificación real hecha**: suite completa sin regresiones (misma única
+falla preexistente). Se encontró que **no existe ningún test
+automatizado que pegue contra `POST /event`** (el create) — `EventoTest.php`
+solo cubre index/show (lectura). Por eso se hizo un smoke test manual
+exhaustivo vía tinker con los 9 tipos de dato anidado a la vez
+(coordenadas, ruta, categoría, promo code, auspiciador, form_type,
+souvenir, agenda) contra `CrearEventoAction::handle()` real — los 9 se
+crearon bien, y en particular se confirmó que `createAgendaItems()`
+sigue resolviendo correctamente el `form_type_id` por nombre buscando
+entre los form_types que `createFormTypes()` ya creó antes en la misma
+llamada (dependencia de orden dentro del método, la parte más delicada
+de mover). Se excluyó `preguntas` del smoke test porque tropieza con un
+bug preexistente ya documentado (`SEED-DEMO-STAKEHOLDERS-07082026.md`:
+`questions.opciones` NOT NULL sin default, rompe el alta anidada de
+preguntas — no relacionado con este refactor, no se tocó). Limpiado
+todo después (evento + los 9 registros anidados, `forceDelete()`).

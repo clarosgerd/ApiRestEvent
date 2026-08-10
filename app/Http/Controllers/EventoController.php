@@ -11,6 +11,7 @@ use App\Http\Resources\CoordinateResource;
 use App\Http\Resources\RouteResource;
 use App\Http\Resources\CategoryResource;
 use App\Services\ReferenceQrService;
+use App\Actions\CrearEventoAction;
 use App\Actions\PublicarEventoAction;
 use App\Actions\DespublicarEventoAction;
 use App\DTOs\EventoDTO;
@@ -148,7 +149,7 @@ class EventoController extends Controller
     /**
      * Store a newly created resource in storage.
      */
-    public function store(StoreEventosRequest $request): JsonResponse
+    public function store(StoreEventosRequest $request, CrearEventoAction $action): JsonResponse
     {
         // Crear un evento nuevo (no editar uno existente) es una acción de
         // super_admin — un admin scoped a un solo evento no tiene ningún
@@ -156,7 +157,7 @@ class EventoController extends Controller
         $this->assertIsSuperAdmin();
 
         $dto = EventoDTO::fromArray($request->validated());
-        $evento = $this->service->create($dto);
+        $evento = $action->handle($dto);
 
         AdminAuditLogger::log('create', 'evento', $evento->id, $evento->id, null, $evento->toArray());
 
