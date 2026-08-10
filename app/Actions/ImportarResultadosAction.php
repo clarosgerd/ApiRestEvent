@@ -1,35 +1,35 @@
 <?php
 
-namespace App\Support;
+namespace App\Actions;
 
 use App\Models\Evento;
 use App\Models\Participante;
 use App\Models\Resultado;
 
 /**
- * Lógica de "guardar resultados en bulk" extraída de
- * `ResultadoController::bulk()` para poder reusarla tal cual desde otros
- * orígenes de datos (ver `ChronoTrackSyncService`) sin duplicar el
- * matching/upsert — una sola fuente de verdad para ambos caminos.
+ * Lógica de "guardar resultados en bulk" — la usan tanto la carga manual
+ * (`ResultadoController::bulk()`) como la sincronización de ChronoTrack
+ * (`SincronizarChronoTrackAction`), sin duplicar el matching/upsert — una
+ * sola fuente de verdad para ambos caminos.
  *
  * Matchea participantes por chip → número de corredor → número de
  * documento (en ese orden de prioridad) dentro del evento — ver
  * brain/PLAN-RESULTADOS-EQUIPOS-31072026.md §2.
  */
-class ResultadosBulkImporter
+class ImportarResultadosAction
 {
     /**
      * @param Evento $evento
      * @param array<int, array{chip?: ?string, numero_corredor?: ?string, numero_documento?: ?string, tiempo_oficial?: ?string, tiempo_chip?: ?string, posicion_general?: ?int, posicion_categoria?: ?int, posicion_genero?: ?int, estado?: ?string}> $items
      * @return array{procesados: int, no_vinculados: array}
      */
-    public static function importar(Evento $evento, array $items): array
+    public function handle(Evento $evento, array $items): array
     {
         $procesados = 0;
         $noVinculados = [];
 
         foreach ($items as $item) {
-            $participante = self::resolverParticipante($evento, $item);
+            $participante = $this->resolverParticipante($evento, $item);
 
             $llave = $participante
                 ? ['event_id' => $evento->id, 'participante_id' => $participante->id]
@@ -62,7 +62,7 @@ class ResultadosBulkImporter
         return ['procesados' => $procesados, 'no_vinculados' => $noVinculados];
     }
 
-    private static function resolverParticipante(Evento $evento, array $item): ?Participante
+    private function resolverParticipante(Evento $evento, array $item): ?Participante
     {
         $base = fn () => Participante::whereHas('registration', function ($q) use ($evento) {
             $q->where('evento_id', $evento->id);

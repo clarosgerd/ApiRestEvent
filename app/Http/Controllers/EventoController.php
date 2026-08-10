@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Models\Category;
 use App\Models\Evento;
-use App\Models\EventoNotification;
 use App\Models\Participante;
 use App\Models\Registration;
 use App\Models\TipoEvento;
@@ -12,7 +11,8 @@ use App\Http\Resources\CoordinateResource;
 use App\Http\Resources\RouteResource;
 use App\Http\Resources\CategoryResource;
 use App\Services\ReferenceQrService;
-use App\Actions\EnviarDashboardOrganizadorAction;
+use App\Actions\PublicarEventoAction;
+use App\Actions\DespublicarEventoAction;
 use App\DTOs\EventoDTO;
 use App\Http\Requests\StoreEventosRequest;
 use App\Http\Requests\UpdateEventosRequest;
@@ -179,24 +179,11 @@ class EventoController extends Controller
     {
         $this->assertCanWriteEvento($event->id);
 
-        if ($event->publicado) {
-            return response()->json([
-                'success' => false,
-                'error'   => 'Este evento ya está publicado.',
-            ], 422);
+        try {
+            app(PublicarEventoAction::class)->handle($event);
+        } catch (\DomainException $e) {
+            return response()->json(['success' => false, 'error' => $e->getMessage()], 422);
         }
-
-        $event->update(['publicado' => true]);
-
-        app(EnviarDashboardOrganizadorAction::class)->handle($event->fresh(['formTypes', 'organizador']));
-        EventoNotification::create([
-            'evento_id'  => $event->id,
-            'tipo'       => 'evento_publicado_dashboard_organizador',
-            'canal'      => 'email',
-            'enviado_at' => now(),
-        ]);
-
-        AdminAuditLogger::log('publicar', 'evento', $event->id, $event->id, ['publicado' => false], ['publicado' => true]);
 
         return response()->json([
             'success' => true,
@@ -215,13 +202,6 @@ class EventoController extends Controller
     {
         $this->assertCanWriteEvento($event->id);
 
-        if (!$event->publicado) {
-            return response()->json([
-                'success' => false,
-                'error'   => 'Este evento no está publicado.',
-            ], 422);
-        }
-
         if ($event->registrations()->exists()) {
             return response()->json([
                 'success' => false,
@@ -229,9 +209,11 @@ class EventoController extends Controller
             ], 409);
         }
 
-        $event->update(['publicado' => false]);
-
-        AdminAuditLogger::log('despublicar', 'evento', $event->id, $event->id, ['publicado' => true], ['publicado' => false]);
+        try {
+            app(DespublicarEventoAction::class)->handle($event);
+        } catch (\DomainException $e) {
+            return response()->json(['success' => false, 'error' => $e->getMessage()], 422);
+        }
 
         return response()->json([
             'success' => true,

@@ -2,15 +2,15 @@
 
 namespace App\Http\Controllers;
 
+use App\Actions\ImportarResultadosAction;
+use App\Actions\SincronizarChronoTrackAction;
 use App\Http\Controllers\Concerns\AuthorizesEventoScope;
 use App\Models\Category;
 use App\Models\Evento;
 use App\Models\Participante;
 use App\Models\Resultado;
-use App\Services\ChronoTrackSyncService;
 use App\Support\ProgresoHistorico;
 use App\Support\RankingEquipos;
-use App\Support\ResultadosBulkImporter;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -25,7 +25,7 @@ class ResultadoController extends Controller
      * endpoint autenticado para admin-eventos. Ver
      * brain/groovy-chasing-ladybug.md Parte B.
      */
-    public function sincronizarChronoTrack(Evento $event, ChronoTrackSyncService $service): JsonResponse
+    public function sincronizarChronoTrack(Evento $event, SincronizarChronoTrackAction $action): JsonResponse
     {
         $this->assertCanWriteEvento($event->id);
 
@@ -37,7 +37,7 @@ class ResultadoController extends Controller
         }
 
         try {
-            $resultado = $service->sincronizar($event);
+            $resultado = $action->handle($event);
         } catch (\Throwable $e) {
             return response()->json([
                 'success' => false,
@@ -61,7 +61,7 @@ class ResultadoController extends Controller
      *   "tiempo_oficial", "tiempo_chip", "posicion_general",
      *   "posicion_categoria", "posicion_genero", "estado" }, ... ] }
      */
-    public function bulk(Request $request, Evento $event): JsonResponse
+    public function bulk(Request $request, Evento $event, ImportarResultadosAction $action): JsonResponse
     {
         $data = $request->validate([
             'items'                          => ['required', 'array', 'min:1'],
@@ -76,7 +76,7 @@ class ResultadoController extends Controller
             'items.*.estado'                 => ['nullable', Rule::in(['finisher', 'dns', 'dnf', 'dsq'])],
         ]);
 
-        $resultado = ResultadosBulkImporter::importar($event, $data['items']);
+        $resultado = $action->handle($event, $data['items']);
 
         return response()->json(['success' => true] + $resultado);
     }
@@ -232,7 +232,7 @@ class ResultadoController extends Controller
         return Resultado::where('event_id', $eventoId)
             // 'finisher' explícito: desde que existen filas dns/dnf (sin
             // tiempo_oficial), ordenarlas por tiempoASegundos()=0 las
-            // colaba en el primer puesto — ver ChronoTrackSyncService.
+            // colaba en el primer puesto — ver SincronizarChronoTrackAction.
             ->where('estado', 'finisher')
             ->whereHas('participante', fn ($q) => $q->where('categoria', $participante->categoria))
             ->with('participante')

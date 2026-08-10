@@ -1,15 +1,16 @@
 <?php
 
-namespace App\Services;
+namespace App\Actions;
 
 use App\Models\Evento;
+use App\Services\ChronoTrackClient;
 use App\Support\ResultadosBulkImporter;
 
 /**
  * Trae los resultados ya generados en ChronoTrack para un evento (que ya
  * tiene `chronotrack_event_id` seteado) y los guarda con la misma lógica que
  * ya usa la carga manual (`ResultadoController::bulk()` /
- * `ResultadosBulkImporter`) — ver brain/groovy-chasing-ladybug.md.
+ * `ImportarResultadosAction`) — ver brain/groovy-chasing-ladybug.md.
  *
  * Además de finishers, detecta DNS/DNF cruzando `/entry` (quién se
  * inscribió) contra los intervals de cada carrera: un bib que nunca
@@ -19,7 +20,7 @@ use App\Support\ResultadosBulkImporter;
  * no hay forma de distinguir uno del otro y todo lo no-finisher se marca
  * `dns` (más conservador).
  */
-class ChronoTrackSyncService
+class SincronizarChronoTrackAction
 {
     public function __construct(private ChronoTrackClient $client)
     {
@@ -28,7 +29,7 @@ class ChronoTrackSyncService
     /**
      * @return array{procesados: int, no_vinculados: array, intervals: int, dns: int, dnf: int}
      */
-    public function sincronizar(Evento $evento): array
+    public function handle(Evento $evento): array
     {
         if (!$evento->chronotrack_event_id) {
             throw new \InvalidArgumentException(
@@ -91,7 +92,7 @@ class ChronoTrackSyncService
             }
         }
 
-        $importado = ResultadosBulkImporter::importar($evento, $items);
+        $importado = app(ImportarResultadosAction::class)->handle($evento, $items);
 
         return $importado + [
             'intervals' => count($intervalsCompletos),
@@ -103,8 +104,8 @@ class ChronoTrackSyncService
     /**
      * Mapeo de campos — ver tabla en brain/groovy-chasing-ladybug.md.
      * `numero_documento` no viene de ChronoTrack; el matching de
-     * `ResultadosBulkImporter` ya prioriza `numero_corredor` (el bib) antes
-     * que el documento, así que alcanza con el bib para vincular.
+     * `ImportarResultadosAction` ya prioriza `numero_corredor` (el bib)
+     * antes que el documento, así que alcanza con el bib para vincular.
      */
     private function transformarFinisher(array $resultado): array
     {

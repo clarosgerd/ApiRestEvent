@@ -2,8 +2,8 @@
 
 namespace App\Console\Commands;
 
+use App\Actions\SincronizarChronoTrackAction;
 use App\Models\Evento;
-use App\Services\ChronoTrackSyncService;
 use Illuminate\Console\Command;
 
 /**
@@ -22,7 +22,7 @@ class ChronoTrackSincronizar extends Command
 
     protected $description = 'Trae los resultados (finishers) desde ChronoTrack para un evento y los guarda en resultados.';
 
-    public function handle(ChronoTrackSyncService $service): int
+    public function handle(SincronizarChronoTrackAction $action): int
     {
         $evento = Evento::find($this->argument('evento'));
 
@@ -41,7 +41,7 @@ class ChronoTrackSincronizar extends Command
         $this->info("Sincronizando \"{$evento->nombre}\" desde ChronoTrack (event_id {$evento->chronotrack_event_id})...");
 
         try {
-            $resultado = $service->sincronizar($evento);
+            $resultado = $action->handle($evento);
         } catch (\Throwable $e) {
             $this->error('Falló la sincronización: ' . $e->getMessage());
 

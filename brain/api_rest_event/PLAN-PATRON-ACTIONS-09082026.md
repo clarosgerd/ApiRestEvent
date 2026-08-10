@@ -1,8 +1,11 @@
 # Introducir el patrón Actions en ApiRestEvent
 
-**Estado: planeado 09/08/2026, pendiente de retomar — no se implementó nada
-todavía.** Este documento es el plan completo tal como quedó aprobado en
-sesión; al retomarlo, seguir el roadmap de fases tal cual está.
+**Estado: Fase 1 y Fase 2 implementadas y verificadas el 09/08/2026, en la
+rama `patronaction` (creada por el usuario como respaldo antes de
+arrancar). Fase 3 (el núcleo de `RegistrationService`) queda pendiente.**
+El roadmap completo abajo es el plan original tal como quedó aprobado; ver
+"## Registro de implementación" al final para el detalle de qué se hizo
+realmente y cómo se verificó.
 
 ## Contexto
 
@@ -174,3 +177,62 @@ caller usando el método viejo y otro el nuevo a mitad de camino.
 1. Fase 1 (piloto, una sesión corta — ya hay tests de endpoint).
 2. Fase 2 (mecánica, se puede hacer en paralelo a la Fase 1).
 3. Fase 3 (el grueso, requiere más cuidado por los 2 callers de `create()`).
+
+## Registro de implementación (09/08/2026, rama `patronaction`)
+
+**Fase 1 — hecha tal cual el plan.** `PublicarEventoAction` y
+`DespublicarEventoAction` nuevas en `app/Actions/`; `EventoController`
+delega a ellas. Único ajuste respecto al plan: el chequeo de "¿tiene
+participantes inscritos?" (409) de `despublicar()` **se dejó en el
+controller**, no se movió a la Action — es una guarda de autorización con
+un código HTTP distinto al 422 del resto de las validaciones de estado, y
+moverla adentro hubiera cambiado ese código sin necesidad (documentado en
+el docblock de `DespublicarEventoAction`). `SweepFormTypesCupoLlenoAction`
+nueva; `RegistrationService::deactivateFormTypeIfCupoLleno()` pasó de
+`private` a `public` porque ahora la Action lo inyecta como colaborador
+(sigue siendo el único lugar con la regla de cupo, no se duplicó);
+`sweepFormTypesCupoLleno()` se borró del Service (0 callers además del
+Command). El Command `form_types:desactivar-cupo-lleno` ahora inyecta la
+Action.
+
+**Fase 2 — hecha tal cual el plan.** `ChronoTrackSyncService` y
+`ResultadosBulkImporter` se **borraron por completo** (no quedaron como
+fachadas) y se reemplazaron por `SincronizarChronoTrackAction` (inyecta
+`ChronoTrackClient`, que sigue siendo un cliente HTTP puro) e
+`ImportarResultadosAction` (mismo código que el `importar()` estático,
+ahora `handle()` de instancia). Los 2 callers de cada uno
+(`ChronoTrackSincronizar` command + `ResultadoController::sincronizarChronoTrack()`
+para el primero; `ResultadoController::bulk()` + la Action de sync para
+el segundo) se actualizaron en el mismo cambio — no quedó ningún caller
+apuntando a las clases viejas.
+
+**Verificación real hecha:**
+- Hubo que instalar `phpunit` (el `vendor/` local no tenía las dev-deps) —
+  costó varios intentos por I/O lento de Windows, sin relación con el
+  refactor.
+- Suite completa (`php vendor/bin/phpunit`, 81 tests) antes y después de
+  cada fase: **1 sola falla, preexistente y no relacionada**
+  (`test_duplicate_reference_throws_exception`, espera un 500 viejo pero
+  el código ya devuelve 422 desde antes de este refactor — confirmado con
+  `git stash`). 0 regresiones introducidas.
+- Fase 1: smoke test manual con un evento descartable (creado y borrado en
+  la misma sesión vía tinker) — `publicar()`/`despublicar()` cambian el
+  estado bien, la segunda llamada a cada uno lanza `DomainException` como
+  se espera, quedan los `AdminAuditLog`/`EventoNotification` esperados.
+  ⚠️ Efecto secundario real: el smoke test disparó de verdad
+  `EnviarDashboardOrganizadorAction` (sin cambios, se ejecutó tal cual
+  siempre lo hace) y le mandó un correo real a los superadmin del sistema
+  (`carlitos.gerd@gmail.com` en local) con el dashboard de un evento de
+  prueba ya borrado — el usuario confirmó que es su propio correo, sin
+  problema.
+- Fase 2: `php artisan chronotrack:sincronizar 90007` contra el dataset
+  demo real ([[project_demo_evento_chronotrack_90007]]) devolvió
+  exactamente el mismo resultado que antes del refactor (412 procesados,
+  23 dns, 0 dnf) — la sincronización real con la API de ChronoTrack pasó
+  por el código nuevo sin ninguna diferencia observable.
+
+**Pendiente**: Fase 3 (el núcleo de `RegistrationService` —
+`CrearInscripcionAction`/`ActualizarInscripcionAction`/
+`ActualizarInscripcionPagadaAction`), no arrancada. Nada se commiteó
+todavía en la rama `patronaction` — los cambios de Fase 1 y 2 están solo
+en el working directory.

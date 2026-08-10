@@ -145,34 +145,18 @@ class RegistrationService
     }
 
     /**
-     * Red de seguridad diaria (comando form_types:desactivar-cupo-lleno):
-     * recorre todos los form_types activos y desactiva los que ya llenaron
-     * cupo. El chequeo "en caliente" ya ocurre en create()/update()/
-     * updatePaidRegistration(); esto solo cubre condiciones de carrera o
-     * ediciones manuales directas en BD.
-     */
-    public function sweepFormTypesCupoLleno(): int
-    {
-        $desactivados = 0;
-
-        foreach (FormType::where('activo', true)->pluck('id') as $formTypeId) {
-            $this->deactivateFormTypeIfCupoLleno($formTypeId);
-            if (!FormType::find($formTypeId)->activo) {
-                $desactivados++;
-            }
-        }
-
-        return $desactivados;
-    }
-
-    /**
      * Cuenta los participantes de inscripciones vigentes (ni canceladas ni
      * fallidas) de este form_type y, si ya alcanzaron el cupo_total, lo
      * desactiva (activo = 0) para que deje de ofrecerse en el frontend.
      * Es una desactivación, nunca una reactivación: si alguien cancela y
      * libera cupo, reactivar `activo` es una decisión manual del organizador.
+     *
+     * Público (no privado) porque además del chequeo "en caliente" de
+     * create()/update()/updatePaidRegistration() acá abajo, también lo
+     * reusa App\Actions\SweepFormTypesCupoLlenoAction (la red de seguridad
+     * diaria) — colaborador compartido, no se duplica la regla.
      */
-    private function deactivateFormTypeIfCupoLleno(int $formTypeId): void
+    public function deactivateFormTypeIfCupoLleno(int $formTypeId): void
     {
         $formType = FormType::find($formTypeId);
 

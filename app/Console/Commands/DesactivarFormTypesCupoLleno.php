@@ -2,7 +2,7 @@
 
 namespace App\Console\Commands;
 
-use App\Services\RegistrationService;
+use App\Actions\SweepFormTypesCupoLlenoAction;
 use Illuminate\Console\Command;
 
 class DesactivarFormTypesCupoLleno extends Command
@@ -11,9 +11,9 @@ class DesactivarFormTypesCupoLleno extends Command
 
     protected $description = 'Red de seguridad: desactiva form_types que llenaron cupo y no se detectó en caliente al registrar.';
 
-    public function handle(RegistrationService $service): int
+    public function handle(SweepFormTypesCupoLlenoAction $action): int
     {
-        $desactivados = $service->sweepFormTypesCupoLleno();
+        $desactivados = $action->handle();
 
         $this->info("Form types desactivados: {$desactivados}");
 
