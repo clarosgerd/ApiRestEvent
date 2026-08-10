@@ -2,6 +2,7 @@
 
 namespace Tests;
 
+use App\Models\AdminUser;
 use App\Models\Persona;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
 
@@ -22,5 +23,22 @@ abstract class TestCase extends BaseTestCase
         $this->withHeader('Authorization', 'Bearer ' . $token);
 
         return $persona;
+    }
+
+    /**
+     * Autentica al cliente de test como un AdminUser vía Sanctum (guard
+     * `admins`), para las rutas de EventoController y afines protegidas con
+     * auth:admins + AuthorizesEventoScope::assertIsSuperAdmin()/
+     * assertCanWriteEvento(). Mismo mecanismo que actingAsPersona() — el
+     * guard 'admins' también es Sanctum (ver config/auth.php), solo cambia
+     * el modelo/provider.
+     */
+    protected function actingAsAdmin(?AdminUser $admin = null): AdminUser
+    {
+        $admin ??= AdminUser::factory()->create();
+        $token = $admin->createToken('test-token')->plainTextToken;
+        $this->withHeader('Authorization', 'Bearer ' . $token);
+
+        return $admin;
     }
 }

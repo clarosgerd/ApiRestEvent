@@ -332,3 +332,57 @@ bug preexistente ya documentado (`SEED-DEMO-STAKEHOLDERS-07082026.md`:
 `questions.opciones` NOT NULL sin default, rompe el alta anidada de
 preguntas — no relacionado con este refactor, no se tocó). Limpiado
 todo después (evento + los 9 registros anidados, `forceDelete()`).
+
+## Tests automatizados para todo lo anterior (mismo día, después de commitear la extensión)
+
+El usuario pidió tests automatizados para los gaps reales encontrados —
+alcance acordado explícitamente: solo lo que no tenía ningún test hoy
+(no se duplicó cobertura de `RegistrationService`, ya cubierta por
+`RegistrationTest.php`), ChronoTrack con `Http::fake()` (no la API real),
+Feature tests (mismo estilo que la suite existente, no Unit).
+
+**Infraestructura nueva que hizo falta** (no existía):
+- `database/factories/AdminUserFactory.php` + `use HasFactory` agregado a
+  `App\Models\AdminUser` (no lo tenía). El guard `admins` es Sanctum
+  igual que `Persona` — se agregó `TestCase::actingAsAdmin()` con el
+  mismo mecanismo que ya usaba `actingAsPersona()`.
+
+**4 archivos de test nuevos** (81 → 96 tests):
+- `tests/Feature/EventoCreateTest.php` (5) — `POST /event`: 403 sin
+  super_admin, 401 sin auth, evento mínimo, evento con los 9 anidados a
+  la vez (mismo caso que el smoke test manual, incluida la dependencia
+  de orden `createFormTypes()` → `createAgendaItems()`), defaults de
+  organizador/tipo_evento a 1.
+- `tests/Feature/EventoPublicarTest.php` (5) — publicar (marca
+  publicado + audita + `EventoNotification`), publicar 2 veces → 422,
+  despublicar, despublicar sin estar publicado → 422, despublicar con
+  inscripciones → 409 (confirma que ese chequeo específico sigue en el
+  controller, no en la Action — ver docblock de `DespublicarEventoAction`).
+- `tests/Feature/ChronoTrackSyncTest.php` (2) — sync completa con
+  `Http::fake()` (1 finisher matcheado a un Participante real + 1 dnf +
+  1 dns, exactamente el mismo caso que se verificó a mano en la Fase 2
+  contra la API real), y el 422 cuando falta `chronotrack_event_id`.
+- `tests/Feature/DesactivarFormTypesCupoLlenoTest.php` (3) — desactiva
+  al llenar cupo, no desactiva si no está lleno, ignora inscripciones
+  `cancelled` al contar (mismo criterio que el chequeo en caliente).
+
+**Gotcha real encontrado escribiendo `EventoCreateTest`** (documentado
+en el propio archivo): `CrearEventoAction` hardcodea `pais_id`/`ciudad_id=1`
+y default a `1` para `organizador_id`/`tipo_evento_id`/`subtipo_evento_id`
+si no vienen en el payload — comportamiento heredado tal cual, no
+introducido por el refactor. En la BD real esas filas `id=1` siempre
+existieron; en `event_testing` recién migrada no, y **sí hay FK real**
+sobre esas 5 columnas (migración `2026_07_20_200005_add_foreign_keys_to_eventos_table.php`,
+no la había visto en la migración original de la tabla). Hubo que
+sembrar esas 5 filas con `id=1` exacto en el `setUp()` — `create(['id'=>1])`
+no alcanza porque `id` no está en `$fillable` de esos modelos y se
+ignora en mass assignment; hizo falta un helper `forceId()` que asigna
+`->id` por propiedad directa. Además `tipos_evento` ya trae una fila
+`id=1` sembrada por una migración de datos
+(`2026_08_05_120000_add_congreso_tipo_evento.php`) — `forceId()` reusa
+la que ya exista en vez de chocar contra ella. Verificado que no hay
+flakiness por esto corriendo la suite completa con `--order-by=random`.
+
+**Verificación final**: suite completa (96 tests) en verde, misma única
+falla preexistente sin relación (`test_duplicate_reference_throws_exception`),
+0 regresiones — confirmado también con orden aleatorio.
