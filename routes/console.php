@@ -25,6 +25,13 @@ Schedule::command('form_types:desactivar-cupo-lleno')->daily()->appendOutputTo($
 Schedule::command('notificaciones:recordatorio-pendientes')->daily()->appendOutputTo($schedulerLog);
 Schedule::command('notificaciones:revertir-cupo')->daily()->appendOutputTo($schedulerLog);
 
+// Complementa al ciclo diario de arriba (que cuenta hacia atrás desde la
+// fecha del evento) — este cubre el plazo corto de cada form_type
+// (tiempo_expiracion_min, ej. 30 min para completar un pago QR), sin el
+// cual un pending de un evento lejano podía "secuestrar" cupo por meses.
+// Cada 5 min, no diario — el plazo típico se mide en minutos.
+Schedule::command('notificaciones:expirar-pendientes')->everyFiveMinutes()->appendOutputTo($schedulerLog);
+
 // ── Recordatorio de KIT para pagados (§4 fase 5) ────────────────────────
 Schedule::command('notificaciones:recordatorio-kit')->daily()->appendOutputTo($schedulerLog);
 
