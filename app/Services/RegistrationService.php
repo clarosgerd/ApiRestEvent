@@ -2,146 +2,22 @@
 
 namespace App\Services;
 
-use App\DTOs\ParticipantDTO;
-use App\DTOs\RegistrationDTO;
 use App\Models\Participante;
 use App\Models\FormType;
-use App\Models\Equipo;
 use App\Models\Persona;
 use App\Models\PromoCode;
 use App\Models\SouvenirParticipante;
 use App\Models\Registration;
-use App\Models\RegistrationTotal;
 use App\Models\ContactoEmergenciaParticipante;
 use App\Models\Answer;
-use App\Models\AuditLog;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 class RegistrationService
 {
     public function __construct(
         private readonly NotificacionService $notificaciones
     ) {
-    }
-
-    /**
-     * Crear una inscripción completa.
-     */
-    public function create(RegistrationDTO $dto): Registration
-    {
-        try {
-            $registration = $this->createInTransaction($dto);
-        } catch (\Illuminate\Database\UniqueConstraintViolationException $e) {
-            // Red de seguridad ante una colisión real bajo concurrencia: dos
-            // requests simultáneas pueden pasar el chequeo
-            // Registration::where('referencia', ...)->exists() de abajo antes
-            // de que cualquiera haga commit — acá el UNIQUE de `referencia`
-            // en la base es la última línea de defensa. Se normaliza al mismo
-            // DomainException que ese chequeo (mismo mensaje, mismo tipo) para
-            // que el controller la atrape igual y event/api/registro.php la
-            // reconozca con su self-heal — pero solo si la violación es
-            // realmente de esa columna: cualquier otro UNIQUE que choque en
-            // esta transacción se relanza tal cual, no se enmascara.
-            if (str_contains($e->getMessage(), 'referencia')) {
-                throw new \DomainException("La referencia {$dto->reference} ya existe.");
-            }
-            throw $e;
-        }
-
-        // Fuera de la transacción a propósito: el envío de correo (I/O de red)
-        // no debe mantener abierta la conexión/transacción de BD, y una falla
-        // de SMTP no debe revertir el registro ya guardado.
-        if ($registration->pago_status === 'pending') {
-            $this->notificaciones->notificarInscripcionPendiente($registration);
-        }
-
-        return $registration;
-    }
-
-    private function createInTransaction(RegistrationDTO $dto): Registration
-    {
-        return DB::transaction(function () use ($dto) {
-
-            if (
-                Registration::where('referencia', $dto->reference)->exists()
-            ) {
-                // DomainException (no Exception a secas): así el controller la
-                // atrapa y devuelve un 422 limpio en vez de un 500 sin manejar
-                // — event/api/registro.php necesita ese 422 legible para
-                // distinguir "mi propio reintento chocó con mi propia
-                // referencia" de un error real.
-                throw new \DomainException(
-                    "La referencia {$dto->reference} ya existe."
-                );
-            }
-            
-            foreach ($dto->participants as $participant) {
-                $this->validateParticipantRegistration($dto, $participant);
-                $this->validateEquipo($dto, $participant);
-                $this->validateDelivery($dto, $participant);
-            }
-
-            $this->validateDuplicateParticipants($dto);
-
-
-            
-
-            $registration = Registration::create([
-                'referencia' => $dto->reference,
-                'fecha' => $dto->date,
-                'evento_id' => $dto->eventId,
-                'evento_nombre' => $dto->eventName,
-                'form_types_id' => $dto->formId,
-                'tipo_pago' => $dto->paymentType,
-                'pago_status' => $dto->paymentStatus,
-                'pay_order_number' => $dto->payOrderNumber,
-            ]);
-
-            foreach ($dto->participants as $participant) {
-                $this->createParticipant(
-                    $registration,
-                    $participant
-                );
-            }
-
-            $this->deactivateFormTypeIfCupoLleno($registration->form_types_id);
-
-            $this->createTotals(
-                $registration,
-                $dto
-            );
-
-            $this->syncPersonas($registration);
-
-            return $this->loadRelations(
-                $registration
-            );
-
-        });
-    }
-
-    /**
-     * Crear totales.
-     */
-    private function createTotals(
-        Registration $registration,
-        RegistrationDTO $dto
-    ): void {
-
-        RegistrationTotal::create([
-
-            'registration_id' => $registration->id,
-            'inscripcion' => $dto->totals->registration,
-            'donacion' => $dto->totals->donation,
-            'souvenirs' => $dto->totals->souvenirs,
-            'fee' => $dto->totals->fee,
-            'descuento' => $dto->totals->discount,
-            'descuento_registrante' => $dto->totals->groupDiscount,
-            'grand_total' => $dto->totals->grandTotal,
-        ]);
     }
 
     /**
@@ -171,81 +47,6 @@ class RegistrationService
 
         if ($inscritos >= $formType->cupo_total) {
             $formType->update(['activo' => false]);
-        }
-    }
-
-    /**
-     * Crear participante.
-     */
-    private function createParticipant(
-        Registration $registration,
-        ParticipantDTO $dto
-    ): void {
-
-        $this->consumePromoCode($registration->evento_id, $dto->promoCode, $registration->id);
-
-        $participant = Participante::create([
-
-            'registration_id' => $registration->id,
-            'nombre' => $dto->firstName,
-            'apellido' => $dto->lastName,
-            'alias' => $dto->alias,
-            'genero' => $dto->gender,
-            'tipo_documento' => $dto->documentType,
-            'numero_documento' => $dto->documentNumber,
-            'polera' => $dto->shirt,
-            'precio_polera' => $dto->shirtPrice,
-            'fecha_nacimiento' => sprintf(
-                '%04d-%02d-%02d',
-                $dto->birthDate->year,
-                $dto->birthDate->month,
-                $dto->birthDate->day
-            ),
-
-            'edad' => $dto->age,
-            'correo' => $dto->email,
-            'direccion' => $dto->address,
-            'ciudad' => $dto->city,
-            'telefono' => $dto->phone,
-            'categoria' => $dto->category,
-            'equipo_id' => $dto->equipoId,
-            'quiere_delivery' => $dto->quiereDelivery,
-            'estado_delivery' => $dto->quiereDelivery ? 'pendiente' : null,
-            'precio_categoria' => $dto->categoryPrice,
-            'donacion' => $dto->donation,
-            'promo_descuento' => $dto->promoDiscount,
-            'promo_codigo' => $dto->promoCode,
-            'subtotal' => $dto->subtotal,
-
-        ]);
-
-        ContactoEmergenciaParticipante::create([
-            'participante_id' => $participant->id,
-            'nombre' => $dto->emergencyContact->name,
-            'celular' => $dto->emergencyContact->phone,
-            'relacion' => $dto->emergencyContact->relationship,
-        ]);
-      //  dd($dto);
-        foreach ($dto->souvenirs as $souvenir) {
-
-            SouvenirParticipante::create([
-
-                'participante_id' => $participant->id,
-                'souvenir_id' => $souvenir->souvenir_id,
-                'nombre' => $souvenir->name,
-                'precio' => $souvenir->price,
-
-            ]);
-
-        }
-
-        foreach ($dto->answers as $answer) {
-            Answer::create([
-                'form_types_id'   => $answer->formTypeId,
-                'question_id'     => $answer->questionId,
-                'participante_id' => $participant->id,
-                'value'           => $answer->value,
-            ]);
         }
     }
 
@@ -319,61 +120,11 @@ class RegistrationService
     }
 
     /**
-     * Actualizar inscripción completa (solo si no está pagada).
+     * Crear participante desde array raw (para actualización) — colaborador
+     * compartido por App\Actions\ActualizarInscripcionAction y
+     * App\Actions\ActualizarInscripcionPagadaAction.
      */
-    public function update(string $reference, array $data): Registration
-    {
-        return DB::transaction(function () use ($reference, $data) {
-
-            $registration = Registration::where('referencia', $reference)->firstOrFail();
-
-            if (in_array($registration->pago_status, ['paid', 'cancelled'], true)) {
-                throw new \DomainException(
-                    $registration->pago_status === 'paid'
-                        ? 'No se puede modificar una inscripción ya pagada.'
-                        : 'No se puede modificar una inscripción cancelada.'
-                );
-            }
-
-            $this->validateDuplicateParticipantsFromData($data);
-
-            // Libera los códigos de promoción que esta misma inscripción tuviera
-            // consumidos antes de recrear los participantes — si el organizador
-            // mantiene el mismo código, createParticipantFromData() lo vuelve a
-            // marcar usado sin rechazarse a sí mismo; si lo cambia o lo quita,
-            // el código viejo queda libre para otra inscripción.
-            $this->releasePromoCodes($registration->id);
-
-            $registration->participants()->delete();
-            $registration->totals()->delete();
-
-            foreach ($data['participantes'] as $participantData) {
-                $this->createParticipantFromData($registration, $participantData);
-            }
-
-            $this->deactivateFormTypeIfCupoLleno($registration->form_types_id);
-
-            RegistrationTotal::create([
-                'registration_id' => $registration->id,
-                'inscripcion'     => $data['totales']['inscripcion'],
-                'donacion'        => $data['totales']['donacion'],
-                'souvenirs'       => $data['totales']['souvenirs'],
-                'fee'             => $data['totales']['fee'],
-                'descuento'       => $data['totales']['descuento'],
-                'descuento_registrante' => $data['totales']['descuento_registrante'] ?? 0,
-                'grand_total'     => $data['totales']['grand_total'],
-            ]);
-
-            $this->syncPersonas($registration);
-
-            return $this->loadRelations($registration);
-        });
-    }
-
-    /**
-     * Crear participante desde array raw (para actualización).
-     */
-    private function createParticipantFromData(Registration $registration, array $data): void
+    public function createParticipantFromData(Registration $registration, array $data): void
     {
         $this->consumePromoCode($registration->evento_id, $data['promoCodigo'] ?? '', $registration->id);
 
@@ -434,9 +185,12 @@ class RegistrationService
     }
 
     /**
-     * Validar que no hayan documentos duplicados en el request de actualización.
+     * Validar que no hayan documentos duplicados en el request de
+     * actualización — colaborador compartido por
+     * App\Actions\ActualizarInscripcionAction y
+     * App\Actions\ActualizarInscripcionPagadaAction.
      */
-    private function validateDuplicateParticipantsFromData(array $data): void
+    public function validateDuplicateParticipantsFromData(array $data): void
     {
         $documents = [];
 
@@ -454,10 +208,12 @@ class RegistrationService
     /**
      * Marca un código de promoción como usado por esta inscripción, o lanza
      * si ya lo consumió otra. lockForUpdate() dentro de la transacción de
-     * create()/update()/updatePaidRegistration() evita que dos inscripciones
-     * simultáneas con el mismo código pasen ambas la validación.
+     * quien llama (App\Actions\CrearInscripcionAction/
+     * ActualizarInscripcionAction/ActualizarInscripcionPagadaAction) evita
+     * que dos inscripciones simultáneas con el mismo código pasen ambas la
+     * validación. Público — colaborador compartido por las 3 Actions.
      */
-    private function consumePromoCode(int $eventId, string $promoCodigo, int $registrationId): void
+    public function consumePromoCode(int $eventId, string $promoCodigo, int $registrationId): void
     {
         $promoCodigo = trim($promoCodigo);
         if ($promoCodigo === '') return;
@@ -484,20 +240,22 @@ class RegistrationService
 
     /**
      * Libera los códigos de promoción que una inscripción tiene consumidos —
-     * se llama antes de recrear sus participantes en update()/
-     * updatePaidRegistration(), para no rechazarla a sí misma si mantiene el
-     * mismo código y para liberar el código si lo cambia o lo quita.
+     * se llama antes de recrear sus participantes en
+     * App\Actions\ActualizarInscripcionAction/ActualizarInscripcionPagadaAction,
+     * para no rechazarla a sí misma si mantiene el mismo código y para
+     * liberar el código si lo cambia o lo quita.
      */
-    private function releasePromoCodes(int $registrationId): void
+    public function releasePromoCodes(int $registrationId): void
     {
         PromoCode::where('registration_id', $registrationId)
             ->update(['usado' => false, 'registration_id' => null]);
     }
 
     /**
-     * Cargar relaciones.
+     * Cargar relaciones — colaborador compartido por las 3 Actions de
+     * inscripción y por findByReference()/updatePaymentStatus() acá abajo.
      */
-    private function loadRelations(
+    public function loadRelations(
         Registration $registration
     ): Registration {
 
@@ -509,116 +267,15 @@ class RegistrationService
         ]);
     }
 
-private function validateParticipantRegistration(
-    RegistrationDTO $registrationDTO,
-    ParticipantDTO $participantDTO
-): void {
-
-    $exists = Participante::query()
-        ->where('tipo_documento', $participantDTO->documentType)
-        ->where('numero_documento', $participantDTO->documentNumber)
-        ->whereHas('registration', function ($query) use ($registrationDTO) {
-            // Mismo criterio que deactivateFormTypeIfCupoLleno(): una
-            // inscripción cancelled/failed no cuenta como "vigente". Sin este
-            // filtro, a alguien cuyo cupo se revirtió por falta de pago
-            // (notificaciones:revertir-cupo) le quedaba bloqueado para
-            // siempre volver a inscribirse a este evento.
-            $query->where('evento_id', $registrationDTO->eventId)
-                ->whereNotIn('pago_status', ['cancelled', 'failed']);
-        })
-        ->exists();
-
-    if ($exists) {
-        throw new \DomainException(
-            sprintf(
-                'El participante %s %s con documento %s (%s) ya está registrado en el evento %d.',
-                $participantDTO->firstName,
-                $participantDTO->lastName,
-                $participantDTO->documentNumber,
-                $participantDTO->documentType,
-                $registrationDTO->eventId
-            )
-        );
-    }
-}
-    /**
-     * Si el form_type tiene has_team=1 (inscripción individual con
-     * pertenencia a un equipo, ver
-     * brain/PLAN-RESULTADOS-EQUIPOS-31072026.md §3), el equipo es
-     * obligatorio y debe pertenecer al mismo evento.
-     */
-    private function validateEquipo(
-        RegistrationDTO $registrationDTO,
-        ParticipantDTO $participantDTO
-    ): void {
-        $formType = FormType::find($registrationDTO->formId);
-
-        if (!$formType || !$formType->has_team) {
-            return;
-        }
-
-        if (!$participantDTO->equipoId) {
-            throw new \DomainException(
-                'Este tipo de inscripción requiere seleccionar un equipo.'
-            );
-        }
-
-        $equipoValido = Equipo::where('id', $participantDTO->equipoId)
-            ->where('event_id', $registrationDTO->eventId)
-            ->exists();
-
-        if (!$equipoValido) {
-            throw new \DomainException(
-                "El equipo seleccionado no pertenece al evento {$registrationDTO->eventId}."
-            );
-        }
-    }
-
-    /**
-     * quiereDelivery es opt-in (checkbox en el formulario, no automático) —
-     * solo válido si el form_type ofrece esa opción. Ver
-     * brain/PLAN-DELIVERY-31072026.md.
-     */
-    private function validateDelivery(
-        RegistrationDTO $registrationDTO,
-        ParticipantDTO $participantDTO
-    ): void {
-        if (!$participantDTO->quiereDelivery) {
-            return;
-        }
-
-        $formType = FormType::find($registrationDTO->formId);
-
-        if (!$formType || !$formType->has_delivery) {
-            throw new \DomainException(
-                'Este tipo de inscripción no ofrece delivery del kit.'
-            );
-        }
-    }
-
-   private function validateDuplicateParticipants(
-    RegistrationDTO $dto
-): void {
-
-    $documents = [];
-
-    foreach ($dto->participants as $participant) {
-        $key = $participant->documentType . '-' . $participant->documentNumber;
-        if (isset($documents[$key])) {
-            throw new \DomainException(
-                "El participante con documento {$participant->documentNumber} está repetido en la solicitud."
-            );
-        }
-        $documents[$key] = true;
-    }
-}
-
     /**
      * Sincronizar participantes como personas.
      * Crea o actualiza una Persona por cada participante de la inscripción.
      * El password es el número de documento.
+     *
+     * Público — colaborador compartido por las 3 Actions de inscripción
+     * (Crear/Actualizar/ActualizarPagada).
      */
-    private function syncPersonas(Registration $registration): void
+    public function syncPersonas(Registration $registration): void
     {
         $participants = $registration->load('participants')->participants;
 
@@ -652,64 +309,6 @@ private function validateParticipantRegistration(
                 ]));
             }
         }
-    }
-
-    /**
-     * Actualizar inscripción pagada con costo adicional.
-     */
-    public function updatePaidRegistration(string $reference, array $data): array
-    {
-        return DB::transaction(function () use ($reference, $data) {
-
-            $registration = Registration::with('formType')
-                ->where('referencia', $reference)
-                ->firstOrFail();
-
-            if ($registration->pago_status !== 'paid') {
-                throw new \DomainException(
-                    'Esta operación solo aplica a inscripciones pagadas.'
-                );
-            }
-
-            $costoEdicion = $registration->formType->costo_edicion ?? 0;
-
-            $this->validateDuplicateParticipantsFromData($data);
-
-            $this->releasePromoCodes($registration->id);
-
-            $registration->participants()->delete();
-            $registration->totals()->delete();
-
-            foreach ($data['participantes'] as $participantData) {
-                $this->createParticipantFromData($registration, $participantData);
-            }
-
-            $this->deactivateFormTypeIfCupoLleno($registration->form_types_id);
-
-            RegistrationTotal::create([
-                'registration_id' => $registration->id,
-                'inscripcion'     => $data['totales']['inscripcion'],
-                'donacion'        => $data['totales']['donacion'],
-                'souvenirs'       => $data['totales']['souvenirs'],
-                'fee'             => $data['totales']['fee'],
-                'descuento'       => $data['totales']['descuento'],
-                'descuento_registrante' => $data['totales']['descuento_registrante'] ?? 0,
-                'grand_total'     => $data['totales']['grand_total'],
-            ]);
-
-            $this->syncPersonas($registration);
-
-            AuditLog::create([
-                'registration_id' => $registration->id,
-                'usuario'         => $data['_usuario'] ?? null,
-                'costo_adicion'   => $costoEdicion,
-            ]);
-
-            return [
-                'registration'  => $this->loadRelations($registration),
-                'costo_adicion' => $costoEdicion,
-            ];
-        });
     }
 
     /**

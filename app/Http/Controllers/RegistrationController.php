@@ -2,6 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Actions\ActualizarInscripcionAction;
+use App\Actions\ActualizarInscripcionPagadaAction;
+use App\Actions\CrearInscripcionAction;
 use App\DTOs\RegistrationDTO;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreRegistrationRequest;
@@ -105,14 +108,14 @@ class RegistrationController extends Controller
     /**
      * Registrar una inscripción.
      */
-    public function store(StoreRegistrationRequest $request): JsonResponse
+    public function store(StoreRegistrationRequest $request, CrearInscripcionAction $action): JsonResponse
     {
         $dto = RegistrationDTO::fromArray(
             $request->validated()[0]
         );
        // dd( $request->validated()[0]);
         try {
-            $registration = $this->service->create($dto);
+            $registration = $action->handle($dto);
         } catch (\DomainException $e) {
             return response()->json(['success' => false, 'error' => $e->getMessage()], 422);
         }
@@ -268,10 +271,10 @@ public function estadoTransaccion(
     /**
      * Actualizar una inscripción (solo si no está pagada).
      */
-    public function update(UpdateRegistrationRequest $request, string $reference): JsonResponse
+    public function update(UpdateRegistrationRequest $request, string $reference, ActualizarInscripcionAction $action): JsonResponse
     {
         try {
-            $registration = $this->service->update(
+            $registration = $action->handle(
                 $reference,
                 $request->validated()
             );
@@ -289,13 +292,13 @@ public function estadoTransaccion(
     /**
      * Actualizar inscripción pagada (con costo adicional).
      */
-    public function updatePaid(UpdatePaidRegistrationRequest $request, string $reference): JsonResponse
+    public function updatePaid(UpdatePaidRegistrationRequest $request, string $reference, ActualizarInscripcionPagadaAction $action): JsonResponse
     {
         $validated = $request->validated();
         $validated['_usuario'] = $request->user()?->email ?? $request->ip();
 
         try {
-            $result = $this->service->updatePaidRegistration($reference, $validated);
+            $result = $action->handle($reference, $validated);
         } catch (\DomainException $e) {
             return response()->json(['success' => false, 'error' => $e->getMessage()], 422);
         }
@@ -384,13 +387,13 @@ public function estadoTransaccion(
      * servicio (5%), sin souvenirs/promo/donación/equipo/delivery (por
      * eso se rechaza de entrada un form_type con `has_team`, que exigiría
      * un equipo por participante). Reutiliza
-     * `RegistrationService::create()` tal cual (mismas validaciones que
-     * el registro online: documento duplicado, cupo, etc.) — por eso
+     * `App\Actions\CrearInscripcionAction` tal cual (mismas validaciones
+     * que el registro online: documento duplicado, cupo, etc.) — por eso
      * cada participante importado también queda con su cuenta `Persona`
      * sincronizada automáticamente (`RegistrationService::syncPersonas()`),
      * sin trabajo extra acá.
      */
-    public function importarBulk(Request $request, Evento $event): JsonResponse
+    public function importarBulk(Request $request, Evento $event, CrearInscripcionAction $action): JsonResponse
     {
         $this->assertIsSuperAdmin();
 
@@ -494,7 +497,7 @@ public function estadoTransaccion(
                     ]],
                 ]);
 
-                $this->service->create($dto);
+                $action->handle($dto);
                 $creados[] = ['fila' => $fila, 'numero_documento' => $row['numero_documento'], 'referencia' => $referencia];
             } catch (\DomainException $e) {
                 $errores[] = ['fila' => $fila, 'numero_documento' => $row['numero_documento'] ?? null, 'error' => $e->getMessage()];

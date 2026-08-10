@@ -1,11 +1,11 @@
 # Introducir el patrón Actions en ApiRestEvent
 
-**Estado: Fase 1 y Fase 2 implementadas y verificadas el 09/08/2026, en la
+**Estado: las 3 fases implementadas y verificadas el 09/08/2026, en la
 rama `patronaction` (creada por el usuario como respaldo antes de
-arrancar). Fase 3 (el núcleo de `RegistrationService`) queda pendiente.**
-El roadmap completo abajo es el plan original tal como quedó aprobado; ver
-"## Registro de implementación" al final para el detalle de qué se hizo
-realmente y cómo se verificó.
+arrancar). Plan completo, nada pendiente.** El roadmap completo abajo es
+el plan original tal como quedó aprobado; ver "## Registro de
+implementación" al final para el detalle de qué se hizo realmente y cómo
+se verificó.
 
 ## Contexto
 
@@ -231,8 +231,57 @@ apuntando a las clases viejas.
   23 dns, 0 dnf) — la sincronización real con la API de ChronoTrack pasó
   por el código nuevo sin ninguna diferencia observable.
 
-**Pendiente**: Fase 3 (el núcleo de `RegistrationService` —
-`CrearInscripcionAction`/`ActualizarInscripcionAction`/
-`ActualizarInscripcionPagadaAction`), no arrancada. Nada se commiteó
-todavía en la rama `patronaction` — los cambios de Fase 1 y 2 están solo
-en el working directory.
+**Fase 3 — hecha, con un ajuste real respecto al plan.** Al mapear qué
+helpers son exclusivos de cada flujo vs. compartidos entre 2+ (grepeando
+cada `$this->metodo(` dentro de `RegistrationService` antes de tocar
+nada), se encontró que 4 de los "sub-pasos" que el plan asumía
+compartidos en realidad **solo los usaba `createInTransaction()`**
+(`validateParticipantRegistration`, `validateEquipo`, `validateDelivery`,
+`validateDuplicateParticipants`) — no había ningún otro caller. Se
+movieron íntegros y privados a `CrearInscripcionAction` en vez de
+quedar como colaboradores en el Service (menos indirección, mismo
+resultado: no se duplicó ninguna regla porque no había nada que
+compartir). Los que sí tenían 2+ callers reales
+(`consumePromoCode`, `releasePromoCodes`, `syncPersonas`, `loadRelations`,
+`createParticipantFromData`, `validateDuplicateParticipantsFromData`,
+`deactivateFormTypeIfCupoLleno` de la Fase 1) se dejaron en
+`RegistrationService` y pasaron de `private` a `public`, tal cual decía
+el plan.
+
+`RegistrationService` quedó en ~250 líneas (de 777 originales): las 3
+Actions nuevas (`CrearInscripcionAction`, `ActualizarInscripcionAction`,
+`ActualizarInscripcionPagadaAction`) + los 7 colaboradores públicos +
+`findByReference()`/`updatePaymentStatus()`/`delete()`/
+`lookupRegistration()` que se quedaron tal cual (no eran parte del
+alcance de esta fase). `create()`/`update()`/`updatePaidRegistration()`
+se borraron del Service por completo (no quedaron como fachadas) — los 4
+call sites reales, los 4 dentro de `RegistrationController`
+(`store()`, `update()`, `updatePaid()`, `importarBulk()`), se
+actualizaron en el mismo cambio inyectando la Action correspondiente por
+parámetro de método.
+
+**Verificación real hecha**: suite completa (81 tests) después del
+cambio — misma única falla preexistente, 0 regresiones. Esto es
+particularmente significativo para esta fase porque `RegistrationTest.php`
+(506 líneas) ejercita a fondo exactamente la lógica de negocio que
+preocupaba de entrada (categorías, souvenirs, promo codes, equipo,
+delivery, documentos duplicados, cupo lleno) contra las 3 Actions nuevas
+vía HTTP real — que siga en 30/31 confirma que ninguna regla cambió.
+Además, smoke test manual aparte con la forma exacta de DTO que construye
+`importarBulk()` (el segundo caller de `CrearInscripcionAction`, sin
+test automatizado propio) contra el evento demo 90007: registro +
+participante + `Persona` sincronizada automáticamente, todo correcto;
+limpiado después.
+
+**Verificación extra, a pedido del usuario**: quedó la duda de si
+`CrearInscripcionAction` seguía disparando el correo de "inscripción
+pendiente" igual que el `create()` viejo. Se probó con
+`Mail::fake()` (sin salir nada real, a diferencia del incidente de la
+Fase 1) — crear una inscripción con `pago_status=pending` vía la Action
+nueva dispara `InscripcionPendienteMail` al correo correcto
+(`Mail::assertSent()` con `hasTo()`); de paso se confirmó que el
+organizador demo tiene `whatsapp_canal='ninguno'`, así que tampoco había
+riesgo de un WhatsApp real. Limpiado después.
+
+Nada de esto está commiteado dentro de esta sub-fase — el usuario ya
+había commiteado Fase 1+2 antes de arrancar la Fase 3.
