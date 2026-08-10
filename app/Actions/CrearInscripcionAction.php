@@ -146,7 +146,7 @@ class CrearInscripcionAction
         ParticipantDTO $dto
     ): void {
 
-        $this->registrationService->consumePromoCode($registration->evento_id, $dto->promoCode, $registration->id);
+        $this->registrationService->consumePromoCode($registration->evento_id, $dto->promoCode, $registration->id, $registration->form_types_id);
 
         $participant = Participante::create([
 

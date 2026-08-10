@@ -29,6 +29,8 @@ class FormTypeResource extends JsonResource
             'permite_inscripcion_grupal' => (bool) $this->permite_inscripcion_grupal,
             'hasTeam'                    => (bool) $this->has_team,
             'hasDelivery'                => (bool) $this->has_delivery,
+            'hasDonation'                => (bool) $this->has_donation,
+            'hasPromoCode'               => (bool) $this->has_promo_code,
             'requiereCategoria'          => (bool) $this->requiere_categoria,
             'max_integrantes_grupo'      => (int) $this->max_integrantes_grupo,
             'descuento_registrante_pct'  => (float) $this->descuento_registrante_pct,

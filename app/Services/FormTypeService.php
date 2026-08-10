@@ -45,6 +45,8 @@ class FormTypeService
                 'texto_boton'                => $data['texto_boton'] ?? 'Inscribirme',
                 'has_team'                   => $data['has_team'] ?? false,
                 'has_delivery'               => $data['has_delivery'] ?? false,
+                'has_donation'               => $data['has_donation'] ?? false,
+                'has_promo_code'             => $data['has_promo_code'] ?? false,
             ]);
 
             $this->createSouvenirs($formType, $data['souvenirs'] ?? []);

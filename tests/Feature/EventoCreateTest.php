@@ -138,6 +138,8 @@ class EventoCreateTest extends TestCase
                 'precio_base' => 50,
                 'has_team' => false,
                 'has_delivery' => false,
+                'hasDonation' => true,
+                'hasPromoCode' => false,
                 'souvenirs' => [
                     ['name' => 'Buff', 'price' => 5],
                 ],
@@ -166,6 +168,11 @@ class EventoCreateTest extends TestCase
 
         $formType = FormType::where('event_id', $evento->id)->first();
         $this->assertSame(1, Souvenir::where('form_types_id', $formType->id)->count());
+        // hasDonation/hasPromoCode pasaron de `eventos` a `form_types`
+        // (QA visual, 10/08) — la creación anidada vía POST /event debe
+        // persistirlos por form_type, no a nivel evento.
+        $this->assertTrue((bool) $formType->has_donation);
+        $this->assertFalse((bool) $formType->has_promo_code);
 
         // Punto más delicado de mover a la Action: createAgendaItems()
         // resuelve formTypeName -> id real buscando entre los form_types

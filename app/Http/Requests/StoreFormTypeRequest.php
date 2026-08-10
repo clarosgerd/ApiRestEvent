@@ -52,6 +52,8 @@ class StoreFormTypeRequest extends FormRequest
             'texto_boton'                => 'nullable|string|max:60',
             'has_team'                   => 'nullable|boolean',
             'has_delivery'               => 'nullable|boolean',
+            'has_donation'               => 'nullable|boolean',
+            'has_promo_code'             => 'nullable|boolean',
 
             'souvenirs'                  => 'nullable|array',
             'souvenirs.*.name'           => 'required_with:souvenirs|string|max:255',

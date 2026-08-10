@@ -52,6 +52,8 @@ class UpdateFormTypeRequest extends FormRequest
             'texto_boton'                => 'sometimes|nullable|string|max:60',
             'has_team'                   => 'sometimes|nullable|boolean',
             'has_delivery'               => 'sometimes|nullable|boolean',
+            'has_donation'               => 'sometimes|nullable|boolean',
+            'has_promo_code'             => 'sometimes|nullable|boolean',
         ];
     }
 }

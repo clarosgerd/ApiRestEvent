@@ -14,7 +14,7 @@ class EventoSeeder extends Seeder
     public function run(): void
     {
         //
-            Evento::factory(100)
+            Evento::factory(1)
             ->has(
                 // Por cada evento, crea 3 form_types relacionados automáticamente
                 //FormType::factory()->count(3),'formTypes' // Nombre de la relación en tu modelo Evento

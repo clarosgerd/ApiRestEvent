@@ -126,7 +126,7 @@ class RegistrationService
      */
     public function createParticipantFromData(Registration $registration, array $data): void
     {
-        $this->consumePromoCode($registration->evento_id, $data['promoCodigo'] ?? '', $registration->id);
+        $this->consumePromoCode($registration->evento_id, $data['promoCodigo'] ?? '', $registration->id, $registration->form_types_id);
 
         $birth = $data['nacimiento'];
 
@@ -212,11 +212,21 @@ class RegistrationService
      * ActualizarInscripcionAction/ActualizarInscripcionPagadaAction) evita
      * que dos inscripciones simultáneas con el mismo código pasen ambas la
      * validación. Público — colaborador compartido por las 3 Actions.
+     *
+     * `$formTypeId` es nuevo (09/08): `hasPromoCode` vive en `form_types`,
+     * no en `eventos` — defensa en profundidad, nunca confiar solo en que
+     * elascenso/event o elascenso-blade ya lo validaron antes de llamar
+     * acá.
      */
-    public function consumePromoCode(int $eventId, string $promoCodigo, int $registrationId): void
+    public function consumePromoCode(int $eventId, string $promoCodigo, int $registrationId, int $formTypeId): void
     {
         $promoCodigo = trim($promoCodigo);
         if ($promoCodigo === '') return;
+
+        $formType = FormType::find($formTypeId);
+        if (! $formType?->has_promo_code) {
+            throw new \DomainException('Este tipo de formulario no admite códigos promocionales.');
+        }
 
         // BINARY para que la comparación sea case-sensitive igual que en
         // PromoCodeController::promoCode() — la columna tiene collation

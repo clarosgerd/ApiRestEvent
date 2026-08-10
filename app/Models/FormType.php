@@ -31,12 +31,23 @@ class FormType extends Model
         'permite_inscripcion_grupal',
         'has_team',
         'has_delivery',
+        'has_donation',
+        'has_promo_code',
         'max_integrantes_grupo',
         'descuento_registrante_pct',
         'hasQuestion',
         'costo_edicion',
         'tiempo_expiracion_min',
         'texto_boton',
+    ];
+
+    // No existía ningún $casts en este modelo antes de este cambio — se
+    // agrega acotado a los 2 campos nuevos (booleans reales en la BD desde
+    // la migración 2026_08_10_140000) sin tocar el comportamiento de los
+    // demás campos, que seguían funcionando sin casts.
+    protected $casts = [
+        'has_donation'   => 'boolean',
+        'has_promo_code' => 'boolean',
     ];
 
 

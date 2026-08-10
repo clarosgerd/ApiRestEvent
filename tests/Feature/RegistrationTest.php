@@ -173,6 +173,48 @@ class RegistrationTest extends TestCase
         $this->assertDatabaseCount('participantes', 2);
     }
 
+    /**
+     * `hasPromoCode` pasó de `eventos` a `form_types` (QA visual, 10/08) —
+     * este test cubre la validación server-side nueva en
+     * RegistrationService::consumePromoCode(): rechazar el código aunque
+     * exista y no esté usado, si el form_type de la inscripción no admite
+     * promo. `FormType::factory()` no seteaba `has_promo_code` antes de
+     * este cambio, así que el `$this->formType` de setUp() ya nace en
+     * `false` (default de la migración) sin tocar la factory.
+     */
+    public function test_create_registration_rejects_promo_code_when_form_type_not_eligible(): void
+    {
+        \App\Models\PromoCode::factory()->create([
+            'event_id'   => $this->event->id,
+            'promo_code' => 'NOELEGIBLE',
+        ]);
+
+        $payload = $this->validPayload(['promoCodigo' => 'NOELEGIBLE']);
+
+        $this->postJson('/api/v1/registrations', $payload)
+            ->assertUnprocessable()
+            ->assertJsonPath('error', 'Este tipo de formulario no admite códigos promocionales.');
+
+        $this->assertDatabaseCount('registrations', 0);
+    }
+
+    public function test_create_registration_accepts_promo_code_when_form_type_eligible(): void
+    {
+        $this->formType->update(['has_promo_code' => true]);
+        \App\Models\PromoCode::factory()->create([
+            'event_id'   => $this->event->id,
+            'promo_code' => 'SIELEGIBLE',
+        ]);
+
+        $payload = $this->validPayload(['promoCodigo' => 'SIELEGIBLE']);
+
+        $this->postJson('/api/v1/registrations', $payload)
+            ->assertCreated()
+            ->assertJsonPath('success', true);
+
+        $this->assertDatabaseHas('promo_codes', ['promo_code' => 'SIELEGIBLE', 'usado' => true]);
+    }
+
     public function test_create_registration_rejects_empty_participants(): void
     {
         $payload = $this->validPayload();

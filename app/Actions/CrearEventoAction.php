@@ -216,6 +216,8 @@ class CrearEventoAction
                 'descuento_registrante_pct'  => $formTypeDTO->descuentoRegistrantePct,
                 'has_team'                   => $formTypeDTO->hasTeam,
                 'has_delivery'               => $formTypeDTO->hasDelivery,
+                'has_donation'               => $formTypeDTO->hasDonation,
+                'has_promo_code'             => $formTypeDTO->hasPromoCode,
                 'requiere_categoria'         => $formTypeDTO->requiereCategoria,
             ]);
 

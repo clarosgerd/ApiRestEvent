@@ -2,6 +2,51 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/).
 
+## 2026-08-10 — `hasDonation`/`hasPromoCode` de `eventos` a `form_types`
+
+QA visual encontró que estos dos campos vivían a nivel de evento cuando
+deberían vivir a nivel de form_type — un evento con 2 tipos de formulario
+no podía permitir donación/promo en uno y no en el otro. Cambio aditivo
+(Fase A): `eventos.hasDonation`/`hasPromoCode` **no se tocan todavía**,
+para no romper a `admin-eventos`/`elascenso/event`/`elascenso-blade`
+mientras migran. La limpieza final (borrar de `eventos`) es una Fase B
+posterior, separada.
+
+### Added
+- `form_types.has_donation`/`has_promo_code` (boolean, default false) —
+  migración con backfill: cada form_type existente hereda el valor que
+  tenía su evento. Probada primero contra `event_testing` (1 evento/3
+  form_types), no corrida contra la BD real de desarrollo todavía.
+- `FormTypeDTO`/`StoreEventosRequest` (reglas anidadas `formTypes.*`)/
+  `CrearEventoAction::createFormTypes()`: mismo patrón camelCase↔snake_case
+  que ya usaban `hasTeam`/`hasDelivery`.
+- CRUD standalone de form_type (`StoreFormTypeRequest`/
+  `UpdateFormTypeRequest`/`FormTypeService::create()`): acepta los 2
+  campos nuevos, snake_case (camino independiente del nested de evento).
+- `FormTypeResource`: expone `hasDonation`/`hasPromoCode` por form_type.
+- `FormType` model: agregado `$casts` (no existía ninguno antes).
+- **Validación server-side nueva**: `RegistrationService::consumePromoCode()`
+  ahora recibe `$formTypeId` y rechaza el código (`DomainException` → 422)
+  si el form_type no tiene `has_promo_code=true`, aunque el código exista
+  y no esté usado — antes no había ningún chequeo de elegibilidad en
+  ApiRestEvent, solo la concurrencia. Defensa en profundidad: el frontend/
+  proxy (`elascenso/event`, `elascenso-blade`) también lo valida ahora,
+  pero esto no depende solo de eso.
+- Tests nuevos: `FormTypeHasDonationPromoTest` (CRUD standalone),
+  `EventoCreateTest` (creación anidada), `RegistrationTest` (2 casos del
+  422 de promo nuevo) — 104/105 en verde (1 falla preexistente sin
+  relación, ya documentada).
+
+### Pendiente (Fase B, no en este cambio)
+- Borrar `hasDonation`/`hasPromoCode` de `eventos`, `Evento` model,
+  `EventoDTO`, `EventoResource`, `EventoFilter`, `EventoService::update()`
+  — recién cuando `admin-eventos`/`elascenso/event`/`elascenso-blade` ya
+  lean de `form_types` en producción.
+- Corregir `EventoFilter` (clave `'hasDonation'` duplicada), `hasQuestion`
+  duplicado en `FormType::$fillable`, y `FormType::evento()` usando `'id'`
+  en vez de `'event_id'` — 3 bugs preexistentes encontrados de paso,
+  documentados pero fuera de alcance de este cambio.
+
 ## 2026-08-09 (continuación — Fase 2 de ChronoTrack)
 
 DNS/DNF real, botón "Sincronizar ahora" en `admin-eventos`, leaderboard
