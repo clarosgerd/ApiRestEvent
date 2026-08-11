@@ -72,6 +72,35 @@ return [
             ]),
         ],
 
+        // ETL de datos históricos (2014-hoy) — ver
+        // elascenso/event/brain/ (sesión 10/08/2026). Una sola conexión
+        // "plantilla" para los N schemas `legado_*` (7 en local hoy,
+        // eventualmente los del otro datacenter cuando haya acceso): el
+        // comando de importación pisa 'database' en runtime
+        // (`config(['database.connections.legado.database' => $schema]);
+        // DB::purge('legado');`) antes de leer cada schema — no hace
+        // falta declarar una conexión por schema a mano.
+        // `charset` utf8mb4 igual que la conexión `mysql` — se descartó
+        // la sospecha inicial de un problema real de encoding en los
+        // datos (el "a�os" que se veía era solo el cliente `mysql` de la
+        // terminal sin --default-character-set=utf8mb4, los bytes en la
+        // BD ya son UTF-8 válido; verificado con HEX() antes de asumirlo).
+        'legado' => [
+            'driver' => 'mysql',
+            'host' => env('LEGADO_DB_HOST', env('DB_HOST', '127.0.0.1')),
+            'port' => env('LEGADO_DB_PORT', env('DB_PORT', '3306')),
+            'database' => env('LEGADO_DB_DATABASE', ''),
+            'username' => env('LEGADO_DB_USERNAME', env('DB_USERNAME', 'root')),
+            'password' => env('LEGADO_DB_PASSWORD', env('DB_PASSWORD', '')),
+            'unix_socket' => env('DB_SOCKET', ''),
+            'charset' => 'utf8mb4',
+            'collation' => 'utf8mb4_unicode_ci',
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'strict' => false,
+            'engine' => null,
+        ],
+
         'mariadb' => [
             'driver' => 'mariadb',
             'url' => env('DB_URL'),

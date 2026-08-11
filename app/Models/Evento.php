@@ -58,7 +58,7 @@ class Evento extends Model
         'tiene_desafios',
         'publicado',
         'destacado',
-        
+        'es_historico', // ETL de datos históricos 2014-hoy, ver elascenso/event/brain/
         'contador_visitas',
         'longDescription'
     ];
@@ -67,6 +67,7 @@ protected $casts = [
     'hasDonation'  => 'boolean',
     'hasPromoCode' => 'boolean',
     'publicado'    => 'boolean',
+    'es_historico' => 'boolean',
 ];
       public function coordinates()
    {
@@ -110,6 +111,11 @@ protected $casts = [
     public function registrations()
     {
        return $this->hasMany('App\Models\Registration', 'evento_id');
+    }
+
+    public function liquidacion()
+    {
+       return $this->hasOne(Liquidacion::class, 'evento_id');
     }
 
     public function organizador()

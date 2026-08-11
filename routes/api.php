@@ -15,6 +15,8 @@ use App\Http\Controllers\AdminAuthController;
 use App\Http\Controllers\AdminUserController;
 use App\Http\Controllers\AdminAuditLogController;
 use App\Http\Controllers\TipoEventoController;
+use App\Http\Controllers\SocioController;
+use App\Http\Controllers\LiquidacionController;
 
 Route::get('/user', function (Request $request) {
     return $request->user();
@@ -105,6 +107,15 @@ Route::group(['prefix' => 'v1','namespace' => 'App\Http\Controllers'], function 
         Route::get('/admin/me', [AdminAuthController::class, 'me']);
         Route::apiResource('/admin/users', AdminUserController::class)->except(['create', 'edit']);
         Route::get('/admin/audit-logs', [AdminAuditLogController::class, 'index']);
+
+        // Consolidación financiera (liquidación de utilidades) — solo
+        // super_admin, ver LiquidarEventoAction y elascenso/event/brain/
+        // (sesión 11/08/2026). Socios es config global (no scoped a un
+        // evento); la liquidación sí es por evento.
+        Route::apiResource('/socios', SocioController::class)->only(['index', 'store', 'update', 'destroy']);
+        Route::get('/event/{event}/liquidacion/preview', [LiquidacionController::class, 'preview']);
+        Route::get('/event/{event}/liquidacion', [LiquidacionController::class, 'show']);
+        Route::post('/event/{event}/liquidacion', [LiquidacionController::class, 'store']);
     });
 
     Route::post('/admin/login', [AdminAuthController::class, 'login']);

@@ -2,6 +2,49 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/).
 
+## 2026-08-11 — Feature: consolidación financiera (liquidación de utilidades)
+
+Primer pilar implementado del PRD
+`brain/api_rest_event/PRD-Consolidacion-only-superadmin.md` (4 pilares:
+financiero/estadístico/técnico/dashboard) — se arrancó por el financiero,
+marcado en el propio PRD como el más crítico. Reparte el service fee ya
+cobrado (`registration_totals.fee`) de un evento cerrado entre los socios
+de PassToGo, solo super_admin.
+
+### Added
+
+- Tablas `socios` (config global, % editable sin deploy), `liquidaciones`
+  (1 por evento, `evento_id` unique) y `liquidacion_detalles` (snapshot de
+  nombre/% de cada socio al momento de liquidar — editar un socio después
+  no reinterpreta liquidaciones viejas). Migraciones
+  `2026_08_11_100000/100100/100200_*`, seed inicial de los 4 socios reales
+  (Mario 40%/Carlitos 35%/Galia 15%/Norman 10%). Probadas contra
+  `event_testing`, **no corridas contra la BD real** todavía.
+- `LiquidarEventoAction` — `calcular()` (preview, no persiste, nunca
+  lanza excepción de negocio) y `handle()` (persiste, valida evento
+  cerrado + porcentajes de socios activos sumando 100%, último socio
+  absorbe el residuo de redondeo para que la suma cierre exacta al
+  centavo).
+- `GET /event/{event}/liquidacion/preview`, `GET /event/{event}/liquidacion`,
+  `POST /event/{event}/liquidacion`, y CRUD `/socios` — todos
+  `assertIsSuperAdmin()`, auditados vía `AdminAuditLogger`.
+- `tests/Feature/LiquidacionTest.php` (7 tests) y `SocioTest.php` (5
+  tests). Suite completa: 126/127 en verde (única falla, preexistente sin
+  relación con esta feature).
+- Panel `admin-eventos`: pantalla "Socios" (CRUD) y "Liquidación" por
+  evento (preview → confirmar → solo lectura), ambas bajo
+  `admin.superadmin`.
+
+### Pendiente
+
+- Correr las migraciones contra la BD real (dev, luego QA/producción).
+- Pilares 2-4 del PRD (keyword/histórico, tráfico web, dashboard de
+  recaudación/aforo/stock) — fuera de alcance de esta ronda.
+- Fase 2 del PRD ("conciliación con organizadores", comisión 4% al
+  organizador) — explícitamente no implementada, el monto liquidado hoy
+  es el service fee que ya se cobraba, no una comisión nueva.
+- Sin flujo de "deshacer" una liquidación ya confirmada.
+
 ## 2026-08-10 — Feature: acreditación (check-in) escaneando el QR de referencia
 
 El QR de referencia (e-ticket/PDF/email, `ReferenceQrService`) existía

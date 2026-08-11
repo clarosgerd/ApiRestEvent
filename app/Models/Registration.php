@@ -23,6 +23,7 @@ class Registration extends Model
         'tipo_pago',
         'pago_status',
         'pay_order_number',
+        'origen_legado', // ETL de datos históricos 2014-hoy, ver elascenso/event/brain/
     ];
 
     protected $casts = [
