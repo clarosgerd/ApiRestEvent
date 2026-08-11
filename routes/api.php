@@ -77,6 +77,17 @@ Route::group(['prefix' => 'v1','namespace' => 'App\Http\Controllers'], function 
         // para el whitelist real de campos permitidos.
         Route::patch('/participantes/{participante}', [ParticipanteController::class, 'update']);
 
+        // Acreditación (check-in) escaneando el QR de referencia — panel
+        // de administración, mismo scoping que Numeración. El QR ya
+        // existía (ReferenceQrService, solo codifica la referencia) pero
+        // no tenía ningún consumidor; este es el primero. A propósito NO
+        // se reusa GET /registrations/{reference} (más abajo, público,
+        // sin scoping por evento) — el lookup de acreditación necesita
+        // confirmar que la referencia es de ESE evento antes de mostrar
+        // nada.
+        Route::get('/event/{event}/checkin/{reference}', [RegistrationController::class, 'checkinLookup']);
+        Route::patch('/participantes/{participante}/checkin', [ParticipanteController::class, 'checkin']);
+
         // Dashboard de inscripciones (mismo conteo que ya se manda por
         // correo vía link firmado, ver OrganizadorDashboardController),
         // ahora también disponible autenticado dentro del panel.

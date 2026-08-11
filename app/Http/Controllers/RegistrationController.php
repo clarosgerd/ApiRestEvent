@@ -339,6 +339,43 @@ public function estadoTransaccion(
     }
 
     /**
+     * Buscar una inscripción por referencia para acreditación (check-in) —
+     * panel de administración, escaneando el QR que ya se manda en el
+     * e-ticket/email (solo codifica la referencia, ver ReferenceQrService).
+     *
+     * A propósito NO reusa show(): ese endpoint es público y no confirma
+     * que la referencia sea de ESTE evento — acá si la referencia existe
+     * pero es de otro evento, se trata igual que "no existe" (404), para
+     * no filtrar datos de un evento ajeno a través de un QR equivocado.
+     */
+    public function checkinLookup(Request $request, Evento $event, string $reference): JsonResponse
+    {
+        $this->assertCanWriteEvento($event->id);
+
+        $registration = Registration::with('participants')
+            ->where('referencia', $reference)
+            ->where('evento_id', $event->id)
+            ->firstOrFail();
+
+        $categoriasPorId = Category::where('event_id', $event->id)->get()->keyBy(fn ($c) => (string) $c->id);
+
+        return response()->json([
+            'success'     => true,
+            'referencia'  => $registration->referencia,
+            'pagoStatus'  => $registration->pago_status,
+            'participantes' => $registration->participants->map(fn (Participante $p) => [
+                'id'           => $p->id,
+                'nombre'       => $p->nombre,
+                'apellido'     => $p->apellido,
+                'categoria'    => $categoriasPorId->get($p->categoria)->name ?? $p->categoria,
+                'numeroCorredor' => $p->numero_corredor,
+                'chip'         => $p->chip,
+                'checkedInAt'  => optional($p->checked_in_at)->toIso8601String(),
+            ]),
+        ]);
+    }
+
+    /**
      * Buscar inscripción por credenciales, evento y form_type.
      */
     public function lookup(LookupRegistrationRequest $request): JsonResponse
@@ -488,7 +525,20 @@ public function estadoTransaccion(
                         ],
                         'souvenirs' => [],
                         'answers' => [],
-                        'categoria' => $category->name,
+                        // El registro online (elascenso/event) guarda el ID de
+                        // categoría en `participantes.categoria`, no el nombre
+                        // — acá se elige la categoría por nombre (más legible
+                        // en el <select> del panel) pero hay que persistir el
+                        // ID para que el filtro de Numeración/Participantes
+                        // (que compara por ID) encuentre también a estos
+                        // participantes. Bug real: antes se guardaba
+                        // `$category->name`, por eso el filtro solo
+                        // "funcionaba" con las filas cargadas por este mismo
+                        // camino y aparecía roto para el resto (ver
+                        // elascenso/event/brain/BUG-FILTRO-CATEGORIA-NUMERACION-10082026.md,
+                        // en el repo hermano — ApiRestEvent no tiene su
+                        // propia carpeta brain/ con documentación).
+                        'categoria' => (string) $category->id,
                         'precioCategoria' => $precio,
                         'donacion' => 0,
                         'promoDescuento' => 0,

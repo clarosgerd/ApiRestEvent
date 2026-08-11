@@ -43,7 +43,8 @@ class Participante extends Model
         'donacion',
         'promo_descuento',
         'promo_codigo',
-        'subtotal'
+        'subtotal',
+        'checked_in_at'
     ];
 
    protected $casts = [
@@ -54,7 +55,8 @@ class Participante extends Model
         'precio_categoria' => 'decimal:2',
         'donacion' => 'decimal:2',
         'promo_descuento' => 'decimal:2',
-        'subtotal' => 'decimal:2'
+        'subtotal' => 'decimal:2',
+        'checked_in_at' => 'datetime'
     ];
   
  public function registration(): BelongsTo

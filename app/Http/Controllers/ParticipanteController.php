@@ -122,6 +122,50 @@ class ParticipanteController extends Controller
     }
 
     /**
+     * Marcar a un participante como presente (acreditación / check-in) —
+     * panel de administración, disparado al escanear el QR de referencia
+     * (ver RegistrationController::checkinLookup para el paso previo de
+     * búsqueda). Gate real de pago acá, no solo visual en el frontend —
+     * ver brain de la sesión 10/08/2026.
+     *
+     * Reescanear a alguien ya acreditado NO es un error: se devuelve el
+     * timestamp original sin pisarlo, con `alreadyCheckedIn: true`, para
+     * que el staff pueda escanear de más sin miedo a romper nada.
+     */
+    public function checkin(Participante $participante): JsonResponse
+    {
+        $participante->loadMissing('registration');
+        $eventoId = (int) $participante->registration->evento_id;
+        $this->assertCanWriteEvento($eventoId);
+
+        if ($participante->registration->pago_status !== 'paid') {
+            return response()->json([
+                'success' => false,
+                'error'   => 'No se puede acreditar: el pago no está confirmado.',
+            ], 422);
+        }
+
+        if ($participante->checked_in_at) {
+            return response()->json([
+                'success'         => true,
+                'alreadyCheckedIn' => true,
+                'participante'    => new ParticipanteResource($participante),
+            ]);
+        }
+
+        $before = $participante->toArray();
+        $participante->update(['checked_in_at' => now()]);
+
+        AdminAuditLogger::log('checkin', 'participante', $participante->id, $eventoId, $before, $participante->toArray());
+
+        return response()->json([
+            'success'          => true,
+            'alreadyCheckedIn' => false,
+            'participante'     => new ParticipanteResource($participante),
+        ]);
+    }
+
+    /**
      * Remove the specified resource from storage.
      */
     public function destroy(Participante $participante)
@@ -151,14 +195,14 @@ class ParticipanteController extends Controller
         $participantes = Participante::whereHas('registration', function ($q) use ($event) {
                 $q->where('evento_id', $event->id);
             })
-            ->with('registration:id,referencia')
+            ->with('registration:id,referencia,pago_status')
             ->when($data['categoria'] ?? null, fn ($q, $categoria) => $q->where('categoria', $categoria))
             ->orderBy('categoria')
             ->orderBy('apellido')
             ->get([
                 'id', 'registration_id', 'nombre', 'apellido', 'alias', 'numero_documento',
                 'categoria', 'numero_corredor', 'chip', 'correo', 'telefono', 'direccion',
-                'ciudad', 'genero', 'fecha_nacimiento', 'polera',
+                'ciudad', 'genero', 'fecha_nacimiento', 'polera', 'checked_in_at',
             ]);
 
         return response()->json([
@@ -180,6 +224,11 @@ class ParticipanteController extends Controller
                 'genero'          => $p->genero,
                 'fechaNacimiento' => optional($p->fecha_nacimiento)->format('Y-m-d'),
                 'polera'          => $p->polera,
+                // pagoStatus/checkedInAt: para el contador "X de Y acreditados"
+                // de la pantalla de Acreditación (admin-eventos) — "Y" es el
+                // total de pagados, "X" cuántos de esos ya tienen checkedInAt.
+                'pagoStatus'      => $p->registration->pago_status,
+                'checkedInAt'     => optional($p->checked_in_at)->toIso8601String(),
             ]),
         ]);
     }

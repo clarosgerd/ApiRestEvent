@@ -2,6 +2,92 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/).
 
+## 2026-08-10 — Feature: acreditación (check-in) escaneando el QR de referencia
+
+El QR de referencia (e-ticket/PDF/email, `ReferenceQrService`) existía
+hace tiempo pero no tenía ningún consumidor — usuario preguntó a dónde
+llevaba, se investigó (solo codifica texto plano, sin URL) y se construyó
+el primer consumidor real: un flujo de acreditación en el panel
+(`admin-eventos`).
+
+### Added
+
+- Columna `checked_in_at` (timestamp, nullable) en `participantes` —
+  migración `2026_08_10_160000_add_checked_in_at_to_participantes_table`,
+  sin backfill (arranca en NULL, correcto). Probada contra `event_testing`,
+  **no corrida contra la BD real** todavía.
+- `GET /event/{event}/checkin/{reference}` (`RegistrationController::checkinLookup`)
+  — busca la inscripción scoped al evento (404 si la referencia es de otro
+  evento), devuelve participantes con categoría ya resuelta a nombre.
+- `PATCH /participantes/{participante}/checkin` (`ParticipanteController::checkin`)
+  — marca presente. Gate real: 422 si `pago_status !== 'paid'`. Reescanear
+  a alguien ya acreditado no es un error — devuelve `alreadyCheckedIn:true`
+  sin pisar el timestamp original. Auditado vía `AdminAuditLogger`.
+  Ambos endpoints detrás de `auth:admins`, mismo scoping que Numeración
+  (`assertCanWriteEvento`).
+- `ParticipanteResource` y el array manual de `porEvento()` ganan
+  `checkedInAt` (y `porEvento()` también `pagoStatus`, para el contador
+  "X de Y acreditados" del panel).
+- `tests/Feature/CheckinTest.php` — 6 tests (lookup con categoría
+  resuelta, 404 evento equivocado, 422 sin pagar, éxito, reescaneo
+  idempotente, 403 sin permiso). Suite completa: 114/115 en verde (única
+  falla, preexistente sin relación).
+
+### Pendiente
+
+- Correr la migración contra la BD real (dev, luego QA/producción).
+- No hay reconocimiento offline ni integración con `resultados.estado`
+  (DNS/DNF) todavía — fuera de alcance de esta primera versión.
+
+## 2026-08-10 — Fix: "Categoría: 1" sin resolver en email/PDF de ticket
+
+Mismo bug de origen que el de Numeración/Participantes (`participantes.categoria`
+guarda el ID, no el nombre) — acá afectaba a `resources/views/emails/partials/participantes.blade.php`,
+compartida por el email de confirmación, el recordatorio de kit y el PDF
+del e-ticket (los 3 mostraban el ID crudo, ej. "Categoría: 1", en vez del
+nombre, "Categoría: 5K"). Se resuelve el nombre vía
+`$registration->evento->categories`, con fallback al valor crudo si no
+matchea ninguna categoría (dato legacy inconsistente o evento sin
+categorías) — no rompe la vista en ese caso. Verificado renderizando la
+vista contra una inscripción real (`categoria="28"` → `"10K"` en el HTML
+resultante). Suite completa: 108/109 en verde (única falla, preexistente
+sin relación).
+
+## 2026-08-10 — Fix: filtro por categoría roto en Numeración/Participantes
+
+Bug reportado: el filtro por categoría de las pantallas de Numeración de
+corredor/chip y Participantes (`admin-eventos`) solo funcionaba con "Todas
+las categorías". Causa: `participantes.categoria` guardaba el **ID** de la
+categoría cuando la inscripción venía del registro online, pero el
+**nombre** cuando venía de la carga masiva por CSV
+(`RegistrationController::importarBulk`) — el filtro compara por ID, así
+que solo encontraba a la minoría cargada por CSV. Detalle completo en
+`elascenso/event/brain/BUG-FILTRO-CATEGORIA-NUMERACION-10082026.md`.
+
+### Fixed
+
+- `RegistrationController::importarBulk` ahora guarda `(string) $category->id`
+  en vez de `$category->name`, igual que el registro online.
+
+### Added
+
+- Migración `2026_08_10_150000_backfill_participante_categoria_legacy_names_to_id`
+  — normaliza los `participantes.categoria` ya existentes que quedaron
+  guardados como nombre (no numéricos) al ID de la categoría que coincide
+  por nombre (case-insensitive); los que ya son ID no se tocan. Probada
+  contra `event_testing`, **no corrida contra la BD real** todavía — ver
+  Pendiente.
+- `tests/Feature/RegistroManualBulkTest.php` — 4 tests nuevos (guarda ID,
+  matchea sin distinguir mayúsculas, categoría inexistente → 422, requiere
+  rol super_admin). Suite completa: 108/109 en verde (la única falla es la
+  preexistente sin relación, ya documentada en sesiones previas).
+
+### Pendiente
+
+- Correr la migración de backfill contra la BD real (dev y luego QA/
+  producción) — contar el impacto primero
+  (`SELECT COUNT(*) FROM participantes WHERE categoria NOT REGEXP '^[0-9]+$'`).
+
 ## 2026-08-10 — `hasDonation`/`hasPromoCode` de `eventos` a `form_types`
 
 QA visual encontró que estos dos campos vivían a nivel de evento cuando

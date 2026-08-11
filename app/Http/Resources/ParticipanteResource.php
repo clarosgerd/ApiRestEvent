@@ -61,7 +61,8 @@ class ParticipanteResource extends JsonResource
             'donacion' => (float)$this->donacion,
             'promoDescuento' => (float)$this->promo_descuento,
             'promoCodigo' => $this->promo_codigo,
-            'subtotal' => (float)$this->subtotal
+            'subtotal' => (float)$this->subtotal,
+            'checkedInAt' => optional($this->checked_in_at)->toIso8601String(),
         ];
     }
 }
