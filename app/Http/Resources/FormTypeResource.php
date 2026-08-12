@@ -21,6 +21,13 @@ class FormTypeResource extends JsonResource
             'description'     =>$this->description,
             'tipo'            =>$this->tipo,
             'cupo_total'      =>$this->cupo_total,
+            // Kit/tallas/stock (11/08/2026) — antes `activo` no se
+            // exponía y nada lo volvía a chequear al aceptar una
+            // inscripción nueva (ver "Hallazgo adicional" del PRD
+            // kit-tallas-stock-lista-espera.md); ahora el frontend
+            // puede mostrar "cupo lleno" y ofrecer lista de espera.
+            'activo'          => (bool) $this->activo,
+            'cupoDisponible'  => $this->cupoDisponible(),
             'precio_base'     =>$this->precio_base,
             'costo_edicion'   =>$this->costo_edicion,
             'color'           =>$this->color,

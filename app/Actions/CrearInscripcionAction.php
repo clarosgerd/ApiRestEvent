@@ -5,15 +5,20 @@ namespace App\Actions;
 use App\DTOs\ParticipantDTO;
 use App\DTOs\RegistrationDTO;
 use App\Models\Answer;
+use App\Models\Category;
 use App\Models\ContactoEmergenciaParticipante;
 use App\Models\Equipo;
+use App\Models\Evento;
 use App\Models\FormType;
+use App\Models\ItemStock;
 use App\Models\Participante;
 use App\Models\Registration;
 use App\Models\RegistrationTotal;
+use App\Models\Souvenir;
 use App\Models\SouvenirParticipante;
 use App\Services\NotificacionService;
 use App\Services\RegistrationService;
+use App\Support\PrecioVigenteData;
 use Illuminate\Support\Facades\DB;
 
 class CrearInscripcionAction
@@ -75,8 +80,12 @@ class CrearInscripcionAction
                 );
             }
 
+            $this->validateFormTypeActivoYStock($dto);
+            $this->validateFeePct($dto);
+
             foreach ($dto->participants as $participant) {
                 $this->validateParticipantRegistration($dto, $participant);
+                $this->validatePrecioCategoria($dto, $participant);
                 $this->validateEquipo($dto, $participant);
                 $this->validateDelivery($dto, $participant);
             }
@@ -198,6 +207,8 @@ class CrearInscripcionAction
                 'souvenir_id' => $souvenir->souvenir_id,
                 'nombre' => $souvenir->name,
                 'precio' => $souvenir->price,
+                'talla' => $souvenir->talla,
+                'sexo' => $souvenir->sexo,
 
             ]);
 
@@ -210,6 +221,112 @@ class CrearInscripcionAction
                 'participante_id' => $participant->id,
                 'value'           => $answer->value,
             ]);
+        }
+    }
+
+    /**
+     * Kit/tallas/stock (11/08/2026) — ver
+     * PRD-kit-tallas-stock-lista-espera.md. Dos chequeos, ambos dentro
+     * de la transacción de `createInTransaction()` con `lockForUpdate()`
+     * para que dos inscripciones simultáneas contra el último cupo/la
+     * última talla no pasen ambas:
+     *
+     * 1. `form_types.activo` — hasta esta ronda, nada volvía a comprobar
+     *    esta bandera antes de aceptar una inscripción nueva (se
+     *    calculaba y se prendía, pero no bloqueaba nada — ver el
+     *    "Hallazgo adicional" del PRD). Ahora si el form_type ya está
+     *    desactivado (cupo lleno), se rechaza acá.
+     * 2. Stock por talla/sexo de los ítems del kit elegidos (si el ítem
+     *    no tiene ninguna fila en `item_stock`, tiene "disponibilidad no
+     *    controlada" y no se bloquea — ver App\Support\DisponibilidadItemData).
+     *    La demanda se agrega por combinación souvenir_id+talla+sexo
+     *    across todos los participantes de esta misma inscripción, para
+     *    no dejar pasar una sola inscripción con 5 participantes que
+     *    piden la última talla si solo quedan 3.
+     */
+    private function validateFormTypeActivoYStock(RegistrationDTO $dto): void
+    {
+        $formType = FormType::where('id', $dto->formId)->lockForUpdate()->first();
+
+        if (!$formType || !$formType->activo) {
+            throw new \DomainException(
+                'Este tipo de inscripción ya no tiene cupo disponible.'
+            );
+        }
+
+        $demanda = [];
+        foreach ($dto->participants as $participant) {
+            foreach ($participant->souvenirs as $souvenir) {
+                $key = $souvenir->souvenir_id . '|' . ($souvenir->talla ?? '') . '|' . ($souvenir->sexo ?? '');
+                $demanda[$key] = ($demanda[$key] ?? 0) + 1;
+            }
+        }
+
+        foreach ($demanda as $key => $cantidadPedida) {
+            [$souvenirId, $talla, $sexo] = explode('|', $key, 3);
+            $talla = $talla === '' ? null : $talla;
+            $sexo  = $sexo === '' ? null : $sexo;
+
+            $stock = ItemStock::where('souvenir_id', (int) $souvenirId)
+                ->where('talla', $talla)
+                ->where('sexo', $sexo)
+                ->lockForUpdate()
+                ->first();
+
+            if (!$stock) {
+                continue; // disponibilidad no controlada, no se bloquea
+            }
+
+            $ocupado = SouvenirParticipante::where('souvenir_id', (int) $souvenirId)
+                ->where('talla', $talla)
+                ->where('sexo', $sexo)
+                ->whereHas('participante.registration', function ($q) {
+                    $q->whereNotIn('pago_status', ['cancelled', 'failed']);
+                })
+                ->lockForUpdate()
+                ->count();
+
+            if ($ocupado + $cantidadPedida > $stock->cantidad_total) {
+                $souvenir = Souvenir::find($souvenirId);
+                throw new \DomainException(
+                    sprintf(
+                        'No hay stock suficiente de "%s"%s. Quedan %d disponibles.',
+                        $souvenir->name ?? 'el ítem seleccionado',
+                        $talla ? " (talla {$talla})" : '',
+                        max(0, $stock->cantidad_total - $ocupado)
+                    )
+                );
+            }
+        }
+    }
+
+    /**
+     * Cargo de servicio configurable por evento (11/08/2026) — ver
+     * PRD-cargo-servicio-por-evento.md. Antes de este cambio,
+     * `totals->fee` llegaba tal cual lo mandaba el cliente (calculado en
+     * `elascenso/event`, con el 5% hardcodeado ahí) y ApiRestEvent lo
+     * guardaba sin recalcularlo — mismo patrón de "confía ciegamente en
+     * el proxy" que `precioCategoria` (ver el PRD de precios por
+     * período). Se cierra acá: se recalcula con el `fee_pct` real del
+     * evento y se rechaza si no coincide (tolerancia de 2 centavos por
+     * redondeo, no por permisividad).
+     */
+    private function validateFeePct(RegistrationDTO $dto): void
+    {
+        $evento = Evento::find($dto->eventId);
+        if (!$evento) {
+            return; // el chequeo de evento inexistente ya lo hizo elascenso/event antes de llegar acá
+        }
+
+        $feeEsperado = round($dto->totals->registration * (float) $evento->fee_pct, 2);
+
+        if (abs($feeEsperado - $dto->totals->fee) > 0.02) {
+            throw new \DomainException(
+                sprintf(
+                    'El cargo de servicio no coincide con el vigente para este evento (%.2f%%). Recargá la página e intentá de nuevo.',
+                    $evento->fee_pct * 100
+                )
+            );
         }
     }
 
@@ -242,6 +359,58 @@ class CrearInscripcionAction
                     $participantDTO->documentType,
                     $registrationDTO->eventId
                 )
+            );
+        }
+    }
+
+    /**
+     * Precios por período (12/08/2026) — ver PRD-precios-periodos-fechas.md,
+     * Hallazgo #2 y sección 0. Antes ApiRestEvent guardaba
+     * `precio_categoria` tal cual llegaba en el request, confiando
+     * ciegamente en el proxy (`elascenso/event`) — cerrado acá, mismo
+     * criterio que `validateFeePct()`. Ramifica por
+     * `formType.requiere_categoria`:
+     * - true: el precio esperado es el vigente de la categoría (períodos
+     *   o `categories.price`, ver PrecioVigenteData::paraCategoria()).
+     * - false: no hay categoría real que resolver — el precio esperado
+     *   es `form_types.precio_base` directo.
+     * Aplica siempre, con o sin períodos configurados — defensa en
+     * profundidad real, no placebo.
+     */
+    private function validatePrecioCategoria(
+        RegistrationDTO $registrationDTO,
+        ParticipantDTO $participantDTO
+    ): void {
+        $formType = FormType::find($registrationDTO->formId);
+        if (!$formType) {
+            return; // ya se validó que el form_type existe antes de llegar acá
+        }
+
+        if ($formType->requiere_categoria) {
+            $category = Category::where('id', $participantDTO->category)
+                ->where('event_id', $registrationDTO->eventId)
+                ->first();
+
+            if (!$category) {
+                throw new \DomainException(
+                    "La categoría '{$participantDTO->category}' no es válida para este evento."
+                );
+            }
+
+            $precioVigente = PrecioVigenteData::paraCategoria($category)['precio'];
+
+            if (abs($precioVigente - $participantDTO->categoryPrice) > 0.01) {
+                throw new \DomainException(
+                    'El precio de la categoría no coincide con el vigente. Recargá la página e intentá de nuevo.'
+                );
+            }
+
+            return;
+        }
+
+        if (abs((float) $formType->precio_base - $participantDTO->categoryPrice) > 0.01) {
+            throw new \DomainException(
+                'El precio de inscripción no coincide con el vigente. Recargá la página e intentá de nuevo.'
             );
         }
     }

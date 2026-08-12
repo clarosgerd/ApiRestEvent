@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Evento;
 use App\Models\Participante;
+use App\Support\BalanceEventoData;
 use App\Support\DashboardInscripcionesData;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
@@ -26,6 +27,7 @@ class OrganizadorDashboardController extends Controller
             ['evento' => $evento],
             DashboardInscripcionesData::paraEvento($evento),
             [
+                'balance' => BalanceEventoData::paraEvento($evento),
                 // Firma cubre solo `evento` (los filtros se ignoran al validar
                 // en exportCsv) — la vista arma los links filtrados agregando
                 // &categoria=/&form_type_id=/&pago_status= a esta misma URL base.

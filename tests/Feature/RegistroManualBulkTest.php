@@ -56,7 +56,11 @@ class RegistroManualBulkTest extends TestCase
             'ciudad_id' => $ciudad->id,
         ]);
         $this->categoria = Category::factory()->create(['event_id' => $this->evento->id, 'name' => '5K', 'price' => 50]);
-        $this->formType = FormType::factory()->create(['event_id' => $this->evento->id, 'has_team' => false]);
+        // requiere_categoria pinneado a true (FormTypeFactory lo randomiza
+        // con faker->boolean()) — este endpoint elige la categoría por
+        // nombre, no soporta form_types sin categoría (ver
+        // PRD-precios-periodos-fechas.md, sección 0).
+        $this->formType = FormType::factory()->create(['event_id' => $this->evento->id, 'has_team' => false, 'requiere_categoria' => true]);
     }
 
     private function participanteRow(array $overrides = []): array

@@ -23,9 +23,15 @@ class UpdateSouvenirRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'name'  => 'sometimes|string|max:255',
-            'icon'  => 'sometimes|nullable|string|max:10',
-            'price' => 'sometimes|numeric|min:0',
+            'name'            => 'sometimes|string|max:255',
+            'icon'            => 'sometimes|nullable|string|max:10',
+            'price'           => 'sometimes|numeric|min:0',
+            // Kit/tallas/stock (11/08/2026) — ver
+            // PRD-kit-tallas-stock-lista-espera.md.
+            'incluido'        => 'sometimes|boolean',
+            'foto_url'        => 'sometimes|nullable|string|max:2048|url',
+            'requiere_talla'  => 'sometimes|boolean',
+            'requiere_sexo'   => 'sometimes|boolean',
         ];
     }
 }

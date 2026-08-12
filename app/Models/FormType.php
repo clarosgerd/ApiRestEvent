@@ -66,6 +66,25 @@ class FormType extends Model
       return $this->hasMany('App\Models\FormularioCampos', 'form_types_id');
    }
 
-  
+    /**
+     * Cuenta los participantes de inscripciones vigentes (ni canceladas
+     * ni fallidas) de este form_type — mismo filtro que usa
+     * RegistrationService::deactivateFormTypeIfCupoLleno(), factorizado
+     * acá para que FormTypeResource (cupoDisponible expuesto por API,
+     * ver PRD-kit-tallas-stock-lista-espera.md) y el propio Service usen
+     * la misma cuenta.
+     */
+    public function inscritosVigentes(): int
+    {
+        return Participante::whereHas('registration', function ($query) {
+            $query->where('form_types_id', $this->id)
+                ->whereNotIn('pago_status', ['cancelled', 'failed']);
+        })->count();
+    }
+
+    public function cupoDisponible(): int
+    {
+        return max(0, $this->cupo_total - $this->inscritosVigentes());
+    }
 
 }

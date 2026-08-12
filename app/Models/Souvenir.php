@@ -15,12 +15,26 @@ class Souvenir extends Model
         'name',
         'icon',
         'price',
-     
+        'incluido',
+        'foto_url',
+        'requiere_talla',
+        'requiere_sexo',
     ];
 
-    
+    protected $casts = [
+        'incluido'       => 'boolean',
+        'requiere_talla' => 'boolean',
+        'requiere_sexo'  => 'boolean',
+    ];
+
+
      public function formType()  {
         return $this->belongsTo('App\Models\FormType','form_types_id','id');
      }
+
+    public function stock()
+    {
+        return $this->hasMany(ItemStock::class, 'souvenir_id');
+    }
 
 }

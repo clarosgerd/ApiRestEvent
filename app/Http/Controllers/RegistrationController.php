@@ -463,6 +463,14 @@ public function estadoTransaccion(
         if ($formType->has_team) {
             return response()->json(['success' => false, 'error' => 'Este tipo de formulario requiere equipo — la carga masiva simple no lo soporta.'], 422);
         }
+        // Precios por período (12/08/2026) — ver PRD-precios-periodos-fechas.md,
+        // sección 0. Esta carga masiva elige la categoría por nombre — no
+        // tiene forma de representar "sin categoría" en el CSV — así que
+        // no aplica a un form_type con `requiere_categoria=false` (ese
+        // precio sale de `precio_base`, sin categoría que buscar).
+        if (!$formType->requiere_categoria) {
+            return response()->json(['success' => false, 'error' => 'Este tipo de formulario no requiere categoría — la carga masiva por categoría no aplica.'], 422);
+        }
 
         $category = Category::where('event_id', $event->id)
             ->whereRaw('LOWER(name) = ?', [mb_strtolower(trim($data['categoria']))])
@@ -471,7 +479,11 @@ public function estadoTransaccion(
             return response()->json(['success' => false, 'error' => "La categoría \"{$data['categoria']}\" no existe en este evento."], 422);
         }
 
-        $precio = (float) $category->price;
+        // Precio vigente (períodos), no el `price` crudo — mismo criterio
+        // que el registro online, así CrearInscripcionAction::validatePrecioCategoria()
+        // no rechaza esta importación cuando la categoría tiene un
+        // período de precio activo.
+        $precio = \App\Support\PrecioVigenteData::paraCategoria($category)['precio'];
         $fee = round($precio * 0.05, 2);
         $grandTotal = round($precio + $fee, 2);
 

@@ -23,10 +23,16 @@ class StoreSouvenirRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'form_types_id' => 'required|integer|exists:form_types,id',
-            'name'          => 'required|string|max:255',
-            'icon'          => 'nullable|string|max:10',
-            'price'         => 'required|numeric|min:0',
+            'form_types_id'   => 'required|integer|exists:form_types,id',
+            'name'            => 'required|string|max:255',
+            'icon'            => 'nullable|string|max:10',
+            'price'           => 'required|numeric|min:0',
+            // Kit/tallas/stock (11/08/2026) — ver
+            // PRD-kit-tallas-stock-lista-espera.md.
+            'incluido'        => 'nullable|boolean',
+            'foto_url'        => 'nullable|string|max:2048|url',
+            'requiere_talla'  => 'nullable|boolean',
+            'requiere_sexo'   => 'nullable|boolean',
         ];
     }
 }

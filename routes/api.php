@@ -17,6 +17,14 @@ use App\Http\Controllers\AdminAuditLogController;
 use App\Http\Controllers\TipoEventoController;
 use App\Http\Controllers\SocioController;
 use App\Http\Controllers\LiquidacionController;
+use App\Http\Controllers\PresupuestoEventoController;
+use App\Http\Controllers\PresupuestoCategoriaController;
+use App\Http\Controllers\SesionCongresoController;
+use App\Http\Controllers\AsistenciaSesionController;
+use App\Http\Controllers\ItemStockController;
+use App\Http\Controllers\CategoryPricePeriodController;
+use App\Http\Controllers\ListaEsperaController;
+use App\Http\Controllers\OrganizadorController;
 
 Route::get('/user', function (Request $request) {
     return $request->user();
@@ -46,6 +54,13 @@ Route::group(['prefix' => 'v1','namespace' => 'App\Http\Controllers'], function 
     Route::apiResource('/auspiciador',AuspiciadorController::class)->only(['index', 'show']);
     Route::apiResource('/agenda-item',AgendaItemController::class)->only(['index', 'show']);
 
+    // Kit/tallas/stock (11/08/2026) — ver
+    // PRD-kit-tallas-stock-lista-espera.md. Anotarse a la lista de
+    // espera es público (sin auth), mismo criterio que
+    // /registrations/lookup — quien se anota no necesariamente tiene
+    // cuenta todavía.
+    Route::post('/event/{event}/lista-espera', [ListaEsperaController::class, 'store']);
+
     // Escritura — panel de administración de eventos (ver
     // brain/PLAN-PANEL-ADMIN-EVENTOS-02082026.md), protegido con guard
     // `admins` (super_admin ve todo, admin scoped a un evento — el scoping
@@ -58,9 +73,27 @@ Route::group(['prefix' => 'v1','namespace' => 'App\Http\Controllers'], function 
         Route::apiResource('/coordinate', CoordinateController::class)->only(['store', 'update', 'destroy']);
         Route::apiResource('/route', RouteController::class)->only(['store', 'update', 'destroy']);
         Route::apiResource('/category', CategoryController::class)->only(['store', 'update', 'destroy']);
+
+        // Precios por período (12/08/2026) — ver
+        // PRD-precios-periodos-fechas.md. Mismo scoping que category
+        // (admin de su propio evento, o super_admin). Sin index propio:
+        // la lista ya viaja embebida en CategoryResource.periodos.
+        Route::post('/category/{category}/periodos', [CategoryPricePeriodController::class, 'store']);
+        Route::put('/category-price-period/{categoryPricePeriod}', [CategoryPricePeriodController::class, 'update']);
+        Route::delete('/category-price-period/{categoryPricePeriod}', [CategoryPricePeriodController::class, 'destroy']);
         Route::apiResource('/form-type', FormTypeController::class)->only(['store', 'update', 'destroy']);
         Route::apiResource('/promo-code', PromoCodeController::class)->only(['store', 'update', 'destroy']);
         Route::apiResource('/souvenir', SouvenirController::class)->only(['store', 'update', 'destroy']);
+
+        // Kit/tallas/stock (11/08/2026) — ver
+        // PRD-kit-tallas-stock-lista-espera.md. Mismo scoping que
+        // souvenir (admin de su propio evento, o super_admin).
+        Route::get('/souvenir/{souvenir}/stock', [ItemStockController::class, 'index']);
+        Route::post('/souvenir/{souvenir}/stock', [ItemStockController::class, 'store']);
+        Route::put('/item-stock/{itemStock}', [ItemStockController::class, 'update']);
+        Route::delete('/item-stock/{itemStock}', [ItemStockController::class, 'destroy']);
+        Route::get('/event/{event}/lista-espera', [ListaEsperaController::class, 'index']);
+
         Route::apiResource('/auspiciador', AuspiciadorController::class)->only(['store', 'update', 'destroy']);
         Route::apiResource('/agenda-item', AgendaItemController::class)->only(['store', 'update', 'destroy']);
 
@@ -92,8 +125,34 @@ Route::group(['prefix' => 'v1','namespace' => 'App\Http\Controllers'], function 
 
         // Dashboard de inscripciones (mismo conteo que ya se manda por
         // correo vía link firmado, ver OrganizadorDashboardController),
-        // ahora también disponible autenticado dentro del panel.
+        // ahora también disponible autenticado dentro del panel. Incluye
+        // `balance` (ver BalanceEventoData) desde la sesión 11/08/2026.
         Route::get('/event/{event}/dashboard-inscripciones', [EventoController::class, 'dashboardInscripciones']);
+
+        // Presupuesto de un evento (control financiero del organizador) —
+        // ver PRD-presupuesto_de_un_evento.md y elascenso/event/brain/
+        // (sesión 11/08/2026). A diferencia de Socios/Liquidación (solo
+        // super_admin), esto sí lo puede operar el admin scoped a su
+        // propio evento — mismo criterio que Numeración/Participantes.
+        Route::get('/event/{event}/presupuesto', [PresupuestoEventoController::class, 'index']);
+        Route::post('/event/{event}/presupuesto', [PresupuestoEventoController::class, 'store']);
+        Route::put('/event/{event}/presupuesto/{presupuesto}', [PresupuestoEventoController::class, 'update']);
+        Route::delete('/event/{event}/presupuesto/{presupuesto}', [PresupuestoEventoController::class, 'destroy']);
+
+        // Agenda y sesiones de congreso — ver
+        // PRD-Agenda-sessiones-onlycongresos.md y elascenso/event/brain/
+        // (sesión 11/08/2026). Mismo criterio de permisos que Presupuesto
+        // (admin scoped a su evento, o super_admin) — la API no bloquea
+        // por tipo de evento, el gating "solo congresos" es del panel.
+        Route::get('/event/{event}/sesiones', [SesionCongresoController::class, 'index']);
+        Route::post('/event/{event}/sesiones', [SesionCongresoController::class, 'store']);
+        Route::put('/event/{event}/sesiones/{sesion}', [SesionCongresoController::class, 'update']);
+        Route::delete('/event/{event}/sesiones/{sesion}', [SesionCongresoController::class, 'destroy']);
+        Route::get('/event/{event}/sesiones/{sesion}/lookup/{reference}', [AsistenciaSesionController::class, 'lookup']);
+        Route::patch('/event/{event}/sesiones/{sesion}/participantes/{participante}/checkin', [AsistenciaSesionController::class, 'checkin']);
+        Route::post('/event/{event}/sesiones/{sesion}/checkin-bulk', [AsistenciaSesionController::class, 'checkinBulk']);
+        Route::get('/event/{event}/sesiones/{sesion}/asistencia', [AsistenciaSesionController::class, 'asistencia']);
+        Route::get('/event/{event}/sesiones-reporte', [AsistenciaSesionController::class, 'reporte']);
 
         // Botón "Sincronizar ahora" del panel — ver
         // brain/groovy-chasing-ladybug.md Parte B.
@@ -113,9 +172,36 @@ Route::group(['prefix' => 'v1','namespace' => 'App\Http\Controllers'], function 
         // (sesión 11/08/2026). Socios es config global (no scoped a un
         // evento); la liquidación sí es por evento.
         Route::apiResource('/socios', SocioController::class)->only(['index', 'store', 'update', 'destroy']);
+
+        // CRUD de organizadores (catálogo global, no scoped por evento) —
+        // solo super_admin, mismo criterio que Socios. Ver
+        // OrganizadorController.
+        //
+        // ->parameters() es obligatorio acá: Str::singular('organizadores')
+        // da "organizadore" (el inflector de Laravel es en inglés, no
+        // reconoce el plural en "-es" del español), así que sin esto la
+        // ruta generada sería {organizadore} — no coincide con el
+        // `Organizador $organizador` de los métodos del controlador, y el
+        // binding implícito de modelo se rompe en silencio: en vez de un
+        // 404/error visible, inyecta un Organizador vacío (id null) y cada
+        // acción sigue "de largo" con datos incorrectos. Encontrado en los
+        // tests de este mismo PRD (destroy() no bloqueaba con eventos
+        // asociados porque estaba chequeando el modelo vacío).
+        Route::apiResource('/organizadores', OrganizadorController::class)
+            ->parameters(['organizadores' => 'organizador'])
+            ->only(['index', 'show', 'store', 'update', 'destroy']);
+
         Route::get('/event/{event}/liquidacion/preview', [LiquidacionController::class, 'preview']);
         Route::get('/event/{event}/liquidacion', [LiquidacionController::class, 'show']);
         Route::post('/event/{event}/liquidacion', [LiquidacionController::class, 'store']);
+
+        // Catálogo de rubros del presupuesto — sí es solo super_admin
+        // (config global, igual que Socios), a diferencia de los
+        // movimientos de presupuesto en sí (arriba, fuera de este bloque).
+        Route::get('/presupuesto-categorias', [PresupuestoCategoriaController::class, 'index']);
+        Route::post('/presupuesto-categorias', [PresupuestoCategoriaController::class, 'store']);
+        Route::put('/presupuesto-categorias/{categoria}', [PresupuestoCategoriaController::class, 'update']);
+        Route::delete('/presupuesto-categorias/{categoria}', [PresupuestoCategoriaController::class, 'destroy']);
     });
 
     Route::post('/admin/login', [AdminAuthController::class, 'login']);

@@ -43,6 +43,7 @@ class Evento extends Model
         'aforo_total', // Capacidad máxima de asistentes
         'color_id', // Color asociado al evento
         'color_hex', // Color de marca del evento, ej. '#022858' — usado en gafetes/certificados
+        'fee_pct', // Cargo de servicio del evento, fracción (0.05 = 5%) — antes hardcodeado, ver PRD-cargo-servicio-por-evento.md
         'chronotrack_event_id', // Id del evento en ChronoTrack, si el organizador ya lo registró ahí (solo lectura de nuestro lado)
         'logo_url', // URL del logo del evento
         'imagen_portada_url', // URL de la imagen de portada del evento
@@ -68,6 +69,7 @@ protected $casts = [
     'hasPromoCode' => 'boolean',
     'publicado'    => 'boolean',
     'es_historico' => 'boolean',
+    'fee_pct'      => 'float',
 ];
       public function coordinates()
    {
@@ -116,6 +118,16 @@ protected $casts = [
     public function liquidacion()
     {
        return $this->hasOne(Liquidacion::class, 'evento_id');
+    }
+
+    public function presupuestoMovimientos()
+    {
+       return $this->hasMany(PresupuestoEvento::class, 'evento_id');
+    }
+
+    public function sesionesCongreso()
+    {
+       return $this->hasMany(SesionCongreso::class, 'evento_id');
     }
 
     public function organizador()

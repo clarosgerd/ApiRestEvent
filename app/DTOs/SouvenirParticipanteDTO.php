@@ -7,7 +7,12 @@ class SouvenirParticipanteDTO
        // public int $participante_id,
         public int $souvenir_id,
         public string $name,
-        public float $price
+        public float $price,
+        // Kit/tallas/stock (11/08/2026) — talla/sexo elegidos por el
+        // participante para este ítem, null si el ítem no requiere
+        // ninguno de los dos. Ver PRD-kit-tallas-stock-lista-espera.md.
+        public ?string $talla = null,
+        public ?string $sexo = null,
 
     ){}
 
@@ -17,7 +22,9 @@ class SouvenirParticipanteDTO
            // participante_id: (int) $data['participante_id'],
             souvenir_id: (int) $data['id'],
             name: $data['nombre'],
-            price: (float) $data['precio']
+            price: (float) $data['precio'],
+            talla: $data['talla'] ?? null,
+            sexo: $data['sexo'] ?? null,
         );
     }
 }

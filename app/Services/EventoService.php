@@ -35,6 +35,8 @@ class EventoService
             // realidad sean un congreso u otra disciplina.
             'tipo_evento_id'    => 'tipo_evento_id',
             'subtipo_evento_id' => 'subtipo_evento_id',
+            'organizador_id'    => 'organizador_id',
+            'feePct'            => 'fee_pct',
         ];
 
         // Columnas NOT NULL sin default en la migración original de `eventos`

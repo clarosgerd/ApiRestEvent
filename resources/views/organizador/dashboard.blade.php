@@ -50,6 +50,14 @@
       <div class="card failed"><div class="num">{{ $totalGeneral['failed'] }}</div><div class="label">Fallidos</div></div>
     </div>
 
+    <p class="section-title">Balance del evento</p>
+    <div class="cards">
+      <div class="card"><div class="num">${{ number_format($balance['ingresosInscripciones'], 2) }}</div><div class="label">Ingreso por inscripciones</div></div>
+      <div class="card"><div class="num">${{ number_format($balance['ingresosManuales'], 2) }}</div><div class="label">Ingresos manuales</div></div>
+      <div class="card"><div class="num">${{ number_format($balance['gastosManuales'], 2) }}</div><div class="label">Gastos</div></div>
+      <div class="card paid"><div class="num">${{ number_format($balance['utilidadNeta'], 2) }}</div><div class="label">Utilidad neta</div></div>
+    </div>
+
     <p class="section-title">Por categoría</p>
     <table>
       <thead>

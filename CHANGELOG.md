@@ -2,6 +2,148 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/).
 
+## 2026-08-11 — Feature: certificados automáticos de congreso (Fase 2 de sesiones)
+
+Segunda ronda de `brain/api_rest_event/PRD-Agenda-sessiones-onlycongresos.md`
+— certificado automático al cierre de un evento tipo Congreso, con la
+lista de sesiones a las que asistió cada participante (un solo
+certificado por participante por evento, no uno por sesión, según lo
+acordado con el usuario).
+
+**⚠️ Este proyecto no tiene sandbox de email** (`MAIL_HOST=mail.inscrito.net`,
+SMTP real de producción) — el comando nuevo, una vez activo en el
+scheduler de un hosting con cron real, manda correos de verdad. Todo el
+desarrollo/testing de esta feature usó `Mail::fake()`, cero envíos reales
+disparados durante el trabajo.
+
+### Added
+
+- Tabla `certificados_congreso_enviados` (idempotencia por
+  evento+participante). A diferencia de `NotificacionService`/
+  `registration_notifications` (marca "enviado" aunque el SMTP falle),
+  acá la fila **solo se crea si el envío tuvo éxito** — un fallo puntual
+  se reintenta solo en la próxima corrida diaria, decisión deliberada
+  documentada en la migración.
+- `EnviarCertificadosCongresoAction` — un certificado por participante
+  con asistencia registrada en el evento, agrupando todas sus sesiones
+  asistidas; se salta a quien no tiene `correo`.
+- `CertificadoCongresoMail` (adjunta PDF, mismo patrón que
+  `PagoConfirmadoMail::build()`) + nueva rama `asistencia_congreso` en
+  `tickets/certificados.blade.php` (ramas `participacion`/`asistencia`
+  existentes intactas) — el PDF lista título/ponente/sala/fecha de cada
+  sesión, no un genérico "asistió al evento".
+- Comando `certificados:enviar-congreso`, programado `->daily()` en
+  `routes/console.php` junto al resto de notificaciones (no hay urgencia
+  de minutos — el trigger es el cierre del evento, ya evaluado una vez
+  al día por `eventos:cerrar-finalizados`).
+- `tests/Feature/EnviarCertificadosCongresoTest.php` — 6 tests, todos
+  con `Mail::fake()` (patrón ya usado en `ExpirarInscripcionesPendientesTest`).
+  Suite completa: 155/156 en verde (única falla, preexistente sin
+  relación).
+
+### Pendiente
+
+- Correr la migración contra la BD real (dev, luego QA/producción).
+- **No activar el comando en un scheduler con cron real sin antes
+  revisar con el usuario qué eventos Congreso cerrados existen hoy** —
+  el primer corrido mandaría certificados a cualquiera con asistencia
+  registrada, incluyendo datos de prueba viejos si los hubiera.
+- Sin modo `--dry-run` en el comando todavía — si se necesita antes de
+  activarlo en un entorno con cron real, agregarlo aparte.
+
+## 2026-08-11 — Feature: agenda y sesiones de congreso (config + check-in por sala)
+
+Primera ronda de `brain/api_rest_event/PRD-Agenda-sessiones-onlycongresos.md`
+— config de sesiones (ponente/sala/horario/cupo) + check-in de staff por
+sesión (individual y masivo) + reporte de asistencia/concurrencia.
+Certificados automáticos y "elegir sesiones durante el registro" quedan
+explícitamente fuera de esta ronda (ver `elascenso/event/brain/`, sesión
+11/08/2026).
+
+### Added
+
+- Tablas `sesiones_congreso` (FK opcional a `agenda_items` — cronograma
+  visual existente, sin cupo/inscripción/asistencia, no se reusa como
+  base) y `asistencia_sesion` (`staff_admin_user_id` explícito en la
+  fila, a diferencia de `participantes.checked_in_at` que solo queda en
+  el audit log genérico; unique por sesión+participante). Probadas
+  contra `event_testing`, **no corridas contra la BD real** todavía.
+- `SesionCongresoController` (CRUD scoped por evento, admin scoped a su
+  evento o super_admin — no solo-superadmin) y
+  `AsistenciaSesionController`: `lookup` (por referencia, scoped a
+  evento+sesión), `checkin` individual (idempotente, gate de pago y de
+  cupo), `checkinBulk` (parcial, no todo-o-nada — cada participante se
+  evalúa por separado), `reporte` (% de concurrencia contra el total de
+  pagados del evento, documentado por qué ese denominador).
+- 14 tests Pest nuevos (`SesionCongresoTest`, `AsistenciaSesionTest`).
+  Suite completa: 149/150 en verde (única falla, preexistente sin
+  relación).
+- Panel `admin-eventos`: "Sesiones de congreso" (CRUD), "Acreditar" por
+  sesión (cámara + manual + check-in masivo, reusa `html5-qrcode` igual
+  que la acreditación general) y "Reporte de asistencia". Link visible
+  solo si el evento es tipo "Congreso / No aplica".
+
+### Fixed (colateral, en el propio código de esta feature)
+
+- `agenda_items.id` es `int unsigned` (no `bigint`, a diferencia del
+  resto de las tablas) — la FK de `sesiones_congreso.agenda_item_id` se
+  declaró con el tipo exacto en vez de `foreignId()` para no romper el
+  `ALTER TABLE` (errno 150).
+
+### Pendiente
+
+- Correr las migraciones contra la BD real (dev, luego QA/producción).
+- Certificados automáticos disparados por `checkin_at` — fase aparte
+  (implica envío real de emails).
+- Selección de sesiones durante el registro del participante — tocaría
+  el monolito `elascenso/event` (activo en producción), fuera de alcance
+  de "cambios en admin-eventos".
+
+## 2026-08-11 — Feature: presupuesto de un evento (control financiero del organizador)
+
+Ver `brain/api_rest_event/PRD-presupuesto_de_un_evento.md` (el archivo
+tenía el contenido equivocado — el plan del ETL pegado por error — y se
+corrigió en esta misma sesión). Distinta de la liquidación de utilidades
+entre socios (más abajo): esta es del organizador por evento, no
+solo-superadmin, y no reparte el service fee sino que el organizador
+registra sus propios ingresos/gastos manuales.
+
+### Added
+
+- Tablas `presupuesto_categorias` (catálogo de rubros, solo super_admin,
+  seed inicial Marketing/Logística/Premios como gasto y Patrocinio/
+  Donación como ingreso) y `presupuesto_evento` (movimientos manuales,
+  `tipo` denormalizado y validado contra la categoría al crear). Probadas
+  contra `event_testing`, **no corridas contra la BD real** todavía.
+- `BalanceEventoData::paraEvento()` — archivo hermano de
+  `DashboardInscripcionesData` (mismo patrón de fachada estática), suma
+  el neto del organizador por inscripciones (`inscripcion+donacion+souvenirs-descuentos`,
+  **sin** el service fee, que nunca llega al organizador — se confirmó en
+  `review-payment.js` que se suma arriba del precio, no se descuenta) más
+  ingresos/gastos manuales, con la utilidad neta resultante.
+- `GET/POST/PUT/DELETE /event/{event}/presupuesto(/{presupuesto})` — a
+  diferencia de Socios/Liquidación, el admin scoped a su propio evento
+  también puede operar (`assertCanWriteEvento`, no `assertIsSuperAdmin`).
+  CRUD `/presupuesto-categorias` sí es solo super_admin.
+- `EventoController::dashboardInscripciones()` y
+  `OrganizadorDashboardController::show()` (el link firmado sin login del
+  organizador) ahora incluyen `balance` en la respuesta — mismo dato,
+  ambos lugares, sin duplicar el cálculo.
+- `tests/Feature/PresupuestoCategoriaTest.php` (4 tests) y
+  `PresupuestoEventoTest.php` (5 tests, incluye verificación explícita de
+  que el balance excluye el fee). Suite completa: 135/136 en verde (única
+  falla, preexistente sin relación).
+- Panel `admin-eventos`: pantalla "Presupuesto" por evento (accesible por
+  admin scoped o super_admin) y "Categorías de presupuesto" (superadmin),
+  más la sección de balance agregada al dashboard de inscripciones
+  existente.
+
+### Pendiente
+
+- Correr las migraciones contra la BD real (dev, luego QA/producción).
+- Sin conversión de moneda — `moneda` es informativo, el balance asume
+  que todos los montos de un evento están en la misma moneda.
+
 ## 2026-08-11 — Feature: consolidación financiera (liquidación de utilidades)
 
 Primer pilar implementado del PRD

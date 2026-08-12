@@ -98,6 +98,22 @@
               </table>
             </div>
           @endif
+        @elseif ($item['tipo'] === 'asistencia_congreso')
+          {{-- Certificado automático de congreso (ver
+               EnviarCertificadosCongresoAction) — a diferencia de
+               "asistencia" (una sola línea, sin detalle de sesión), este
+               lista cada sesión puntual a la que asistió el participante. --}}
+          <div class="detalle">por su asistencia a las siguientes sesiones del congreso:</div>
+          <div style="margin-top: 14px; text-align: left; display: inline-block;">
+            @foreach ($item['sesiones'] as $s)
+              <div class="detalle" style="margin: 6px 0;">
+                <strong>{{ $s['titulo'] }}</strong>@if (!empty($s['sala'])) · {{ $s['sala'] }}@endif
+                @if (!empty($s['fecha']))
+                  — {{ \Illuminate\Support\Carbon::parse($s['fecha'])->locale('es')->translatedFormat('d \d\e F \d\e Y') }}
+                @endif
+              </div>
+            @endforeach
+          </div>
         @else
           <div class="detalle">
             por su asistencia como <strong>{{ $item['rol'] }}</strong>@if (!empty($evento->fecha_inicio)), el <strong>{{ \Illuminate\Support\Carbon::parse($evento->fecha_inicio)->locale('es')->translatedFormat('d \d\e F \d\e Y') }}</strong>@endif

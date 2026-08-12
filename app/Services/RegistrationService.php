@@ -40,12 +40,7 @@ class RegistrationService
             return;
         }
 
-        $inscritos = Participante::whereHas('registration', function ($query) use ($formTypeId) {
-            $query->where('form_types_id', $formTypeId)
-                ->whereNotIn('pago_status', ['cancelled', 'failed']);
-        })->count();
-
-        if ($inscritos >= $formType->cupo_total) {
+        if ($formType->inscritosVigentes() >= $formType->cupo_total) {
             $formType->update(['activo' => false]);
         }
     }
@@ -171,6 +166,14 @@ class RegistrationService
                 'souvenir_id'     => $souvenir['id'],
                 'nombre'          => $souvenir['nombre'],
                 'precio'          => $souvenir['precio'],
+                // Kit/tallas/stock (11/08/2026) — ver
+                // PRD-kit-tallas-stock-lista-espera.md. No se revalida
+                // stock acá (a diferencia de CrearInscripcionAction) —
+                // editar una inscripción ya paga/pendiente para cambiar
+                // de talla sin revalidar cupo es un gap conocido, ver
+                // deploy checklist.
+                'talla'           => $souvenir['talla'] ?? null,
+                'sexo'            => $souvenir['sexo'] ?? null,
             ]);
         }
 

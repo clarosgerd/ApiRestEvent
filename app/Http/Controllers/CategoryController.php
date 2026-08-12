@@ -25,7 +25,9 @@ class CategoryController extends Controller
         //
          $filter = new CategoryFilter();
         $filterItems = $filter->transform($request); // [['column','operator','value']]
-        $category = Category::where($filterItems);
+        // .pricePeriods eager-cargado para que CategoryResource calcule
+        // precio_vigente sin N+1 — ver PRD-precios-periodos-fechas.md.
+        $category = Category::where($filterItems)->with('pricePeriods');
         return new CategoryCollection($category->paginate()->appends($request->query()) );
     }
 

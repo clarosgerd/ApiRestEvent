@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Category;
 use App\Models\Evento;
 use App\Models\FormType;
 use App\Models\Persona;
@@ -91,7 +92,11 @@ class ApiEndpointsTest extends TestCase
     {
         $this->actingAsPersona();
         $event = Evento::factory()->create();
-        $formType = FormType::factory()->create(['event_id' => $event->id]);
+        // requiere_categoria pinneado a true (FormTypeFactory lo
+        // randomiza con faker->boolean()) — ver
+        // PRD-precios-periodos-fechas.md sección 0.
+        $formType = FormType::factory()->create(['event_id' => $event->id, 'requiere_categoria' => true]);
+        $categoria = Category::factory()->create(['event_id' => $event->id, 'price' => 100]);
 
         $payload = [[
             'referencia' => 'REF-' . Str::random(6),
@@ -105,9 +110,11 @@ class ApiEndpointsTest extends TestCase
                 'inscripcion' => 100,
                 'donacion' => 0,
                 'souvenirs' => 0,
-                'fee' => 0,
+                // fee_pct default del evento es 0.05 — ver
+                // CrearInscripcionAction::validateFeePct().
+                'fee' => 5,
                 'descuento' => 0,
-                'grand_total' => 100,
+                'grand_total' => 105,
             ],
             'participantes' => [[
                 'nombre' => 'Ana',
@@ -128,7 +135,7 @@ class ApiEndpointsTest extends TestCase
                 'direccion' => 'Av. Siempre Viva 123',
                 'ciudad' => 'Montevideo',
                 'telefono' => '22001122',
-                'categoria' => 1,
+                'categoria' => $categoria->id,
                 'precioCategoria' => 100,
                 'donacion' => 0,
                 'promoDescuento' => 0,

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Category;
 use App\Models\Evento;
 use App\Models\FormType;
 use App\Models\Registration;
@@ -18,6 +19,7 @@ class RegistrationTest extends TestCase
 
     private Evento $event;
     private FormType $formType;
+    private Category $categoria;
 
     protected function setUp(): void
     {
@@ -26,6 +28,14 @@ class RegistrationTest extends TestCase
         $this->event = Evento::factory()->create();
         $this->formType = FormType::factory()->create([
             'event_id' => $this->event->id,
+            // Precios por período (12/08/2026) — pinneado a true
+            // (FormTypeFactory lo randomiza con faker->boolean()), ver
+            // PRD-precios-periodos-fechas.md sección 0.
+            'requiere_categoria' => true,
+        ]);
+        $this->categoria = Category::factory()->create([
+            'event_id' => $this->event->id,
+            'price' => 100,
         ]);
     }
 
@@ -52,7 +62,7 @@ class RegistrationTest extends TestCase
             'direccion' => 'Av. Siempre Viva 123',
             'ciudad' => 'Santa Cruz',
             'telefono' => '22001122',
-            'categoria' => 1,
+            'categoria' => $this->categoria->id,
             'precioCategoria' => 100,
             'donacion' => 0,
             'promoDescuento' => 0,
@@ -78,9 +88,14 @@ class RegistrationTest extends TestCase
                 'inscripcion' => 100,
                 'donacion' => 0,
                 'souvenirs' => 0,
-                'fee' => 0,
+                // fee_pct default del evento es 0.05 (5%, ver migración
+                // 2026_08_11_150000_add_fee_pct_to_eventos_table) —
+                // CrearInscripcionAction::validateFeePct() lo recalcula y
+                // rechaza si no coincide, así que el payload de test tiene
+                // que traer el fee real, no 0.
+                'fee' => 5,
                 'descuento' => 0,
-                'grand_total' => 100,
+                'grand_total' => 105,
             ],
             'participantes' => [$participant],
         ]];
@@ -108,7 +123,7 @@ class RegistrationTest extends TestCase
         $this->assertDatabaseHas('registrations', ['referencia' => $reference]);
         $this->assertDatabaseHas('registration_totals', [
             'inscripcion' => 100,
-            'grand_total' => 100,
+            'grand_total' => 105,
         ]);
     }
 
@@ -153,7 +168,7 @@ class RegistrationTest extends TestCase
             'direccion' => 'Calle 456',
             'ciudad' => 'La Paz',
             'telefono' => '22113344',
-            'categoria' => 1,
+            'categoria' => $this->categoria->id,
             'precioCategoria' => 100,
             'donacion' => 0,
             'promoDescuento' => 0,
@@ -267,7 +282,7 @@ class RegistrationTest extends TestCase
         $total = RegistrationTotal::first();
         $this->assertEquals('100.00', $total->inscripcion);
         $this->assertEquals('0.00', $total->donacion);
-        $this->assertEquals('100.00', $total->grand_total);
+        $this->assertEquals('105.00', $total->grand_total);
     }
 
     public function test_create_registration_returns_reference_in_response(): void
@@ -285,8 +300,15 @@ class RegistrationTest extends TestCase
         $payload = $this->validPayload();
         $this->postJson('/api/v1/registrations', $payload)->assertCreated();
 
+        // RegistrationController::store() atrapa el DomainException de
+        // referencia duplicada y devuelve un 422 limpio — a propósito,
+        // ver el comentario de CrearInscripcionAction::createInTransaction()
+        // ("así el controller la atrapa y devuelve un 422 limpio en vez
+        // de un 500 sin manejar"). Esta prueba pedía 500, que ya no es
+        // ni el comportamiento real ni el deseado.
         $this->postJson('/api/v1/registrations', $payload)
-            ->assertStatus(500);
+            ->assertStatus(422)
+            ->assertJsonPath('success', false);
     }
 
     public function test_duplicate_participant_in_same_request_throws(): void
@@ -337,11 +359,20 @@ class RegistrationTest extends TestCase
     public function test_list_registrations_filter_by_event_id(): void
     {
         $event2 = Evento::factory()->create();
+        $formType2 = FormType::factory()->create(['event_id' => $event2->id, 'requiere_categoria' => true]);
+        $categoria2 = Category::factory()->create(['event_id' => $event2->id, 'price' => 100]);
 
         $this->postJson('/api/v1/registrations', $this->validPayload())->assertCreated();
 
+        // form_types_id/categoria propios de event2 — antes esta prueba
+        // reusaba los del evento base solo para variar evento_id, pero
+        // eso ya no pasa la revalidación de precio (categoría debe
+        // pertenecer al mismo evento, ver
+        // CrearInscripcionAction::validatePrecioCategoria()).
         $payload2 = $this->validPayload();
         $payload2[0]['evento_id'] = $event2->id;
+        $payload2[0]['form_types_id'] = $formType2->id;
+        $payload2[0]['participantes'][0]['categoria'] = $categoria2->id;
         $this->postJson('/api/v1/registrations', $payload2)->assertCreated();
 
         $response = $this->getJson('/api/v1/registrations?evento_id=' . $this->event->id)->assertOk();

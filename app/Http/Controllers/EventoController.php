@@ -21,6 +21,7 @@ use App\Http\Resources\EventoCollection;
 use App\Http\Resources\EventoResource;
 use App\Services\EventoService;
 use App\Services\AdminAuditLogger;
+use App\Support\BalanceEventoData;
 use App\Support\DashboardInscripcionesData;
 use App\Filters\EventoFilter;
 use App\Http\Controllers\Concerns\AuthorizesEventoScope;
@@ -103,7 +104,10 @@ class EventoController extends Controller
         $eventos = $eventos->with('coordinates');
         $eventos = $eventos->with('routes');
         $eventos = $eventos->with('promoCodes');
-        $eventos = $eventos->with('categories');
+        // .pricePeriods eager-cargado para que CategoryResource pueda
+        // calcular precio_vigente (PrecioVigenteData::paraCategoria())
+        // sin N+1 — ver PRD-precios-periodos-fechas.md.
+        $eventos = $eventos->with('categories.pricePeriods');
         $eventos = $eventos->with('formTypes.souvenirs');
         $eventos = $eventos->with('formTypes.formularioCampos.options');
         $eventos = $eventos->with('organizador.formasPagoSeleccionadas');
@@ -189,7 +193,7 @@ class EventoController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Evento publicado correctamente.',
-            'eventos' => new EventoResource($event->fresh()->loadMissing(['coordinates', 'routes', 'promoCodes', 'categories', 'formTypes.souvenirs', 'formTypes.formularioCampos.options', 'organizador.formasPagoSeleccionadas', 'auspiciadores', 'agendaItems', 'equipos'])),
+            'eventos' => new EventoResource($event->fresh()->loadMissing(['coordinates', 'routes', 'promoCodes', 'categories.pricePeriods', 'formTypes.souvenirs', 'formTypes.formularioCampos.options', 'organizador.formasPagoSeleccionadas', 'auspiciadores', 'agendaItems', 'equipos'])),
         ]);
     }
 
@@ -219,7 +223,7 @@ class EventoController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Evento despublicado correctamente.',
-            'eventos' => new EventoResource($event->fresh()->loadMissing(['coordinates', 'routes', 'promoCodes', 'categories', 'formTypes.souvenirs', 'formTypes.formularioCampos.options', 'organizador.formasPagoSeleccionadas', 'auspiciadores', 'agendaItems', 'equipos'])),
+            'eventos' => new EventoResource($event->fresh()->loadMissing(['coordinates', 'routes', 'promoCodes', 'categories.pricePeriods', 'formTypes.souvenirs', 'formTypes.formularioCampos.options', 'organizador.formasPagoSeleccionadas', 'auspiciadores', 'agendaItems', 'equipos'])),
         ]);
     }
 
@@ -235,7 +239,10 @@ class EventoController extends Controller
     {
         $this->assertCanWriteEvento($event->id);
 
-        return response()->json(['success' => true] + DashboardInscripcionesData::paraEvento($event));
+        return response()->json([
+            'success' => true,
+            'balance' => BalanceEventoData::paraEvento($event),
+        ] + DashboardInscripcionesData::paraEvento($event));
     }
 
     /**
@@ -261,7 +268,7 @@ class EventoController extends Controller
 
         return response()->json([
             'success' => true,
-            'eventos' => new EventoResource($event->loadMissing(['coordinates', 'routes', 'promoCodes','categories','formTypes.souvenirs','formTypes.formularioCampos.options','organizador.formasPagoSeleccionadas','auspiciadores','agendaItems','equipos','tipoEvento','subtipoEvento'])),
+            'eventos' => new EventoResource($event->loadMissing(['coordinates', 'routes', 'promoCodes','categories.pricePeriods','formTypes.souvenirs','formTypes.formularioCampos.options','organizador.formasPagoSeleccionadas','auspiciadores','agendaItems','equipos','tipoEvento','subtipoEvento'])),
         ]);
 
        // return   new EventoResource($event);
@@ -289,7 +296,7 @@ class EventoController extends Controller
 
         $query = Evento::where('estado_evento_id', 'closed')
             ->whereNotIn('tipo_evento_id', $tipoCongresoIds)
-            ->with(['coordinates', 'routes', 'categories', 'tipoEvento', 'subtipoEvento'])
+            ->with(['coordinates', 'routes', 'categories.pricePeriods', 'tipoEvento', 'subtipoEvento'])
             ->orderByDesc('fecha_inicio');
 
         if ($request->filled('evento_id')) {
@@ -538,6 +545,35 @@ class EventoController extends Controller
     public function update(UpdateEventosRequest $request, Evento $event): JsonResponse
     {
         $this->assertCanWriteEvento($event->id);
+
+        // Cargo de servicio (11/08/2026) — a diferencia del resto de los
+        // campos escalares de este Request, no lo puede tocar un admin
+        // scoped a su propio evento: es la plataforma decidiendo cuánto
+        // cobra, no un dato interno del organizador (mismo criterio que
+        // Socios/Liquidación). El resto del update sigue funcionando
+        // igual si no viene `feePct` en el body.
+        if ($request->has('feePct')) {
+            $this->assertIsSuperAdmin();
+        }
+
+        // CRUD de organizadores (11/08/2026) — mismo criterio de rol que
+        // feePct arriba (super_admin, no el admin scoped al evento), más
+        // una regla propia: una vez publicado, el organizador queda fijo.
+        // El contrato/convenio se firma con un organizador puntual — si se
+        // pudiera reasignar después de publicar, el organizador original ya
+        // habría recibido el correo de dashboard (ver
+        // EventoController::publicar()) para un evento que en teoría ya no
+        // es el suyo.
+        if ($request->has('organizador_id')) {
+            $this->assertIsSuperAdmin();
+
+            if ($event->publicado) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'No se puede cambiar el organizador de un evento ya publicado.',
+                ], 422);
+            }
+        }
 
         $before = $event->toArray();
         $event = $this->service->update($event, $request->validated());

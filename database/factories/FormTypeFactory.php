@@ -65,7 +65,16 @@ class FormTypeFactory extends Factory
             'tiempo_expiracion_min' => $this->faker->numberBetween(1, 60),
             'texto_boton' => $this->faker->word(),
             'color' => $this->faker->hexColor(),
-             'activo' => $this->faker->boolean(),
+            // Kit/tallas/stock (11/08/2026) — antes `activo` no lo leía
+            // nada al aceptar una inscripción nueva (ver "Hallazgo
+            // adicional" en PRD-kit-tallas-stock-lista-espera.md), así
+            // que un booleano al azar acá era inofensivo. Ahora
+            // CrearInscripcionAction rechaza la inscripción si
+            // `activo=false` — un form_type de fábrica "recién creado,
+            // con cupo" debe arrancar activo por default; los tests que
+            // quieran probar el caso "cupo lleno" lo desactivan
+            // explícito con ->create(['activo' => false]).
+             'activo' => true,
         ];
     }
 

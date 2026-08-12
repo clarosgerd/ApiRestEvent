@@ -44,6 +44,18 @@ class UpdateEventosRequest extends FormRequest
             'deslinde_pdf_url' => 'sometimes|nullable|string|max:500',
             'tipo_evento_id'    => 'sometimes|nullable|integer|exists:tipos_evento,id',
             'subtipo_evento_id' => 'sometimes|nullable|integer|exists:subtipos_evento,id',
+            // CRUD de organizadores (11/08/2026) — solo super_admin puede
+            // mandar este campo, y solo si el evento todavía no está
+            // publicado (ver EventoController::update()); este Request
+            // solo valida el formato/existencia.
+            'organizador_id'    => 'sometimes|nullable|integer|exists:organizadores,id',
+            // Cargo de servicio (11/08/2026) — fracción, no porcentaje
+            // entero (0.05 = 5%). Tope en 0.20 (20%) como red de
+            // seguridad ante un error de tipeo, no un límite de negocio
+            // pedido — si hace falta más, se ajusta. Solo super_admin
+            // puede mandar este campo (ver EventoController::update()),
+            // este Request solo valida el formato.
+            'feePct'            => 'sometimes|numeric|min:0|max:0.20',
         ];
     }
 }

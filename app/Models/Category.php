@@ -27,5 +27,11 @@ class Category extends Model
 
      public function evento()  {
         return $this->belongsTo('App\Models\Evento','event_id');
-     }  
+     }
+
+    // Precios por período (12/08/2026) — ver PRD-precios-periodos-fechas.md.
+    public function pricePeriods()
+    {
+        return $this->hasMany(CategoryPricePeriod::class);
+    }
 }

@@ -17,7 +17,9 @@ class SouvenirParticipante extends Model
         'participante_id',
         'souvenir_id',
         'nombre',
-        'precio'
+        'precio',
+        'talla',
+        'sexo',
     ];
 
     protected $casts = [

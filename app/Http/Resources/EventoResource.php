@@ -19,7 +19,17 @@ class EventoResource extends JsonResource
       //  dd($this->resource);
      return [
             'id'                        =>$this->id,
-      //      'organizador_id'            =>$this->organizador_id,
+            // CRUD de organizadores (11/08/2026) — antes solo se guardaba
+            // organizador_id sin exponerlo, todo evento nuevo quedaba
+            // pegado al id=1 por default sin que el panel pudiera verlo ni
+            // cambiarlo. Ver OrganizadorController /
+            // PRD-organizadores-crud.md. `organizador` (objeto) solo viene
+            // si se hizo eager-load de la relación (whenLoaded).
+            'organizadorId'             =>$this->organizador_id,
+            'organizador'               =>$this->whenLoaded('organizador', fn() => $this->organizador ? [
+                'id'     => $this->organizador->id,
+                'nombre' => $this->organizador->nombre_comercial ?: $this->organizador->razon_social,
+            ] : null),
             // Ver brain/PLAN-ENDPOINT-CONSUMO-05082026.md — antes hardcodeado
             // en 1 para todo evento, ya conectado de verdad.
             'tipoEventoId'              =>$this->tipo_evento_id,
@@ -42,6 +52,10 @@ class EventoResource extends JsonResource
      //       'keyword'                   =>$this->keyword,
             'image'                     =>$this->imagen_portada_url,
             'colorHex'                  =>$this->color_hex,
+            // Cargo de servicio (11/08/2026) — fracción, 0.05 = 5%. Antes
+            // hardcodeado en 4 lugares del lado de elascenso/event, ver
+            // PRD-cargo-servicio-por-evento.md.
+            'fee_pct'                   =>(float) $this->fee_pct,
             'chronotrackEventId'        =>$this->chronotrack_event_id,
             'video'                     =>$this->video_url,
             'description'               =>$this->descripcion,

@@ -19,11 +19,26 @@ $schedulerLog = storage_path('logs/scheduler.log');
 Schedule::command('eventos:cerrar-finalizados')->daily()->appendOutputTo($schedulerLog);
 Schedule::command('form_types:desactivar-cupo-lleno')->daily()->appendOutputTo($schedulerLog);
 
+// ── Certificados automáticos de congreso (Fase 2 de sesiones) ───────────
+// Corre después de eventos:cerrar-finalizados (mismo orden en este
+// archivo) — depende de que un evento ya esté marcado 'closed' para
+// procesarlo. Diario, no hay urgencia de minutos: el trigger es el
+// cierre del evento, que en sí ya se evalúa una vez al día. Idempotente
+// (ver CertificadoCongresoEnviado) — reintenta solo lo que falló ayer.
+Schedule::command('certificados:enviar-congreso')->daily()->appendOutputTo($schedulerLog);
+
 // ── Recordatorios de pago pendiente + reversión de cupo (§4 fase 4) ─────
 // Orden importa: primero se manda el aviso de 15 días (si corresponde), la
 // reversión se basa en cuándo se mandó ese aviso, no en el mismo día.
 Schedule::command('notificaciones:recordatorio-pendientes')->daily()->appendOutputTo($schedulerLog);
 Schedule::command('notificaciones:revertir-cupo')->daily()->appendOutputTo($schedulerLog);
+
+// ── Lista de espera de kit/tallas/stock (11/08/2026) ────────────────────
+// Después de revertir-cupo a propósito: una reversión por falta de pago es
+// justo el tipo de hueco que la lista de espera debería detectar el mismo
+// día. Notifica, no reserva (ver PRD-kit-tallas-stock-lista-espera.md) —
+// idempotente, solo procesa filas `pendiente`.
+Schedule::command('lista-espera:promover')->daily()->appendOutputTo($schedulerLog);
 
 // Complementa al ciclo diario de arriba (que cuenta hacia atrás desde la
 // fecha del evento) — este cubre el plazo corto de cada form_type
