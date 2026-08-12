@@ -45,8 +45,11 @@ class DashboardInscripcionesData
 
     public static function participantesDelEvento(Evento $evento): Builder
     {
+        // .totals eager-cargado (12/08/2026) para el cobro en sitio del CSV
+        // export (OrganizadorDashboardController::exportCsv) — evita N+1;
+        // no lo usa ningún otro llamador hoy pero es gratis mantenerlo acá.
         return Participante::whereHas('registration', fn (Builder $q) => $q->where('evento_id', $evento->id))
-            ->with(['registration.formType', 'souvenirParticipante']);
+            ->with(['registration.formType', 'registration.totals', 'souvenirParticipante']);
     }
 
     private static function contarPorEstado(Collection $participantes): array

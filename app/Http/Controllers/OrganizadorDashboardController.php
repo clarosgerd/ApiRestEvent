@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Evento;
 use App\Models\Participante;
+use App\Services\RegistrationService;
 use App\Support\BalanceEventoData;
 use App\Support\DashboardInscripcionesData;
 use Illuminate\Database\Eloquent\Builder;
@@ -69,14 +70,32 @@ class OrganizadorDashboardController extends Controller
                 'Nombre', 'Apellido', 'Documento', 'Categoría', 'Tipo de formulario',
                 'Talla/Polera', 'Souvenirs', 'Teléfono', 'Correo', 'Estado de pago', 'Referencia',
                 'NumeroCorredor', 'Chip', 'ActualizarNumeracionUrl',
+                'MontoPendiente', 'ConfirmarPagoSitioUrl',
             ]);
             foreach ($participantes as $p) {
+                // Cobro en sitio (12/08/2026) — ver
+                // ApiRestEvent/brain/api_rest_event/PRD-precios-periodos-fechas.md,
+                // sección 0: los form_types con requiere_categoria=false
+                // pasaron a cobrar precio_base de verdad (antes $0), así que
+                // una inscripción pendiente de ese tipo puede llegar al
+                // mostrador de retiro en sitio sin haber pagado. Acotado a
+                // propósito a ese caso — no es "cobro en efectivo genérico
+                // para cualquier pendiente", solo el que este cambio de
+                // precio originó. `ConfirmarPagoSitioUrl` viaja vacío para
+                // cualquier otro caso (ya pagado, o requiere_categoria=true)
+                // — elascenso/delivery decide si mostrar el botón de cobro
+                // únicamente en base a si esta columna trae algo.
+                $formType = $p->registration->formType;
+                $elegibleCobroSitio = $p->registration->pago_status === 'pending'
+                    && $formType
+                    && ! $formType->requiere_categoria;
+
                 fputcsv($out, [
                     $p->nombre,
                     $p->apellido,
                     trim($p->tipo_documento . ' ' . $p->numero_documento),
                     $p->categoria,
-                    optional($p->registration->formType)->name,
+                    optional($formType)->name,
                     $p->polera,
                     $p->souvenirParticipante->pluck('nombre')->implode(', '),
                     $p->telefono,
@@ -97,6 +116,11 @@ class OrganizadorDashboardController extends Controller
                         'evento' => $evento->id,
                         'documento' => $p->numero_documento,
                     ]),
+                    $elegibleCobroSitio ? optional($p->registration->totals)->grand_total : null,
+                    $elegibleCobroSitio ? URL::signedRoute('organizador.dashboard.confirmar-pago-sitio', [
+                        'evento' => $evento->id,
+                        'documento' => $p->numero_documento,
+                    ]) : null,
                 ]);
             }
             fclose($out);
@@ -135,5 +159,63 @@ class OrganizadorDashboardController extends Controller
             'numeroCorredor' => $participante->numero_corredor,
             'chip'           => $participante->chip,
         ]);
+    }
+
+    /**
+     * Cobro en sitio (12/08/2026) — ver
+     * PRD-precios-periodos-fechas.md, sección 0. Push-back desde el POS de
+     * retiro en sitio (elascenso/delivery) para inscripciones pendientes de
+     * un form_type sin categoría (`requiere_categoria=false`), que ahora
+     * cobra `precio_base` de verdad en vez de $0 — mismo patrón sin
+     * sesión/CSRF que `actualizarNumeracionSitio()`, firma validada a mano.
+     *
+     * Reusa `RegistrationService::updatePaymentStatus()` a propósito (no un
+     * update directo del modelo): es el mismo camino que usa la pasarela
+     * real, así que dispara el correo de confirmación
+     * (`notificarPagoConfirmado`) igual que cualquier otro pago — el
+     * participante no debería notar la diferencia de haber pagado en el
+     * mostrador en vez de por QR.
+     *
+     * Revalida la elegibilidad servidor-side (no confía en que la URL
+     * firmada implique que sigue siendo válida — los datos pudieron
+     * cambiar desde que se generó el CSV): si ya está `paid` (alguien pagó
+     * por QR mientras tanto, o dos clicks en el mostrador), responde éxito
+     * igual — es un no-op idempotente, no un error. Si el form_type
+     * requiere categoría, rechaza — este camino es solo para el caso que
+     * lo originó.
+     */
+    public function confirmarPagoSitio(Evento $evento, string $documento, RegistrationService $registrationService): JsonResponse
+    {
+        // Firma validada por el middleware `signed` de la ruta (sin query
+        // string que ignorar acá, a diferencia de actualizarNumeracionSitio).
+        $participante = Participante::with('registration.formType')
+            ->whereHas('registration', fn (Builder $q) => $q->where('evento_id', $evento->id))
+            ->where('numero_documento', $documento)
+            ->first();
+        abort_unless($participante, 404);
+
+        $registration = $participante->registration;
+
+        if ($registration->pago_status === 'paid') {
+            return response()->json(['success' => true, 'pagoStatus' => 'paid']);
+        }
+
+        if ($registration->pago_status !== 'pending') {
+            return response()->json([
+                'success' => false,
+                'error'   => "Esta inscripción está en estado '{$registration->pago_status}', no se puede confirmar el pago.",
+            ], 422);
+        }
+
+        if (!$registration->formType || $registration->formType->requiere_categoria) {
+            return response()->json([
+                'success' => false,
+                'error'   => 'Este tipo de inscripción requiere categoría — el cobro en sitio no aplica acá.',
+            ], 422);
+        }
+
+        $registration = $registrationService->updatePaymentStatus($registration->referencia, 'paid');
+
+        return response()->json(['success' => true, 'pagoStatus' => $registration->pago_status]);
     }
 }

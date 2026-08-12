@@ -59,6 +59,15 @@ Route::get('/organizador/evento/{evento}/delivery/{participante}/estado', [Deliv
 Route::get('/organizador/evento/{evento}/participantes/{documento}/numeracion', [OrganizadorDashboardController::class, 'actualizarNumeracionSitio'])
     ->name('organizador.dashboard.actualizar-numeracion');
 
+// Cobro en sitio (12/08/2026) — push-back de "pago confirmado en el
+// mostrador" desde el POS de retiro en sitio de elascenso/delivery, solo
+// para form_types sin categoría (precio_base ahora se cobra de verdad, ver
+// PRD-precios-periodos-fechas.md sección 0). Mismo patrón que la
+// numeración de arriba, pero sin query string que ignorar en la firma.
+Route::get('/organizador/evento/{evento}/participantes/{documento}/confirmar-pago-sitio', [OrganizadorDashboardController::class, 'confirmarPagoSitio'])
+    ->name('organizador.dashboard.confirmar-pago-sitio')
+    ->middleware('signed');
+
 // ── Panel de operaciones (/ops) — jobs, logs, backups a Google Drive,
 // enlaces de organizador/delivery. Login propio (guard `web` nativo,
 // tabla `users`), completamente aparte de admin-eventos (admin_users) y
