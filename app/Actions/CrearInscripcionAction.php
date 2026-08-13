@@ -184,6 +184,11 @@ class CrearInscripcionAction
             'equipo_id' => $dto->equipoId,
             'quiere_delivery' => $dto->quiereDelivery,
             'estado_delivery' => $dto->quiereDelivery ? 'pendiente' : null,
+            // Mapa de ubicación (12/08/2026) — solo tiene sentido si pidió
+            // delivery; se ignora el pin si mandaron uno sin tildar el
+            // checkbox (dato inconsistente del cliente, no se confía).
+            'delivery_lat' => $dto->quiereDelivery ? $dto->deliveryLat : null,
+            'delivery_lng' => $dto->quiereDelivery ? $dto->deliveryLng : null,
             'precio_categoria' => $dto->categoryPrice,
             'donacion' => $dto->donation,
             'promo_descuento' => $dto->promoDiscount,

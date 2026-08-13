@@ -145,6 +145,11 @@ class RegistrationService
             'equipo_id'        => $data['equipoId'] ?? null,
             'quiere_delivery'  => $data['quiereDelivery'] ?? false,
             'estado_delivery'  => ($data['quiereDelivery'] ?? false) ? 'pendiente' : null,
+            // Mapa de ubicación (12/08/2026) — mismo criterio que
+            // CrearInscripcionAction: solo se guarda el pin si pidió
+            // delivery.
+            'delivery_lat'     => ($data['quiereDelivery'] ?? false) ? ($data['deliveryLat'] ?? null) : null,
+            'delivery_lng'     => ($data['quiereDelivery'] ?? false) ? ($data['deliveryLng'] ?? null) : null,
             'precio_categoria' => $data['precioCategoria'],
             'donacion'         => $data['donacion'] ?? 0,
             'promo_descuento'  => $data['promoDescuento'] ?? 0,

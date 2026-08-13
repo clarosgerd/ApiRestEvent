@@ -39,6 +39,8 @@ class Participante extends Model
         'equipo_id',
         'quiere_delivery',
         'estado_delivery',
+        'delivery_lat',
+        'delivery_lng',
         'precio_categoria',
         'donacion',
         'promo_descuento',

@@ -41,7 +41,12 @@ class FormTypeResource extends JsonResource
             'requiereCategoria'          => (bool) $this->requiere_categoria,
             'max_integrantes_grupo'      => (int) $this->max_integrantes_grupo,
             'descuento_registrante_pct'  => (float) $this->descuento_registrante_pct,
-            'hasshirt'              =>$this->hasshirt,
+            // Deprecación hasshirt/costo_polera (12/08) — sin este cast,
+            // en hostings donde PDO devuelve tinyint como string ("0"),
+            // `!selectedFormType.hasshirt` en index.php nunca ocultaba la
+            // sección legacy ("0" es truthy en JS). Nunca se notó antes
+            // porque hasshirt casi siempre era 1/"1" (ambos truthy).
+            'hasshirt'              => (bool) $this->hasshirt,
             'costo_polera'          =>$this->costo_polera,
              'hasQuestion'              =>$this->hasQuestion,
             'requiere_talla'        =>$this->requiere_talla,

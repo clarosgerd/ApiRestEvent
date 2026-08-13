@@ -2,15 +2,19 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\AuthorizesEventoScope;
 use App\Models\Evento;
 use App\Models\Participante;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\URL;
 
 class DeliveryController extends Controller
 {
+    use AuthorizesEventoScope;
+
     /**
      * Estados de `participantes.estado_delivery` — ver
      * brain/PLAN-DELIVERY-31072026.md.
@@ -58,7 +62,7 @@ class DeliveryController extends Controller
         return response()->streamDownload(function () use ($participantes) {
             $out = fopen('php://output', 'w');
             fputcsv($out, [
-                'Nombre', 'Apellido', 'Documento', 'Dirección', 'Ciudad', 'Teléfono', 'Correo',
+                'Nombre', 'Apellido', 'Documento', 'Dirección', 'Ciudad', 'Lat', 'Lng', 'Teléfono', 'Correo',
                 'Categoría', 'Talla/Polera', 'Souvenirs', 'Tipo de formulario', 'Estado de envío', 'Referencia',
             ]);
             foreach ($participantes as $p) {
@@ -68,6 +72,8 @@ class DeliveryController extends Controller
                     trim($p->tipo_documento . ' ' . $p->numero_documento),
                     $p->direccion,
                     $p->ciudad,
+                    $p->delivery_lat,
+                    $p->delivery_lng,
                     $p->telefono,
                     $p->correo,
                     $p->categoria,
@@ -138,6 +144,10 @@ class DeliveryController extends Controller
                 'documento'           => trim($p->tipo_documento . ' ' . $p->numero_documento),
                 'direccion'           => $p->direccion,
                 'ciudad'              => $p->ciudad,
+                // Mapa de ubicación (12/08/2026) — pin opcional que el
+                // participante marcó en elascenso/event; null si no lo tocó.
+                'lat'                 => $p->delivery_lat !== null ? (float) $p->delivery_lat : null,
+                'lng'                 => $p->delivery_lng !== null ? (float) $p->delivery_lng : null,
                 'telefono'            => $p->telefono,
                 'correo'              => $p->correo,
                 'categoria'           => $p->categoria,
@@ -150,6 +160,46 @@ class DeliveryController extends Controller
                     'delivery.dashboard.update-estado',
                     ['evento' => $evento->id, 'participante' => $p->id]
                 ),
+            ])->values(),
+        ]);
+    }
+
+    /**
+     * Mapa de ubicación de delivery (12/08/2026) — vista para el
+     * organizador dentro del panel de administración (admin-eventos), a
+     * diferencia de json()/exportCsv()/show() que son para la empresa de
+     * delivery externa (sin login, link firmado). Mismo listado y mismo
+     * criterio de permisos que ListaEsperaController/ParticipanteController
+     * ::porEvento() — super_admin o el admin scoped a este evento. No
+     * incluye `actualizarEstadoUrl`: esta vista es de solo lectura, el
+     * admin no opera el estado del envío desde acá.
+     */
+    public function indexForAdmin(Evento $event): JsonResponse
+    {
+        $this->assertCanWriteEvento($event->id);
+
+        $participantes = $this->participantesDelEvento($event)->get();
+
+        return response()->json([
+            'success' => true,
+            'resumen' => $this->resumen($participantes),
+            'participantes' => $participantes->map(fn (Participante $p) => [
+                'id'             => $p->id,
+                'nombre'         => $p->nombre,
+                'apellido'       => $p->apellido,
+                'documento'      => trim($p->tipo_documento . ' ' . $p->numero_documento),
+                'direccion'      => $p->direccion,
+                'ciudad'         => $p->ciudad,
+                'lat'            => $p->delivery_lat !== null ? (float) $p->delivery_lat : null,
+                'lng'            => $p->delivery_lng !== null ? (float) $p->delivery_lng : null,
+                'telefono'       => $p->telefono,
+                'correo'         => $p->correo,
+                'categoria'      => $p->categoria,
+                'talla'          => $p->polera,
+                'souvenirs'      => $p->souvenirParticipante->pluck('nombre')->values(),
+                'tipoFormulario' => optional($p->registration->formType)->name,
+                'referencia'     => $p->registration->referencia,
+                'estadoDelivery' => $p->estado_delivery,
             ])->values(),
         ]);
     }

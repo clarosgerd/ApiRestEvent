@@ -36,8 +36,11 @@ class FormTypeService
                 'requiere_categoria'         => $data['requiere_categoria'] ?? true,
                 'requiere_talla'             => $data['requiere_talla'] ?? true,
                 'requiere_distancia'         => $data['requiere_distancia'] ?? true,
-                'hasshirt'                   => $data['hasshirt'] ?? true,
-                'costo_polera'               => $data['costo_polera'] ?? 30.00,
+                // Deprecado (12/08) a favor de souvenirs `incluido=true` — el
+                // default pasa a apagado; ver migración
+                // 2026_08_12_150000_change_hasshirt_costo_polera_defaults.php.
+                'hasshirt'                   => $data['hasshirt'] ?? false,
+                'costo_polera'               => $data['costo_polera'] ?? 0.00,
                 'permite_inscripcion_grupal' => $data['permite_inscripcion_grupal'] ?? false,
                 'max_integrantes_grupo'      => $data['max_integrantes_grupo'] ?? 10,
                 'descuento_registrante_pct'  => $data['descuento_registrante_pct'] ?? 0.10,

@@ -11,10 +11,14 @@
             "id": "2d20ecbd0f1a769c",
             "type": "leaf",
             "state": {
-              "type": "graph",
-              "state": {},
-              "icon": "lucide-git-fork",
-              "title": "Vista gráfica"
+              "type": "markdown",
+              "state": {
+                "file": "DEPLOY_CPANEL.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "DEPLOY_CPANEL"
             }
           }
         ]
@@ -192,6 +196,10 @@
   },
   "active": "2d20ecbd0f1a769c",
   "lastOpenFiles": [
+    "SETUP-ENTORNO-DEV-SPRING-BOOT-13082026.md.tmp.14456.227b564f1c4d",
+    "SETUP-ENTORNO-DEV-SPRING-BOOT-13082026.md",
+    "PLAN-SPRING-BOOT-APIRESTEVENT-13082026.md",
+    "PLAN-SPRING-BOOT-APIRESTEVENT-13082026.md.tmp.14456.de03274f2fd0",
     "DEPLOY_CPANEL.md",
     "FEATURE-EXPIRAR-PENDIENTES-09082026.md",
     "FEATURE-EXPIRAR-PENDIENTES-09082026.md.tmp.10360.81939a6dc2b6",
@@ -225,10 +233,6 @@
     "requerimiento_incluir preguntas_en_formulario.md",
     "Propuesta_buscador.md",
     "implementacion_sync_personas.md",
-    "implementacion_registro_answers.md",
-    "floofy-popping-harp.md",
-    "implementacion_actualizacion_inscripcion.md",
-    "requerimiento_registro_answer",
-    "cree un enlace.md"
+    "implementacion_registro_answers.md"
   ]
 }

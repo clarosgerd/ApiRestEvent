@@ -33,7 +33,11 @@ class ParticipantDTO
         public string $promoCode,
         public float $subtotal,
         public ?int $equipoId = null,
-        public bool $quiereDelivery = false
+        public bool $quiereDelivery = false,
+        // Mapa de ubicación (12/08/2026) — opcional, complementa `address`
+        // (texto libre). Null si el participante no tocó el mapa.
+        public ?float $deliveryLat = null,
+        public ?float $deliveryLng = null
 
     ){}
 
@@ -73,7 +77,9 @@ class ParticipantDTO
             promoCode: $data['promoCodigo'] ?? '',
             subtotal: (float) $data['subtotal'],
             equipoId: isset($data['equipoId']) ? (int) $data['equipoId'] : null,
-            quiereDelivery: (bool) ($data['quiereDelivery'] ?? false)
+            quiereDelivery: (bool) ($data['quiereDelivery'] ?? false),
+            deliveryLat: isset($data['deliveryLat']) ? (float) $data['deliveryLat'] : null,
+            deliveryLng: isset($data['deliveryLng']) ? (float) $data['deliveryLng'] : null
         );
     }
 }

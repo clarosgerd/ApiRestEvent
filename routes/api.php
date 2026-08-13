@@ -25,6 +25,7 @@ use App\Http\Controllers\ItemStockController;
 use App\Http\Controllers\CategoryPricePeriodController;
 use App\Http\Controllers\ListaEsperaController;
 use App\Http\Controllers\OrganizadorController;
+use App\Http\Controllers\DeliveryController;
 
 Route::get('/user', function (Request $request) {
     return $request->user();
@@ -93,6 +94,10 @@ Route::group(['prefix' => 'v1','namespace' => 'App\Http\Controllers'], function 
         Route::put('/item-stock/{itemStock}', [ItemStockController::class, 'update']);
         Route::delete('/item-stock/{itemStock}', [ItemStockController::class, 'destroy']);
         Route::get('/event/{event}/lista-espera', [ListaEsperaController::class, 'index']);
+
+        // Mapa de ubicación de delivery (12/08/2026) — vista de solo
+        // lectura para el organizador, mismo scoping que lista-espera.
+        Route::get('/event/{event}/delivery', [DeliveryController::class, 'indexForAdmin']);
 
         Route::apiResource('/auspiciador', AuspiciadorController::class)->only(['store', 'update', 'destroy']);
         Route::apiResource('/agenda-item', AgendaItemController::class)->only(['store', 'update', 'destroy']);
