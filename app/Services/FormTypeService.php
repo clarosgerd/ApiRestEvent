@@ -50,6 +50,10 @@ class FormTypeService
                 'has_delivery'               => $data['has_delivery'] ?? false,
                 'has_donation'               => $data['has_donation'] ?? false,
                 'has_promo_code'             => $data['has_promo_code'] ?? false,
+                // Ver brain/PLAN-ASIGNACION-STAFF-SESIONES-CONGRESO-13082026.md
+                'es_staff'                   => $data['es_staff'] ?? false,
+                // Ver brain/PLAN-VINCULACION-PONENTES-SESIONES-CONGRESO-13082026.md
+                'es_ponente'                 => $data['es_ponente'] ?? false,
             ]);
 
             $this->createSouvenirs($formType, $data['souvenirs'] ?? []);

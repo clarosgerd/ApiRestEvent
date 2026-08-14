@@ -54,6 +54,8 @@ class UpdateFormTypeRequest extends FormRequest
             'has_delivery'               => 'sometimes|nullable|boolean',
             'has_donation'               => 'sometimes|nullable|boolean',
             'has_promo_code'             => 'sometimes|nullable|boolean',
+            'es_staff'                   => 'sometimes|nullable|boolean',
+            'es_ponente'                 => 'sometimes|nullable|boolean',
         ];
     }
 }

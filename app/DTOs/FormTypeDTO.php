@@ -27,6 +27,8 @@ class FormTypeDTO
         public bool $hasDelivery,
         public bool $hasDonation,
         public bool $hasPromoCode,
+        public bool $esStaff,
+        public bool $esPonente,
         public bool $requiereCategoria,
         /** @var SouvenirFormDTO[] */
         public array $souvenirs,
@@ -59,6 +61,10 @@ class FormTypeDTO
             hasDelivery: (bool) ($data['hasDelivery'] ?? $data['has_delivery'] ?? false),
             hasDonation: (bool) ($data['hasDonation'] ?? $data['has_donation'] ?? false),
             hasPromoCode: (bool) ($data['hasPromoCode'] ?? $data['has_promo_code'] ?? false),
+            // Ver brain/PLAN-ASIGNACION-STAFF-SESIONES-CONGRESO-13082026.md
+            esStaff: (bool) ($data['esStaff'] ?? $data['es_staff'] ?? false),
+            // Ver brain/PLAN-VINCULACION-PONENTES-SESIONES-CONGRESO-13082026.md
+            esPonente: (bool) ($data['esPonente'] ?? $data['es_ponente'] ?? false),
             requiereCategoria: (bool) ($data['requiere_categoria'] ?? true),
             souvenirs: array_map(
                 fn(array $s) => SouvenirFormDTO::fromArray($s),

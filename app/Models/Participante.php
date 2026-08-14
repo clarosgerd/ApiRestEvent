@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use App\Models\ContactoEmergenciaParticipante;
 use App\Models\SouvenirParticipante;
 
@@ -83,6 +84,35 @@ class Participante extends Model
     public function resultado(): HasOne
     {
         return $this->hasOne(Resultado::class);
+    }
+
+    /**
+     * Sesiones de congreso que este participante apoya como staff/ayudante
+     * — solo tiene sentido si su form_type tiene `es_staff=true`, pero la
+     * relación en sí no valida eso (la validación vive en el controller al
+     * crear la asignación). Ver
+     * brain/PLAN-ASIGNACION-STAFF-SESIONES-CONGRESO-13082026.md.
+     */
+    public function sesionesApoyadas(): BelongsToMany
+    {
+        return $this->belongsToMany(SesionCongreso::class, 'sesion_congreso_staff', 'participante_id', 'sesion_congreso_id')
+            ->wherePivot('rol', 'staff')
+            ->withPivot('asignado_por_admin_user_id', 'rol')
+            ->withTimestamps();
+    }
+
+    /**
+     * Sesiones de congreso donde este participante figura como ponente
+     * vinculado — solo tiene sentido si su form_type tiene
+     * `es_ponente=true`. Ver
+     * brain/PLAN-VINCULACION-PONENTES-SESIONES-CONGRESO-13082026.md.
+     */
+    public function sesionesExpuestas(): BelongsToMany
+    {
+        return $this->belongsToMany(SesionCongreso::class, 'sesion_congreso_staff', 'participante_id', 'sesion_congreso_id')
+            ->wherePivot('rol', 'ponente')
+            ->withPivot('asignado_por_admin_user_id', 'rol')
+            ->withTimestamps();
     }
 
     public function equipo(): BelongsTo

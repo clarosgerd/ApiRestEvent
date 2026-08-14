@@ -69,6 +69,21 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Zona horaria para el .ics de la agenda de eventos
+    |--------------------------------------------------------------------------
+    |
+    | Ver brain/PLAN-CALENDARIO-ICS-EVENTO-13082026.md. No existe hoy ningún
+    | campo de zona horaria por evento ni por país — se usa un valor fijo
+    | de plataforma para calcular los VEVENT del .ics descargable. Si el
+    | ecosistema llega a tener eventos en husos horarios distintos a la
+    | vez, esto necesita convertirse en un campo real por evento.
+    |
+    */
+
+    'event_ics_timezone' => env('EVENT_ICS_TIMEZONE', 'America/La_Paz'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Locale Configuration
     |--------------------------------------------------------------------------
     |

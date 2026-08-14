@@ -20,6 +20,7 @@ use App\Http\Controllers\LiquidacionController;
 use App\Http\Controllers\PresupuestoEventoController;
 use App\Http\Controllers\PresupuestoCategoriaController;
 use App\Http\Controllers\SesionCongresoController;
+use App\Http\Controllers\SesionCongresoStaffController;
 use App\Http\Controllers\AsistenciaSesionController;
 use App\Http\Controllers\ItemStockController;
 use App\Http\Controllers\CategoryPricePeriodController;
@@ -44,6 +45,7 @@ Route::group(['prefix' => 'v1','namespace' => 'App\Http\Controllers'], function 
     Route::get('/tipos-evento', [TipoEventoController::class, 'index']);
     Route::apiResource('/event',EventoController::class)->only(['index', 'show']);
     Route::get('/event/{event}/agenda-pdf', [EventoController::class, 'agendaPdf']);
+    Route::get('/event/{event}/agenda-ics', [EventoController::class, 'agendaIcs']);
     Route::get('/event/{event}/gafetes-pdf', [EventoController::class, 'gafetesPdf']);
     Route::get('/event/{event}/certificados-pdf', [EventoController::class, 'certificadosPdf']);
     Route::apiResource('/coordinate',CoordinateController::class)->only(['index', 'show']);
@@ -158,6 +160,13 @@ Route::group(['prefix' => 'v1','namespace' => 'App\Http\Controllers'], function 
         Route::post('/event/{event}/sesiones/{sesion}/checkin-bulk', [AsistenciaSesionController::class, 'checkinBulk']);
         Route::get('/event/{event}/sesiones/{sesion}/asistencia', [AsistenciaSesionController::class, 'asistencia']);
         Route::get('/event/{event}/sesiones-reporte', [AsistenciaSesionController::class, 'reporte']);
+
+        // Asignación de staff/ayudantes a sesiones — ver
+        // brain/PLAN-ASIGNACION-STAFF-SESIONES-CONGRESO-13082026.md.
+        Route::get('/event/{event}/staff-disponible', [SesionCongresoStaffController::class, 'disponibles']);
+        Route::get('/event/{event}/sesiones/{sesion}/staff', [SesionCongresoStaffController::class, 'index']);
+        Route::post('/event/{event}/sesiones/{sesion}/staff', [SesionCongresoStaffController::class, 'store']);
+        Route::delete('/event/{event}/sesiones/{sesion}/staff/{participante}', [SesionCongresoStaffController::class, 'destroy']);
 
         // Botón "Sincronizar ahora" del panel — ver
         // brain/groovy-chasing-ladybug.md Parte B.

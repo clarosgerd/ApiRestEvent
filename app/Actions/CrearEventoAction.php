@@ -218,6 +218,8 @@ class CrearEventoAction
                 'has_delivery'               => $formTypeDTO->hasDelivery,
                 'has_donation'               => $formTypeDTO->hasDonation,
                 'has_promo_code'             => $formTypeDTO->hasPromoCode,
+                'es_staff'                   => $formTypeDTO->esStaff,
+                'es_ponente'                 => $formTypeDTO->esPonente,
                 'requiere_categoria'         => $formTypeDTO->requiereCategoria,
             ]);
 

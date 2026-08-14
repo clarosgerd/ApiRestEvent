@@ -33,6 +33,8 @@ class FormType extends Model
         'has_delivery',
         'has_donation',
         'has_promo_code',
+        'es_staff',
+        'es_ponente',
         'max_integrantes_grupo',
         'descuento_registrante_pct',
         'hasQuestion',
@@ -48,6 +50,8 @@ class FormType extends Model
     protected $casts = [
         'has_donation'   => 'boolean',
         'has_promo_code' => 'boolean',
+        'es_staff'       => 'boolean',
+        'es_ponente'     => 'boolean',
     ];
 
 

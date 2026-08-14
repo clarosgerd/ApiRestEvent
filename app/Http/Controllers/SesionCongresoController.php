@@ -27,10 +27,15 @@ class SesionCongresoController extends Controller
     {
         $this->assertCanWriteEvento($event->id);
 
+        // `staffAsignado`/`ponentesVinculados` (13/08/2026) van cargados acá
+        // para que el panel no tenga que pedir uno por uno — ver
+        // brain/PLAN-ASIGNACION-STAFF-SESIONES-CONGRESO-13082026.md y
+        // brain/PLAN-VINCULACION-PONENTES-SESIONES-CONGRESO-13082026.md.
         return response()->json([
             'success' => true,
             'data' => SesionCongreso::where('evento_id', $event->id)
                 ->orderBy('fecha')->orderBy('hora_inicio')
+                ->with(['staffAsignado:id,nombre,apellido', 'ponentesVinculados:id,nombre,apellido'])
                 ->get(),
         ]);
     }

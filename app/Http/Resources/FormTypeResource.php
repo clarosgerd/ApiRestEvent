@@ -38,6 +38,11 @@ class FormTypeResource extends JsonResource
             'hasDelivery'                => (bool) $this->has_delivery,
             'hasDonation'                => (bool) $this->has_donation,
             'hasPromoCode'               => (bool) $this->has_promo_code,
+            // Ver brain/PLAN-ASIGNACION-STAFF-SESIONES-CONGRESO-13082026.md —
+            // (bool) explícito por el mismo motivo que el resto de estos
+            // flags, ver project_bug_cast_bool_hasshirt_formtyperesource.
+            'esStaff'                    => (bool) $this->es_staff,
+            'esPonente'                  => (bool) $this->es_ponente,
             'requiereCategoria'          => (bool) $this->requiere_categoria,
             'max_integrantes_grupo'      => (int) $this->max_integrantes_grupo,
             'descuento_registrante_pct'  => (float) $this->descuento_registrante_pct,

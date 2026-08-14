@@ -196,6 +196,9 @@
   },
   "active": "2d20ecbd0f1a769c",
   "lastOpenFiles": [
+    "PLAN-VINCULACION-PONENTES-SESIONES-CONGRESO-13082026.md",
+    "PLAN-VINCULACION-PONENTES-SESIONES-CONGRESO-13082026.md.tmp.14456.cf9ac71b6173",
+    "PLAN-ASIGNACION-STAFF-SESIONES-CONGRESO-13082026.md",
     "SETUP-ENTORNO-DEV-SPRING-BOOT-13082026.md.tmp.14456.227b564f1c4d",
     "SETUP-ENTORNO-DEV-SPRING-BOOT-13082026.md",
     "PLAN-SPRING-BOOT-APIRESTEVENT-13082026.md",
@@ -220,9 +223,7 @@
     "requerimiento_crear_buscador.md",
     "load_eventos_seed.js",
     "generate_eventos_seed.js",
-    "eventos_seed_50.json",
     "cambios_2026_07_19.md",
-    "Informes",
     "TEST_PLAN_STAKEHOLDERS.md",
     "snuggly-foraging-mccarthy.md",
     "README.md",
@@ -232,7 +233,6 @@
     "requerimiento_registro_answer.md",
     "requerimiento_incluir preguntas_en_formulario.md",
     "Propuesta_buscador.md",
-    "implementacion_sync_personas.md",
-    "implementacion_registro_answers.md"
+    "implementacion_sync_personas.md"
   ]
 }

@@ -31,6 +31,9 @@ use App\Jobs\SendWhatsappMessageJob;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
+use Illuminate\Support\Carbon;
+use Spatie\IcalendarGenerator\Components\Calendar;
+use Spatie\IcalendarGenerator\Components\Event as CalendarEvent;
 
 class EventoController extends Controller
 {
@@ -375,6 +378,94 @@ class EventoController extends Controller
         ]);
 
         return $pdf->stream('agenda-' . Str::slug($event->nombre) . '.pdf');
+    }
+
+    /**
+     * `.ics` (RFC 5545) público de la agenda del evento — descargable e
+     * importable a Outlook/Apple Calendar/Google Calendar. Ver
+     * elascenso/event/brain/PLAN-CALENDARIO-ICS-EVENTO-13082026.md.
+     *
+     * Un `VEVENT` por `agenda_item` si el evento tiene agenda de congreso
+     * cargada; si no, cae a un solo `VEVENT` con los datos del evento
+     * (fecha_inicio+localTime, lugar/dirección) — mismo criterio que la
+     * tarjeta de agenda del frontend, que se esconde si no hay ítems.
+     *
+     * Zona horaria: no existe hoy ningún campo de TZ por evento ni por
+     * país (ver el plan) — se usa un valor fijo de plataforma
+     * (`config('app.event_ics_timezone')`), documentado como deuda si el
+     * ecosistema llega a tener eventos en husos horarios distintos a la
+     * vez.
+     */
+    public function agendaIcs(Evento $event)
+    {
+        $event->loadMissing('agendaItems');
+        $tz = config('app.event_ics_timezone');
+
+        // No se llama a ->timezone(): la librería genera el VTIMEZONE
+        // automáticamente a partir de la zona horaria que ya traen los
+        // Carbon de cada VEVENT (ver $tz más abajo, pasado a Carbon::parse).
+        $calendar = Calendar::create($event->nombre)
+            ->productIdentifier('-//Pass2Go//Agenda de eventos//ES');
+
+        $items = $event->agendaItems->sortBy([
+            ['fecha', 'asc'],
+            ['hora_inicio', 'asc'],
+            ['orden', 'asc'],
+        ])->values();
+
+        if ($items->isEmpty()) {
+            // Evento sin agenda de congreso — un solo VEVENT con los datos
+            // del evento. Sin hora_fin propia del evento: se asume una
+            // duración por defecto (4hs), no hay dato real de cuánto dura.
+            // `fecha_inicio` no tiene cast a Carbon en el modelo Evento — es
+            // un string plano, distinto de AgendaItem::fecha que sí castea.
+            $inicio = Carbon::parse(Carbon::parse($event->fecha_inicio)->toDateString() . ' ' . ($event->localTime ?: '00:00:00'), $tz);
+
+            $calendarEvent = CalendarEvent::create($event->nombre)
+                ->uniqueIdentifier('evento-' . $event->id . '@inscrito.net')
+                ->startsAt($inicio)
+                ->endsAt($inicio->clone()->addHours(4));
+
+            if ($event->descripcion) {
+                $calendarEvent->description(strip_tags($event->descripcion));
+            }
+            if ($event->lugar || $event->direccion) {
+                $calendarEvent->address(trim(($event->direccion ?? '') . ' ' . ($event->lugar ?? '')), $event->lugar);
+            }
+
+            $calendar->event($calendarEvent);
+        } else {
+            foreach ($items as $item) {
+                if (!$item->fecha || !$item->hora_inicio) {
+                    continue;
+                }
+
+                $inicio = Carbon::parse($item->fecha . ' ' . $item->hora_inicio, $tz);
+                $fin = $item->hora_fin
+                    ? Carbon::parse($item->fecha . ' ' . $item->hora_fin, $tz)
+                    : $inicio->clone()->addHour();
+
+                $calendarEvent = CalendarEvent::create($item->titulo)
+                    ->uniqueIdentifier('agenda-item-' . $item->id . '@inscrito.net')
+                    ->startsAt($inicio)
+                    ->endsAt($fin);
+
+                $descripcion = trim(($item->descripcion ?? '') . ($item->ponente ? "\nPonente: {$item->ponente}" . ($item->ponente_cargo ? " ({$item->ponente_cargo})" : '') : ''));
+                if ($descripcion) {
+                    $calendarEvent->description($descripcion);
+                }
+                if ($item->sala) {
+                    $calendarEvent->address($item->sala);
+                }
+
+                $calendar->event($calendarEvent);
+            }
+        }
+
+        return response($calendar->get(), 200, [
+            'Content-Type' => 'text/calendar; charset=utf-8',
+            'Content-Disposition' => 'attachment; filename="agenda-' . Str::slug($event->nombre) . '.ics"',
+        ]);
     }
 
     /**
