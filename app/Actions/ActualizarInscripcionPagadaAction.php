@@ -43,6 +43,13 @@ class ActualizarInscripcionPagadaAction
             $registration->participants()->delete();
             $registration->totals()->delete();
 
+            // Revalidación de stock (13/08/2026) — ver
+            // PLAN-STOCK-SOUVENIRS-SIMPLES-13082026.md punto 2. Después del
+            // delete de arriba (el propio consumo anterior de esta
+            // inscripción ya no cuenta) y antes de recrear los
+            // participantes.
+            $this->registrationService->validateStockForParticipants($data['participantes']);
+
             foreach ($data['participantes'] as $participantData) {
                 $this->registrationService->createParticipantFromData($registration, $participantData);
             }

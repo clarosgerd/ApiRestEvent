@@ -10,14 +10,13 @@ use App\Models\ContactoEmergenciaParticipante;
 use App\Models\Equipo;
 use App\Models\Evento;
 use App\Models\FormType;
-use App\Models\ItemStock;
 use App\Models\Participante;
 use App\Models\Registration;
 use App\Models\RegistrationTotal;
-use App\Models\Souvenir;
 use App\Models\SouvenirParticipante;
 use App\Services\NotificacionService;
 use App\Services\RegistrationService;
+use App\Support\DisponibilidadItemData;
 use App\Support\PrecioVigenteData;
 use Illuminate\Support\Facades\DB;
 
@@ -259,50 +258,23 @@ class CrearInscripcionAction
             );
         }
 
-        $demanda = [];
+        $selecciones = [];
         foreach ($dto->participants as $participant) {
             foreach ($participant->souvenirs as $souvenir) {
-                $key = $souvenir->souvenir_id . '|' . ($souvenir->talla ?? '') . '|' . ($souvenir->sexo ?? '');
-                $demanda[$key] = ($demanda[$key] ?? 0) + 1;
+                $selecciones[] = [
+                    'souvenir_id' => $souvenir->souvenir_id,
+                    'talla' => $souvenir->talla,
+                    'sexo' => $souvenir->sexo,
+                ];
             }
         }
 
-        foreach ($demanda as $key => $cantidadPedida) {
-            [$souvenirId, $talla, $sexo] = explode('|', $key, 3);
-            $talla = $talla === '' ? null : $talla;
-            $sexo  = $sexo === '' ? null : $sexo;
-
-            $stock = ItemStock::where('souvenir_id', (int) $souvenirId)
-                ->where('talla', $talla)
-                ->where('sexo', $sexo)
-                ->lockForUpdate()
-                ->first();
-
-            if (!$stock) {
-                continue; // disponibilidad no controlada, no se bloquea
-            }
-
-            $ocupado = SouvenirParticipante::where('souvenir_id', (int) $souvenirId)
-                ->where('talla', $talla)
-                ->where('sexo', $sexo)
-                ->whereHas('participante.registration', function ($q) {
-                    $q->whereNotIn('pago_status', ['cancelled', 'failed']);
-                })
-                ->lockForUpdate()
-                ->count();
-
-            if ($ocupado + $cantidadPedida > $stock->cantidad_total) {
-                $souvenir = Souvenir::find($souvenirId);
-                throw new \DomainException(
-                    sprintf(
-                        'No hay stock suficiente de "%s"%s. Quedan %d disponibles.',
-                        $souvenir->name ?? 'el ítem seleccionado',
-                        $talla ? " (talla {$talla})" : '',
-                        max(0, $stock->cantidad_total - $ocupado)
-                    )
-                );
-            }
-        }
+        // El cálculo/lock/throw en sí vive en DisponibilidadItemData
+        // (13/08/2026) — reusado también al editar una inscripción
+        // existente, ver RegistrationService::validateStockForParticipants().
+        DisponibilidadItemData::validarDemandaOFail(
+            DisponibilidadItemData::agregarDemanda($selecciones)
+        );
     }
 
     /**

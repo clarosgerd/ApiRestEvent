@@ -10,6 +10,7 @@ use App\Models\SouvenirParticipante;
 use App\Models\Registration;
 use App\Models\ContactoEmergenciaParticipante;
 use App\Models\Answer;
+use App\Support\DisponibilidadItemData;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
@@ -171,12 +172,12 @@ class RegistrationService
                 'souvenir_id'     => $souvenir['id'],
                 'nombre'          => $souvenir['nombre'],
                 'precio'          => $souvenir['precio'],
-                // Kit/tallas/stock (11/08/2026) — ver
-                // PRD-kit-tallas-stock-lista-espera.md. No se revalida
-                // stock acá (a diferencia de CrearInscripcionAction) —
-                // editar una inscripción ya paga/pendiente para cambiar
-                // de talla sin revalidar cupo es un gap conocido, ver
-                // deploy checklist.
+                // Kit/tallas/stock (11/08/2026, revalidación agregada
+                // 13/08/2026 — ver PLAN-STOCK-SOUVENIRS-SIMPLES-13082026.md
+                // punto 2) — el stock ya se revalidó para todo el request
+                // en validateStockForParticipants(), llamado por
+                // ActualizarInscripcionAction/ActualizarInscripcionPagadaAction
+                // antes de este loop.
                 'talla'           => $souvenir['talla'] ?? null,
                 'sexo'            => $souvenir['sexo'] ?? null,
             ]);
@@ -211,6 +212,49 @@ class RegistrationService
             }
             $documents[$key] = true;
         }
+    }
+
+    /**
+     * Revalida stock de los ítems del kit elegidos en una edición de
+     * inscripción — colaborador compartido por
+     * App\Actions\ActualizarInscripcionAction y
+     * App\Actions\ActualizarInscripcionPagadaAction (13/08/2026, ver
+     * PLAN-STOCK-SOUVENIRS-SIMPLES-13082026.md punto 2).
+     *
+     * Antes de este cambio, `createParticipantFromData()` recreaba los
+     * `SouvenirParticipante` de la edición sin volver a chequear stock —
+     * a diferencia de App\Actions\CrearInscripcionAction, que sí lo hace
+     * al crear. Reusa el mismo cálculo/lock (DisponibilidadItemData) para
+     * no duplicar la regla.
+     *
+     * Debe llamarse **después** de borrar los participantes viejos de
+     * esta misma inscripción (`$registration->participants()->delete()`)
+     * y **antes** de recrearlos — así el propio consumo actual del
+     * participante no se cuenta dos veces contra el stock (no hace falta
+     * excluirlo a mano: para el momento de este chequeo, sus filas viejas
+     * de `souvenir_participantes` ya no existen). Si la validación falla,
+     * la excepción revierte también esos deletes porque todo corre dentro
+     * de la misma transacción de quien llama.
+     *
+     * @param array<int, array{souvenirs?: array<int, array{id:int, talla?:?string, sexo?:?string}>}> $participantesData
+     */
+    public function validateStockForParticipants(array $participantesData): void
+    {
+        $selecciones = [];
+
+        foreach ($participantesData as $participante) {
+            foreach ($participante['souvenirs'] ?? [] as $souvenir) {
+                $selecciones[] = [
+                    'souvenir_id' => $souvenir['id'],
+                    'talla' => $souvenir['talla'] ?? null,
+                    'sexo' => $souvenir['sexo'] ?? null,
+                ];
+            }
+        }
+
+        DisponibilidadItemData::validarDemandaOFail(
+            DisponibilidadItemData::agregarDemanda($selecciones)
+        );
     }
 
     /**

@@ -22,6 +22,7 @@ use App\Http\Controllers\PresupuestoCategoriaController;
 use App\Http\Controllers\SesionCongresoController;
 use App\Http\Controllers\SesionCongresoStaffController;
 use App\Http\Controllers\AsistenciaSesionController;
+use App\Http\Controllers\ItemBodegaController;
 use App\Http\Controllers\ItemStockController;
 use App\Http\Controllers\CategoryPricePeriodController;
 use App\Http\Controllers\ListaEsperaController;
@@ -96,6 +97,15 @@ Route::group(['prefix' => 'v1','namespace' => 'App\Http\Controllers'], function 
         Route::put('/item-stock/{itemStock}', [ItemStockController::class, 'update']);
         Route::delete('/item-stock/{itemStock}', [ItemStockController::class, 'destroy']);
         Route::get('/event/{event}/lista-espera', [ListaEsperaController::class, 'index']);
+
+        // Bodega de stock por evento (14/08/2026) — ver
+        // PLAN-BODEGA-STOCK-EVENTO-14082026.md. Mismo scoping que
+        // souvenir/item-stock.
+        Route::get('/event/{event}/item-bodega', [ItemBodegaController::class, 'index']);
+        Route::post('/event/{event}/item-bodega', [ItemBodegaController::class, 'store']);
+        Route::put('/item-bodega/{itemBodega}', [ItemBodegaController::class, 'update']);
+        Route::delete('/item-bodega/{itemBodega}', [ItemBodegaController::class, 'destroy']);
+        Route::post('/item-bodega/{itemBodega}/asignar', [ItemBodegaController::class, 'asignar']);
 
         // Mapa de ubicación de delivery (12/08/2026) — vista de solo
         // lectura para el organizador, mismo scoping que lista-espera.

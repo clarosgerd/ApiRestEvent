@@ -12,6 +12,7 @@ class Souvenir extends Model
   public $timestamps = false;
      protected $fillable = [
         'form_types_id',
+        'item_bodega_id',
         'name',
         'icon',
         'price',
@@ -35,6 +36,16 @@ class Souvenir extends Model
     public function stock()
     {
         return $this->hasMany(ItemStock::class, 'souvenir_id');
+    }
+
+    /**
+     * Ítem de bodega del que salió esta asignación (nullable — ver
+     * PLAN-BODEGA-STOCK-EVENTO-14082026.md; un Souvenir sigue pudiendo
+     * ser standalone, sin vínculo a ningún catálogo, igual que siempre).
+     */
+    public function itemBodega()
+    {
+        return $this->belongsTo(ItemBodega::class, 'item_bodega_id');
     }
 
 }

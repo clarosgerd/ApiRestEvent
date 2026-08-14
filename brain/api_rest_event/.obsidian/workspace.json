@@ -196,6 +196,10 @@
   },
   "active": "2d20ecbd0f1a769c",
   "lastOpenFiles": [
+    "DEPLOY-CHECKLIST-STOCK-SOUVENIRS-SIMPLES-13082026.md",
+    "DEPLOY-CHECKLIST-STOCK-SOUVENIRS-SIMPLES-13082026.md.tmp.3956.390b3a2f048a",
+    "PLAN-STOCK-SOUVENIRS-SIMPLES-13082026.md",
+    "PLAN-STOCK-SOUVENIRS-SIMPLES-13082026.md.tmp.3956.23f01eca8ce3",
     "PLAN-VINCULACION-PONENTES-SESIONES-CONGRESO-13082026.md",
     "PLAN-VINCULACION-PONENTES-SESIONES-CONGRESO-13082026.md.tmp.14456.cf9ac71b6173",
     "PLAN-ASIGNACION-STAFF-SESIONES-CONGRESO-13082026.md",
@@ -221,8 +225,6 @@
     "Sin título.base",
     "Sin título 1.canvas",
     "requerimiento_crear_buscador.md",
-    "load_eventos_seed.js",
-    "generate_eventos_seed.js",
     "cambios_2026_07_19.md",
     "TEST_PLAN_STAKEHOLDERS.md",
     "snuggly-foraging-mccarthy.md",
@@ -231,8 +233,6 @@
     "Sin título.canvas",
     "Simular_geenracion_QR.md",
     "requerimiento_registro_answer.md",
-    "requerimiento_incluir preguntas_en_formulario.md",
-    "Propuesta_buscador.md",
-    "implementacion_sync_personas.md"
+    "requerimiento_incluir preguntas_en_formulario.md"
   ]
 }
