@@ -28,6 +28,7 @@ class AdminUser extends Authenticatable
 
     protected $casts = [
         'activo' => 'boolean',
+        'evento_id' => 'integer',
     ];
 
     public function evento(): BelongsTo

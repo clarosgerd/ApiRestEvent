@@ -33,7 +33,7 @@ trait AuthorizesEventoScope
             throw new HttpException(403, 'No tiene acceso a este evento.');
         }
 
-        if ($admin->rol === 'admin' && $admin->evento_id !== $eventoId) {
+        if ($admin->rol === 'admin' && (int) $admin->evento_id !== $eventoId) {
             throw new HttpException(403, 'No tiene acceso a este evento.');
         }
     }
@@ -62,7 +62,7 @@ trait AuthorizesEventoScope
             throw new HttpException(403, 'No tiene acceso a la caja de este evento.');
         }
 
-        if (in_array($admin->rol, ['admin', 'cajero'], true) && $admin->evento_id !== $eventoId) {
+        if (in_array($admin->rol, ['admin', 'cajero'], true) && (int) $admin->evento_id !== $eventoId) {
             throw new HttpException(403, 'No tiene acceso a la caja de este evento.');
         }
 

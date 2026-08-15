@@ -395,4 +395,33 @@ class CajaTest extends TestCase
             ->assertStatus(200)
             ->assertJsonCount(1, 'turnos');
     }
+
+    /**
+     * Bug real reportado en UAT (no reproducible en local): "No tiene
+     * acceso a la caja de este evento." al abrir turno con un cajero
+     * correctamente scoped. Causa: `AdminUser::evento_id` no tenía cast,
+     * y AuthorizesEventoScope comparaba con `!==` (estricto). Según cómo
+     * el driver PDO de cada hosting devuelva columnas enteras (nativo vs
+     * "stringify"), `$admin->evento_id` podía llegar como string
+     * ("90013") mientras el parámetro de ruta llega como int (90013) —
+     * en local el driver devuelve int nativo, en UAT devolvía string,
+     * por eso solo fallaba ahí. Fix: cast `'evento_id' => 'integer'` en
+     * el modelo (+ `(int)` explícito en las 2 comparaciones como defensa
+     * adicional). Este test simula el valor "stringificado" que devolvía
+     * el driver de UAT y confirma que el cast lo normaliza.
+     */
+    public function test_evento_id_se_castea_a_entero_sin_importar_como_lo_devuelva_el_driver(): void
+    {
+        $cajero = AdminUser::factory()->create(['rol' => 'cajero', 'evento_id' => $this->evento->id]);
+
+        // Emula lo que un PDO con ATTR_STRINGIFY_FETCHES (u otra config
+        // de emulación de prepares) devolvería para una columna entera.
+        $cajero->setRawAttributes(array_merge(
+            $cajero->getAttributes(),
+            ['evento_id' => (string) $this->evento->id]
+        ));
+
+        $this->assertSame($this->evento->id, $cajero->evento_id);
+        $this->assertIsInt($cajero->evento_id);
+    }
 }
