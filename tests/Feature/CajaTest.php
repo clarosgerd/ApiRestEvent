@@ -1,0 +1,398 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Actions\CrearInscripcionAction;
+use App\DTOs\RegistrationDTO;
+use App\Models\AdminUser;
+use App\Models\CajaTurno;
+use App\Models\Category;
+use App\Models\Ciudad;
+use App\Models\Evento;
+use App\Models\FormType;
+use App\Models\Organizador;
+use App\Models\Pais;
+use App\Models\SubtipoEvento;
+use App\Models\TipoEvento;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Mail;
+use Tests\TestCase;
+
+/**
+ * Caja de cobro presencial — ver PLAN-CAJA-COBRO-PRESENCIAL-14082026.md.
+ * Cubre: scoping del rol cajero (incluida la regresión de
+ * AuthorizesEventoScope::assertCanWriteEvento, que antes dejaba pasar
+ * cualquier rol que no fuera literalmente 'admin'), la regla dura de
+ * turno abierto, y que los 3 endpoints de cobro delegan correctamente a
+ * las Actions existentes.
+ */
+class CajaTest extends TestCase
+{
+    use RefreshDatabase;
+
+    private Evento $evento;
+
+    private FormType $formType;
+
+    private Category $categoria;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        Mail::fake();
+
+        $pais = Pais::factory()->create();
+        $ciudad = Ciudad::factory()->create(['pais_id' => $pais->id]);
+        $organizador = Organizador::factory()->create();
+        $tipoEvento = TipoEvento::factory()->create();
+        $subtipoEvento = SubtipoEvento::factory()->create(['tipo_evento_id' => $tipoEvento->id]);
+
+        $this->evento = Evento::factory()->create([
+            'organizador_id' => $organizador->id,
+            'tipo_evento_id' => $tipoEvento->id,
+            'subtipo_evento_id' => $subtipoEvento->id,
+            'pais_id' => $pais->id,
+            'ciudad_id' => $ciudad->id,
+            'fee_pct' => 0.05,
+        ]);
+
+        $this->formType = FormType::factory()->create([
+            'event_id' => $this->evento->id,
+            'cupo_total' => 100,
+            'activo' => true,
+            'requiere_categoria' => true,
+            'costo_edicion' => 10,
+        ]);
+
+        $this->categoria = Category::factory()->create([
+            'event_id' => $this->evento->id,
+            'price' => 50,
+        ]);
+    }
+
+    private function actingAsCajero(): \App\Models\AdminUser
+    {
+        $cajero = $this->actingAsAdmin();
+        $cajero->update(['rol' => 'cajero', 'evento_id' => $this->evento->id]);
+
+        return $cajero;
+    }
+
+    private function participanteData(string $numeroDocumento, array $overrides = []): array
+    {
+        return array_merge([
+            'nombre' => 'Ana', 'apellido' => 'Prueba', 'alias' => '', 'genero' => 'Femenino',
+            'tipoDocumento' => 'DNI', 'numeroDocumento' => $numeroDocumento,
+            'polera' => '', 'precioPolera' => 0,
+            'nacimiento' => ['dia' => 1, 'mes' => 1, 'anio' => 1995], 'edad' => 30,
+            'correo' => 'ana' . rand(1, 999999) . '@test.net', 'direccion' => 'x', 'ciudad' => 'x', 'telefono' => '123',
+            'contacto_emergencia' => ['nombre' => 'X', 'celular' => '123', 'relacion' => 'Madre'],
+            'souvenirs' => [], 'answers' => [],
+            'categoria' => (string) $this->categoria->id, 'precioCategoria' => 50,
+            'donacion' => 0, 'promoDescuento' => 0, 'promoCodigo' => '', 'subtotal' => 50,
+        ], $overrides);
+    }
+
+    private function totalesData(array $overrides = []): array
+    {
+        return array_merge([
+            'inscripcion' => 50, 'donacion' => 0, 'souvenirs' => 0, 'fee' => 2.5,
+            'descuento' => 0, 'descuento_registrante' => 0, 'grand_total' => 52.5,
+        ], $overrides);
+    }
+
+    public function test_cajero_no_puede_cobrar_sin_turno_abierto(): void
+    {
+        $this->actingAsCajero();
+
+        $this->postJson("/api/v1/event/{$this->evento->id}/caja/inscripcion", [
+            'form_types_id' => $this->formType->id,
+            'participante' => $this->participanteData('11111111'),
+            'totales' => $this->totalesData(),
+        ])->assertStatus(422)->assertJsonFragment(['error' => 'Abrí un turno de caja antes de cobrar.']);
+    }
+
+    public function test_cajero_no_puede_abrir_dos_turnos(): void
+    {
+        $this->actingAsCajero();
+
+        $this->postJson("/api/v1/event/{$this->evento->id}/caja/turno/abrir", ['fondo_inicial' => 100])
+            ->assertStatus(201);
+
+        $this->postJson("/api/v1/event/{$this->evento->id}/caja/turno/abrir", ['fondo_inicial' => 50])
+            ->assertStatus(422);
+    }
+
+    public function test_cajero_de_otro_evento_no_puede_operar_esta_caja(): void
+    {
+        $otroEvento = Evento::factory()->create([
+            'organizador_id' => $this->evento->organizador_id,
+            'tipo_evento_id' => $this->evento->tipo_evento_id,
+            'subtipo_evento_id' => $this->evento->subtipo_evento_id,
+            'pais_id' => $this->evento->pais_id,
+            'ciudad_id' => $this->evento->ciudad_id,
+        ]);
+        $cajero = $this->actingAsAdmin();
+        $cajero->update(['rol' => 'cajero', 'evento_id' => $otroEvento->id]);
+
+        $this->postJson("/api/v1/event/{$this->evento->id}/caja/turno/abrir", ['fondo_inicial' => 100])
+            ->assertStatus(403);
+    }
+
+    /**
+     * Regresión: antes de este feature, assertCanWriteEvento() solo
+     * bloqueaba explícitamente rol==='admin' con evento distinto —
+     * cualquier otro rol (como el nuevo 'cajero') pasaba de largo sin
+     * chequeo. Un cajero no debe poder tocar pantallas fuera de la Caja
+     * (acá, bodega de stock, protegida por assertCanWriteEvento()).
+     */
+    public function test_cajero_no_puede_acceder_a_pantallas_fuera_de_la_caja(): void
+    {
+        $this->actingAsCajero();
+
+        $this->postJson("/api/v1/event/{$this->evento->id}/item-bodega", ['nombre' => 'Medalla'])
+            ->assertStatus(403);
+    }
+
+    public function test_alta_y_cobro_de_inscripcion_nueva_por_caja(): void
+    {
+        $cajero = $this->actingAsCajero();
+        $this->postJson("/api/v1/event/{$this->evento->id}/caja/turno/abrir", ['fondo_inicial' => 100])
+            ->assertStatus(201);
+
+        $response = $this->postJson("/api/v1/event/{$this->evento->id}/caja/inscripcion", [
+            'form_types_id' => $this->formType->id,
+            'participante' => $this->participanteData('22222222'),
+            'totales' => $this->totalesData(),
+        ]);
+
+        $response->assertStatus(201)->assertJson(['success' => true]);
+
+        $this->assertDatabaseHas('registrations', [
+            'evento_id' => $this->evento->id,
+            'pago_status' => 'paid',
+            'tipo_pago' => 'EFECTIVO',
+        ]);
+        $this->assertDatabaseHas('caja_movimientos', [
+            'evento_id' => $this->evento->id,
+            'admin_user_id' => $cajero->id,
+            'tipo' => 'inscripcion_nueva',
+            'monto' => 52.5,
+        ]);
+    }
+
+    public function test_cobrar_pendiente_existente(): void
+    {
+        $cajero = $this->actingAsCajero();
+        $this->postJson("/api/v1/event/{$this->evento->id}/caja/turno/abrir", ['fondo_inicial' => 0]);
+
+        $registration = app(CrearInscripcionAction::class)->handle(RegistrationDTO::fromArray([
+            'referencia' => 'LA-TEST-' . uniqid(),
+            'fecha' => now()->toDateTimeString(),
+            'evento_id' => $this->evento->id,
+            'evento_nombre' => $this->evento->nombre,
+            'form_types_id' => $this->formType->id,
+            'tipo_pago' => 'pendiente',
+            'pago_status' => 'pending',
+            'pay_order_number' => null,
+            'totales' => $this->totalesData(),
+            'participantes' => [$this->participanteData('33333333')],
+        ]));
+
+        $this->postJson("/api/v1/registrations/{$registration->referencia}/caja/cobrar-pendiente")
+            ->assertStatus(200)->assertJson(['success' => true]);
+
+        $this->assertDatabaseHas('registrations', ['id' => $registration->id, 'pago_status' => 'paid']);
+        $this->assertDatabaseHas('caja_movimientos', [
+            'registration_id' => $registration->id,
+            'tipo' => 'cobro_pendiente',
+            'monto' => 52.5,
+        ]);
+    }
+
+    public function test_editar_pendiente_permite_cambiar_cualquier_campo_sin_turno(): void
+    {
+        $this->actingAsCajero();
+
+        $registration = app(CrearInscripcionAction::class)->handle(RegistrationDTO::fromArray([
+            'referencia' => 'LA-TEST-' . uniqid(),
+            'fecha' => now()->toDateTimeString(),
+            'evento_id' => $this->evento->id,
+            'evento_nombre' => $this->evento->nombre,
+            'form_types_id' => $this->formType->id,
+            'tipo_pago' => 'pendiente',
+            'pago_status' => 'pending',
+            'pay_order_number' => null,
+            'totales' => $this->totalesData(),
+            'participantes' => [$this->participanteData('44444444')],
+        ]));
+
+        // Sin turno abierto — editar (sin cobrar) no lo exige.
+        $this->patchJson("/api/v1/registrations/{$registration->referencia}/caja/editar-pendiente", [
+            'participantes' => [$this->participanteData('44444444', ['nombre' => 'Nombre Corregido'])],
+            'totales' => $this->totalesData(),
+        ])->assertStatus(200)->assertJson(['success' => true]);
+
+        $this->assertDatabaseHas('participantes', [
+            'registration_id' => $registration->id,
+            'nombre' => 'Nombre Corregido',
+        ]);
+    }
+
+    public function test_editar_pagada_cobra_el_costo_edicion_configurado(): void
+    {
+        $cajero = $this->actingAsCajero();
+        $this->postJson("/api/v1/event/{$this->evento->id}/caja/turno/abrir", ['fondo_inicial' => 0]);
+
+        $registration = app(CrearInscripcionAction::class)->handle(RegistrationDTO::fromArray([
+            'referencia' => 'LA-TEST-' . uniqid(),
+            'fecha' => now()->toDateTimeString(),
+            'evento_id' => $this->evento->id,
+            'evento_nombre' => $this->evento->nombre,
+            'form_types_id' => $this->formType->id,
+            'tipo_pago' => 'pendiente',
+            'pago_status' => 'pending',
+            'pay_order_number' => null,
+            'totales' => $this->totalesData(),
+            'participantes' => [$this->participanteData('55555555')],
+        ]));
+        $registration->update(['pago_status' => 'paid']);
+
+        $this->patchJson("/api/v1/registrations/{$registration->referencia}/caja/editar-pagada", [
+            'confirmacion' => true,
+            'participantes' => [$this->participanteData('55555555', ['nombre' => 'Editado Pagada'])],
+            'totales' => $this->totalesData(),
+        ])->assertStatus(200)->assertJson(['success' => true, 'costo_adicion' => 10]);
+
+        $this->assertDatabaseHas('caja_movimientos', [
+            'registration_id' => $registration->id,
+            'tipo' => 'edicion_pagada',
+            'monto' => 10,
+            'admin_user_id' => $cajero->id,
+        ]);
+    }
+
+    public function test_editar_pagada_sin_turno_abierto_rechaza(): void
+    {
+        $this->actingAsCajero();
+
+        $registration = app(CrearInscripcionAction::class)->handle(RegistrationDTO::fromArray([
+            'referencia' => 'LA-TEST-' . uniqid(),
+            'fecha' => now()->toDateTimeString(),
+            'evento_id' => $this->evento->id,
+            'evento_nombre' => $this->evento->nombre,
+            'form_types_id' => $this->formType->id,
+            'tipo_pago' => 'pendiente',
+            'pago_status' => 'pending',
+            'pay_order_number' => null,
+            'totales' => $this->totalesData(),
+            'participantes' => [$this->participanteData('66666666')],
+        ]));
+        $registration->update(['pago_status' => 'paid']);
+
+        $this->patchJson("/api/v1/registrations/{$registration->referencia}/caja/editar-pagada", [
+            'confirmacion' => true,
+            'participantes' => [$this->participanteData('66666666')],
+            'totales' => $this->totalesData(),
+        ])->assertStatus(422);
+    }
+
+    public function test_cerrar_turno_calcula_diferencia(): void
+    {
+        $cajero = $this->actingAsCajero();
+        $turnoId = $this->postJson("/api/v1/event/{$this->evento->id}/caja/turno/abrir", ['fondo_inicial' => 100])
+            ->json('turno.id');
+
+        $this->postJson("/api/v1/event/{$this->evento->id}/caja/inscripcion", [
+            'form_types_id' => $this->formType->id,
+            'participante' => $this->participanteData('77777777'),
+            'totales' => $this->totalesData(),
+        ])->assertStatus(201);
+
+        // Esperado = 100 (fondo) + 52.5 (cobrado) = 152.5. Cuenta 150 → faltante de 2.5.
+        $response = $this->postJson("/api/v1/caja/turno/{$turnoId}/cerrar", ['monto_contado' => 150]);
+
+        $response->assertStatus(200)->assertJson([
+            'success' => true,
+            'turno' => [
+                'montoEsperado' => 152.5,
+                'montoContado' => 150,
+                'diferencia' => -2.5,
+                'estado' => 'cerrado',
+            ],
+        ]);
+    }
+
+    public function test_cajero_no_puede_ver_el_listado_de_turnos_de_otros(): void
+    {
+        $this->actingAsCajero();
+
+        $this->getJson("/api/v1/event/{$this->evento->id}/caja/turnos")
+            ->assertStatus(403);
+    }
+
+    /**
+     * Regresión: al agregar el rol 'cajero', StoreAdminUserRequest seguía
+     * validando 'rol' con `in:super_admin,admin` — un POST /admin/users
+     * con rol=cajero se rechazaba con 422 aunque el modelo/enum de BD ya
+     * lo soportaran. Cubre también que evento_id sea obligatorio para
+     * cajero (igual que para admin).
+     */
+    public function test_super_admin_puede_crear_usuario_cajero_via_admin_users(): void
+    {
+        $this->actingAsAdmin()->update(['rol' => 'super_admin']);
+
+        $this->postJson('/api/v1/admin/users', [
+            'nombre' => 'Cajero de prueba',
+            'email' => 'cajero-prueba@test.net',
+            'password' => 'password123',
+            'rol' => 'cajero',
+            'evento_id' => $this->evento->id,
+        ])->assertStatus(201)->assertJson(['success' => true]);
+
+        $this->assertDatabaseHas('admin_users', [
+            'email' => 'cajero-prueba@test.net',
+            'rol' => 'cajero',
+            'evento_id' => $this->evento->id,
+        ]);
+    }
+
+    public function test_crear_usuario_cajero_sin_evento_id_rechaza(): void
+    {
+        $this->actingAsAdmin()->update(['rol' => 'super_admin']);
+
+        $this->postJson('/api/v1/admin/users', [
+            'nombre' => 'Cajero sin evento',
+            'email' => 'cajero-sin-evento@test.net',
+            'password' => 'password123',
+            'rol' => 'cajero',
+        ])->assertStatus(422);
+    }
+
+    public function test_admin_del_evento_ve_el_listado_de_turnos(): void
+    {
+        // El turno se crea directo por Eloquent (no por HTTP) a propósito:
+        // simular 2 identidades autenticadas distintas dentro del mismo
+        // test method choca con el cacheo del guard de Sanctum entre
+        // llamadas — no es un bug del feature, es una limitación de cómo
+        // se simulan requests en este harness de test. Ver
+        // test_cajero_no_puede_ver_el_listado_de_turnos_de_otros() para la
+        // cobertura del lado del cajero.
+        $cajero = AdminUser::factory()->create(['rol' => 'cajero', 'evento_id' => $this->evento->id]);
+        CajaTurno::create([
+            'evento_id' => $this->evento->id,
+            'admin_user_id' => $cajero->id,
+            'fondo_inicial' => 20,
+            'estado' => 'abierto',
+            'abierto_at' => now(),
+        ]);
+
+        $admin = $this->actingAsAdmin();
+        $admin->update(['rol' => 'admin', 'evento_id' => $this->evento->id]);
+
+        $this->getJson("/api/v1/event/{$this->evento->id}/caja/turnos")
+            ->assertStatus(200)
+            ->assertJsonCount(1, 'turnos');
+    }
+}

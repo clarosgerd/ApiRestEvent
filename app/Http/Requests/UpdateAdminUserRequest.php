@@ -20,7 +20,7 @@ class UpdateAdminUserRequest extends FormRequest
             'nombre'    => 'sometimes|string|max:255',
             'email'     => ['sometimes', 'email', Rule::unique('admin_users', 'email')->ignore($adminUser?->id)],
             'password'  => 'sometimes|string|min:8',
-            'rol'       => 'sometimes|string|in:super_admin,admin',
+            'rol'       => 'sometimes|string|in:super_admin,admin,cajero',
             'evento_id' => 'sometimes|nullable|integer|exists:eventos,id',
             'activo'    => 'sometimes|boolean',
         ];

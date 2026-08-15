@@ -28,6 +28,8 @@ use App\Http\Controllers\CategoryPricePeriodController;
 use App\Http\Controllers\ListaEsperaController;
 use App\Http\Controllers\OrganizadorController;
 use App\Http\Controllers\DeliveryController;
+use App\Http\Controllers\CajaController;
+use App\Http\Controllers\CajaTurnoController;
 
 Route::get('/user', function (Request $request) {
     return $request->user();
@@ -185,6 +187,22 @@ Route::group(['prefix' => 'v1','namespace' => 'App\Http\Controllers'], function 
         // Carga masiva de inscripciones por CSV (panel de administración,
         // solo super_admin) — ver brain/PLAN-REGISTRO-MANUAL-CSV-05082026.md.
         Route::post('/event/{event}/registro-manual/bulk', [RegistrationController::class, 'importarBulk']);
+
+        // Caja de cobro presencial (14/08/2026) — ver
+        // PLAN-CAJA-COBRO-PRESENCIAL-14082026.md. Accesible por rol
+        // `admin`/`cajero` (scoped a su evento) o `super_admin`, vía
+        // assertCanOperarCaja() dentro de cada controller — el listado de
+        // turnos (control de cierre) es la excepción, solo admin/super_admin.
+        Route::get('/event/{event}/caja/turno-actual', [CajaTurnoController::class, 'actual']);
+        Route::post('/event/{event}/caja/turno/abrir', [CajaTurnoController::class, 'abrir']);
+        Route::post('/caja/turno/{turno}/cerrar', [CajaTurnoController::class, 'cerrar']);
+        Route::get('/event/{event}/caja/turnos', [CajaTurnoController::class, 'index']);
+
+        Route::get('/event/{event}/caja/buscar', [CajaController::class, 'buscar']);
+        Route::post('/event/{event}/caja/inscripcion', [CajaController::class, 'inscripcion']);
+        Route::post('/registrations/{reference}/caja/cobrar-pendiente', [CajaController::class, 'cobrarPendiente']);
+        Route::patch('/registrations/{reference}/caja/editar-pendiente', [CajaController::class, 'editarPendiente']);
+        Route::patch('/registrations/{reference}/caja/editar-pagada', [CajaController::class, 'editarPagada']);
 
         Route::post('/admin/logout', [AdminAuthController::class, 'logout']);
         Route::get('/admin/me', [AdminAuthController::class, 'me']);
