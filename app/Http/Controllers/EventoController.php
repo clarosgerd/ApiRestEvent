@@ -23,6 +23,7 @@ use App\Services\EventoService;
 use App\Services\AdminAuditLogger;
 use App\Support\BalanceEventoData;
 use App\Support\DashboardInscripcionesData;
+use App\Support\ReporteInscritosData;
 use App\Filters\EventoFilter;
 use App\Http\Controllers\Concerns\AuthorizesEventoScope;
 use Illuminate\Http\Request;
@@ -245,6 +246,7 @@ class EventoController extends Controller
         return response()->json([
             'success' => true,
             'balance' => BalanceEventoData::paraEvento($event),
+            'reporteInscritos' => ReporteInscritosData::paraEvento($event),
         ] + DashboardInscripcionesData::paraEvento($event));
     }
 

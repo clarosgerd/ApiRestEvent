@@ -2,6 +2,120 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/).
 
+## 2026-08-15 — Feature: detalle de inscritos (drill-down desde el Dashboard)
+
+Seguimiento del reporte de Modalidad/Categoría/Poleras (mismo día, ver entrada de abajo): el
+usuario mostró un reporte legado con el listado fila-por-fila de cada inscrito (número, estado,
+importe, CI, nombre, apellido, sexo, celular, fecha de inscripción, referencia, nacimiento,
+distancia) y pidió llegar a ese detalle haciendo clic en las tarjetas de totales del Dashboard.
+
+Planificado con `EnterPlanMode`/`ExitPlanMode` antes de programar. Se extendió el endpoint
+existente en vez de crear uno nuevo — ya traía casi todos los campos, usado hoy por 2 pantallas de
+edición (`NumeracionController`/`ParticipantesController` en admin-eventos) que no debían notar
+ningún cambio.
+
+### Added
+
+- `ParticipanteController::porEvento()` — nuevo filtro opcional `pago_status`, campos nuevos
+  `importe` (`participantes.subtotal`) y `fechaInscripcion` (`registration.fecha`), y **paginación
+  opt-in** vía `per_page`: sin ese parámetro el comportamiento es idéntico al de siempre (sin
+  `meta`, todo en una sola respuesta) — cero riesgo de regresión para los 2 llamadores existentes,
+  que no lo mandan. `DashboardInscripcionesData::ESTADOS` pasó de `private` a `public` para que
+  este filtro valide contra la misma lista sin duplicarla.
+- `tests/Feature/ParticipantesPorEventoTest.php` — 5 tests (filtro por estado, campos nuevos,
+  paginación activada vs. comportamiento por defecto sin paginar, scoping por evento). Suite
+  completa: 264/264 en verde.
+- `admin-eventos`: `ParticipantesDetalleController` (nuevo, no reutiliza `ParticipantesController`
+  — esa es la pantalla de edición de contacto, otra UX) + vista
+  `eventos/participantes-detalle.blade.php` (tabla + filtros por estado/categoría + paginación
+  prev/next + descarga CSV sin paginar, mismo patrón de `NumeracionController::csvDownload()`).
+  Rutas nuevas `participantes.detalle`/`participantes.detalle.csv`. Las 5 tarjetas del Dashboard de
+  inscripciones ahora son links a esta pantalla, cada una con su filtro de estado correspondiente.
+
+**Verificado con datos reales** (no solo tests): sesión HTTP real completa contra los 2 servidores
+locales (login real con CSRF, cookies) usando un admin temporal scoped al evento 90007 — dashboard,
+detalle sin filtro, detalle filtrado por `paid`, paginación (`per_page=2`, ambas páginas), y CSV,
+todos verificados con datos reales antes de borrar el admin temporal. De paso se encontró que
+`admin-eventos` tenía una **caché de rutas desactualizada** (`bootstrap/cache/routes-v7.php`,
+generada antes de esta sesión) que hacía que las rutas nuevas devolvieran 404/405 hasta correr
+`php artisan route:clear` — no relacionado con este feature, pero cualquier ruta nueva agregada
+sin limpiar esa caché fallaría en silencio del mismo modo.
+
+## 2026-08-15 — Feature: reporte de inscritos por modalidad/categoría + poleras
+
+El usuario pidió un reporte parecido a uno de un sistema legado (4 tablas:
+Modalidad/KIT, Distancia, Categoría, Poleras). Antes de construirlo se
+comparó el pedido contra los datos reales (no solo el esquema), lo que
+cambió 2 supuestos iniciales:
+
+- **"Modalidad/KIT" no puede salir del souvenir elegido** — los souvenirs
+  reales son ítems sueltos que un participante suma libremente (0, 1 o
+  varios), no una elección excluyente; agrupar por souvenir rompe la
+  propiedad de que todas las tablas sumen el mismo total. Se usa
+  `form_types.name` en su lugar (único campo que reparte a cada inscrito
+  en un solo grupo).
+- **"Distancia" y "Categoría" son el mismo dato en este sistema** —
+  `categories.name` ya es la distancia en los eventos reales ("5K", "10K",
+  "21K", "7K"...), confirmado contra datos reales. No se duplica la tabla.
+- **"Poleras" sale de los campos legacy `participantes.genero`/`polera`**
+  (52/52 poblados en la BD real), no del sistema nuevo de souvenirs con
+  talla/sexo genérico (casi sin uso real todavía).
+
+Se agregó al dashboard de inscripciones existente (`GET
+/event/{event}/dashboard-inscripciones`), no como pantalla nueva —
+decisión del usuario para tener todo en un solo lugar.
+
+### Added
+
+- `app/Support/ReporteInscritosData.php` — agrupa participantes de
+  inscripciones **pagadas** por tipo de formulario y por categoría (con
+  Cantidad + Recaudación en dinero, sumando `participantes.subtotal`), y
+  por sexo+talla de polera (Cantidad). Archivo hermano de
+  `DashboardInscripcionesData` (cuenta por estado) y `BalanceEventoData`
+  (suma dinero a nivel evento) — mezcla ambas cosas pero agrupadas, algo
+  que ninguno de los otros 2 hace.
+- `EventoController::dashboardInscripciones()` — nueva clave
+  `reporteInscritos` en la respuesta.
+- `tests/Feature/ReporteInscritosTest.php` — 2 tests (agrupación correcta
+  con inscripciones pagadas/pendientes mezcladas, scoping por evento).
+  Suite completa: 259/259 en verde.
+- `admin-eventos`: `DashboardInscripcionesController`/
+  `eventos/dashboard-inscripciones.blade.php` — 3 tablas nuevas debajo de
+  las existentes ("Inscritos por modalidad", "Inscritos por categoría /
+  distancia", "Reporte de poleras"), mismo estilo Tailwind ya usado en esa
+  vista. Verificado contra datos reales del evento 90007 (4 inscritos
+  pagados, 4 poleras) vía `curl` directo al endpoint, no solo el test
+  sintético.
+
+## 2026-08-15 — Fix: `403` falso en Caja al abrir turno, solo reproducible en UAT
+
+Reportado por el usuario en UAT tras subir la feature de caja de cobro presencial
+(`brain/api_rest_event/PLAN-CAJA-COBRO-PRESENCIAL-14082026.md`): un cajero
+correctamente scoped a su evento recibía `403 "No tiene acceso a la caja de
+este evento."` al abrir turno. No reproducible en local.
+
+**Causa**: `AdminUser::evento_id` no tenía cast declarado, y
+`AuthorizesEventoScope::assertCanWriteEvento()`/`assertCanOperarCaja()`
+comparaban con `!==` (estricto). Según cómo el driver PDO de cada hosting
+devuelva columnas enteras (nativo vs. "stringify", según la config de
+emulación de prepares — este proyecto nunca la fija explícitamente),
+`$admin->evento_id` podía llegar como `string` en UAT mientras el parámetro
+de ruta llega como `int` → `"90013" !== 90013` da `true` → 403 aunque el
+evento fuera el correcto. En local el driver devuelve `int` nativo, por eso
+solo fallaba en UAT. Mismo patrón que el bug de `hasshirt` sin cast en
+`FormTypeResource` (11/08).
+
+### Fixed
+
+- `app/Models/AdminUser.php` — agregado `'evento_id' => 'integer'` a
+  `$casts` (normaliza el tipo sin importar el driver de cada entorno).
+- `app/Http/Controllers/Concerns/AuthorizesEventoScope.php` — `(int)`
+  explícito en las 2 comparaciones (`assertCanWriteEvento()` y
+  `assertCanOperarCaja()`), como defensa adicional además del cast.
+- Test de regresión en `tests/Feature/CajaTest.php` que simula el valor
+  "stringificado" que devolvía el driver de UAT y confirma que el cast lo
+  normaliza. Suite completa: 257/257 en verde.
+
 ## 2026-08-11 — Feature: certificados automáticos de congreso (Fase 2 de sesiones)
 
 Segunda ronda de `brain/api_rest_event/PRD-Agenda-sessiones-onlycongresos.md`

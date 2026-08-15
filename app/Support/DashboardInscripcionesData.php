@@ -20,9 +20,11 @@ class DashboardInscripcionesData
     /**
      * Los 4 estados reales de `registrations.pago_status` (migración
      * create_registrations_table) — se muestran todos por separado, sin
-     * fusionar "failed" con "cancelled".
+     * fusionar "failed" con "cancelled". Público (15/08/2026) para que
+     * ParticipanteController::porEvento() valide su filtro `pago_status`
+     * contra la misma lista, sin duplicarla.
      */
-    private const ESTADOS = ['paid', 'pending', 'cancelled', 'failed'];
+    public const ESTADOS = ['paid', 'pending', 'cancelled', 'failed'];
 
     public static function paraEvento(Evento $evento): array
     {

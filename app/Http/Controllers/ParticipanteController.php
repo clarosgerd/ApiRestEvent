@@ -190,46 +190,82 @@ class ParticipanteController extends Controller
 
         $data = $request->validate([
             'categoria' => ['nullable', 'string'],
+            // Reporte detallado de inscritos (15/08/2026) — filtro opcional
+            // por estado, mismo enum que App\Support\DashboardInscripcionesData
+            // (que expone la constante como pública justamente para esto).
+            'pago_status' => ['nullable', 'string', 'in:' . implode(',', \App\Support\DashboardInscripcionesData::ESTADOS)],
+            // Paginación opt-in: si no viene `per_page`, se mantiene el
+            // comportamiento de siempre (`->get()`, todo en una sola
+            // respuesta) para no romper a NumeracionController/
+            // ParticipantesController (admin-eventos), que no lo mandan.
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:200'],
+            'page' => ['nullable', 'integer', 'min:1'],
         ]);
 
-        $participantes = Participante::whereHas('registration', function ($q) use ($event) {
-                $q->where('evento_id', $event->id);
+        $query = Participante::whereHas('registration', function ($q) use ($event, $data) {
+                $q->where('evento_id', $event->id)
+                    ->when($data['pago_status'] ?? null, fn ($q2, $estado) => $q2->where('pago_status', $estado));
             })
-            ->with('registration:id,referencia,pago_status')
+            ->with('registration:id,referencia,pago_status,fecha')
             ->when($data['categoria'] ?? null, fn ($q, $categoria) => $q->where('categoria', $categoria))
             ->orderBy('categoria')
-            ->orderBy('apellido')
-            ->get([
-                'id', 'registration_id', 'nombre', 'apellido', 'alias', 'numero_documento',
-                'categoria', 'numero_corredor', 'chip', 'correo', 'telefono', 'direccion',
-                'ciudad', 'genero', 'fecha_nacimiento', 'polera', 'checked_in_at',
+            ->orderBy('apellido');
+
+        $columnas = [
+            'id', 'registration_id', 'nombre', 'apellido', 'alias', 'numero_documento',
+            'categoria', 'numero_corredor', 'chip', 'correo', 'telefono', 'direccion',
+            'ciudad', 'genero', 'fecha_nacimiento', 'polera', 'checked_in_at', 'subtotal',
+        ];
+
+        $mapear = fn (Participante $p) => [
+            'id'              => $p->id,
+            'referencia'      => $p->registration->referencia,
+            'nombre'          => $p->nombre,
+            'apellido'        => $p->apellido,
+            'alias'           => $p->alias,
+            'numeroDocumento' => $p->numero_documento,
+            'categoria'       => $p->categoria,
+            'numeroCorredor'  => $p->numero_corredor,
+            'chip'            => $p->chip,
+            'correo'          => $p->correo,
+            'telefono'        => $p->telefono,
+            'direccion'       => $p->direccion,
+            'ciudad'          => $p->ciudad,
+            'genero'          => $p->genero,
+            'fechaNacimiento' => optional($p->fecha_nacimiento)->format('Y-m-d'),
+            'polera'          => $p->polera,
+            // pagoStatus/checkedInAt: para el contador "X de Y acreditados"
+            // de la pantalla de Acreditación (admin-eventos) — "Y" es el
+            // total de pagados, "X" cuántos de esos ya tienen checkedInAt.
+            'pagoStatus'      => $p->registration->pago_status,
+            'checkedInAt'     => optional($p->checked_in_at)->toIso8601String(),
+            // importe/fechaInscripcion: reporte detallado de inscritos
+            // (15/08/2026), pantalla nueva "Detalle de inscritos" en
+            // admin-eventos.
+            'importe'         => (float) $p->subtotal,
+            'fechaInscripcion' => optional($p->registration->fecha)->toIso8601String(),
+        ];
+
+        if ($data['per_page'] ?? null) {
+            $paginador = $query->paginate($data['per_page'], $columnas, 'page', $data['page'] ?? 1);
+
+            return response()->json([
+                'success' => true,
+                'participantes' => $paginador->getCollection()->map($mapear),
+                'meta' => [
+                    'currentPage' => $paginador->currentPage(),
+                    'lastPage' => $paginador->lastPage(),
+                    'perPage' => $paginador->perPage(),
+                    'total' => $paginador->total(),
+                ],
             ]);
+        }
+
+        $participantes = $query->get($columnas);
 
         return response()->json([
             'success' => true,
-            'participantes' => $participantes->map(fn (Participante $p) => [
-                'id'              => $p->id,
-                'referencia'      => $p->registration->referencia,
-                'nombre'          => $p->nombre,
-                'apellido'        => $p->apellido,
-                'alias'           => $p->alias,
-                'numeroDocumento' => $p->numero_documento,
-                'categoria'       => $p->categoria,
-                'numeroCorredor'  => $p->numero_corredor,
-                'chip'            => $p->chip,
-                'correo'          => $p->correo,
-                'telefono'        => $p->telefono,
-                'direccion'       => $p->direccion,
-                'ciudad'          => $p->ciudad,
-                'genero'          => $p->genero,
-                'fechaNacimiento' => optional($p->fecha_nacimiento)->format('Y-m-d'),
-                'polera'          => $p->polera,
-                // pagoStatus/checkedInAt: para el contador "X de Y acreditados"
-                // de la pantalla de Acreditación (admin-eventos) — "Y" es el
-                // total de pagados, "X" cuántos de esos ya tienen checkedInAt.
-                'pagoStatus'      => $p->registration->pago_status,
-                'checkedInAt'     => optional($p->checked_in_at)->toIso8601String(),
-            ]),
+            'participantes' => $participantes->map($mapear),
         ]);
     }
 
