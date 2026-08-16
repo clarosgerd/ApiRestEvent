@@ -30,6 +30,11 @@ use App\Http\Controllers\OrganizadorController;
 use App\Http\Controllers\DeliveryController;
 use App\Http\Controllers\CajaController;
 use App\Http\Controllers\CajaTurnoController;
+use App\Http\Controllers\PaisController;
+use App\Http\Controllers\CiudadController;
+use App\Http\Controllers\SexoController;
+use App\Http\Controllers\SubtipoEventoController;
+use App\Http\Controllers\RelacionContactoController;
 
 Route::get('/user', function (Request $request) {
     return $request->user();
@@ -232,6 +237,48 @@ Route::group(['prefix' => 'v1','namespace' => 'App\Http\Controllers'], function 
         Route::apiResource('/organizadores', OrganizadorController::class)
             ->parameters(['organizadores' => 'organizador'])
             ->only(['index', 'show', 'store', 'update', 'destroy']);
+
+        // Catálogos globales (15/08/2026) — País/Ciudad/Sexo/Tipo de
+        // evento/Subtipo de evento/Relación de contacto, todos config
+        // global (no scoped por evento), solo super_admin, mismo criterio
+        // que Socios/Organizadores. Prefijo `catalogos/` a propósito para
+        // no chocar con el `GET /tipos-evento` público de más abajo (ver
+        // TipoEventoController::index(), que sigue intacto). Rutas
+        // explícitas en vez de apiResource: TipoEvento ya tiene su propio
+        // `index()` público, así que su listado de administración usa
+        // `adminIndex()` con nombre de método distinto — ver
+        // elascenso/event/brain/PLAN-CATALOGOS-GLOBALES-15082026.md.
+        Route::prefix('catalogos')->group(function () {
+            Route::get('/paises', [PaisController::class, 'index']);
+            Route::post('/paises', [PaisController::class, 'store']);
+            Route::put('/paises/{pais}', [PaisController::class, 'update']);
+            Route::delete('/paises/{pais}', [PaisController::class, 'destroy']);
+
+            Route::get('/ciudades', [CiudadController::class, 'index']);
+            Route::post('/ciudades', [CiudadController::class, 'store']);
+            Route::put('/ciudades/{ciudad}', [CiudadController::class, 'update']);
+            Route::delete('/ciudades/{ciudad}', [CiudadController::class, 'destroy']);
+
+            Route::get('/sexos', [SexoController::class, 'index']);
+            Route::post('/sexos', [SexoController::class, 'store']);
+            Route::put('/sexos/{sexo}', [SexoController::class, 'update']);
+            Route::delete('/sexos/{sexo}', [SexoController::class, 'destroy']);
+
+            Route::get('/tipos-evento', [TipoEventoController::class, 'adminIndex']);
+            Route::post('/tipos-evento', [TipoEventoController::class, 'store']);
+            Route::put('/tipos-evento/{tipoEvento}', [TipoEventoController::class, 'update']);
+            Route::delete('/tipos-evento/{tipoEvento}', [TipoEventoController::class, 'destroy']);
+
+            Route::get('/subtipos-evento', [SubtipoEventoController::class, 'index']);
+            Route::post('/subtipos-evento', [SubtipoEventoController::class, 'store']);
+            Route::put('/subtipos-evento/{subtipoEvento}', [SubtipoEventoController::class, 'update']);
+            Route::delete('/subtipos-evento/{subtipoEvento}', [SubtipoEventoController::class, 'destroy']);
+
+            Route::get('/relaciones-contacto', [RelacionContactoController::class, 'index']);
+            Route::post('/relaciones-contacto', [RelacionContactoController::class, 'store']);
+            Route::put('/relaciones-contacto/{relacionContacto}', [RelacionContactoController::class, 'update']);
+            Route::delete('/relaciones-contacto/{relacionContacto}', [RelacionContactoController::class, 'destroy']);
+        });
 
         Route::get('/event/{event}/liquidacion/preview', [LiquidacionController::class, 'preview']);
         Route::get('/event/{event}/liquidacion', [LiquidacionController::class, 'show']);

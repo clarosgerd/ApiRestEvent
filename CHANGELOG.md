@@ -2,6 +2,52 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/).
 
+## 2026-08-15 — Feature: CRUD de catálogos globales (País, Ciudad, Sexo, Tipo/Subtipo de evento, Relación de contacto)
+
+El usuario pidió "crear tablas de catálogo país/ciudad/sexo/tipoevento/subtipoevento". Antes de
+programar (plan mode) se encontró que 4 de esos 5 ya existían como tablas reales con datos
+poblados (`paises`: 10, `ciudades`: 35, `tipos_evento`: 7, `subtipos_evento`: 18) pero **sin
+ninguna pantalla de administración** — solo se podían tocar por BD directa. Solo "sexo" no
+existía en absoluto. El usuario confirmó que lo que hacía falta era justamente eso: pantallas de
+administración, no relacionar `categories.sexo_id` como FK real (queda fuera de alcance).
+
+Durante la revisión del plan el usuario preguntó específicamente por el impacto en
+`registrations`/`participantes` (confirmado: ninguno — `participantes.genero` es un campo
+totalmente separado de `categories.sexo_id`) y notó que tampoco había catálogo para la relación
+del contacto de emergencia — se agregó como sexto catálogo (`relaciones_contacto`), aditivo, sin
+tocar `contacto_emergencia_participantes.relacion` (texto libre, con datos reales ya
+inconsistentes: FAM/WIF/Familiar/FRI/Pareja/SPO/Hermano/HUS).
+
+Los 6 catálogos son config global (no scoped por evento), solo `super_admin`, mismo patrón ya
+usado por `Socio`/`Organizador`/`PresupuestoCategoria`.
+
+### Added
+
+- `ApiRestEvent`: migraciones `sexos`/`relaciones_contacto` (con seed inicial), modelos `Sexo`/
+  `RelacionContacto`, controllers nuevos `PaisController`/`CiudadController`/`SexoController`/
+  `SubtipoEventoController`/`RelacionContactoController` (CRUD completo, `assertIsSuperAdmin()`,
+  auditoría vía `AdminAuditLogger`, `destroy()` bloquea con 409 si hay una relación dependiente en
+  vez de soft-delete). `TipoEventoController` extendido con `adminIndex/store/update/destroy` sin
+  tocar su `index()` público existente (activo-only, sin auth, consumido por el alta de evento).
+  Rutas nuevas bajo prefijo `catalogos/` dentro de `auth:admins` (24 rutas), para no chocar con el
+  `GET /tipos-evento` público.
+- `tests/Feature/CatalogosGlobalesTest.php` — 11 tests (CRUD por catálogo, bloqueo de borrado con
+  dependientes, 403 para admin no-superadmin, regresión explícita del endpoint público de
+  tipos-evento). Suite completa: 275/275 en verde.
+- `admin-eventos`: 6 controllers proxy nuevos (`PaisController`/`CiudadController`/
+  `SexoController`/`TipoEventoController`/`SubtipoEventoController`/`RelacionContactoController`,
+  mismo patrón que `SocioController`), 7 vistas (`catalogos/index` + una por catálogo, tabla con
+  fila editable inline + tarjeta "+ Nuevo", Ciudad/Subtipo con `<select>` de su padre), rutas bajo
+  `admin.superadmin`, link "Catálogos" en el menú.
+
+**Verificado con datos reales** (no solo tests): sesión HTTP real completa (login super_admin con
+CSRF+cookies) contra los 2 servidores locales — las 6 pantallas muestran los conteos reales
+exactos (10/35/3/7/18/8), CRUD completo probado en vivo para Sexo (crear→editar→borrar) y Relación
+de contacto (crear→borrar), y el caso de bloqueo real para País↔Ciudad (crear país+ciudad,
+intentar borrar el país → 409 con el mensaje correcto → borrar ciudad → borrar país exitosamente).
+Confirmado que el endpoint público `GET /tipos-evento` sigue exactamente igual. Datos de prueba
+limpiados después, BD real vuelve a sus conteos originales exactos.
+
 ## 2026-08-15 — Feature: detalle de inscritos (drill-down desde el Dashboard)
 
 Seguimiento del reporte de Modalidad/Categoría/Poleras (mismo día, ver entrada de abajo): el
