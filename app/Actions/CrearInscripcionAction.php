@@ -359,13 +359,18 @@ class CrearInscripcionAction
      * evento y se rechaza si no coincide (tolerancia de 2 centavos por
      * redondeo, no por permisividad).
      *
-     * Base del fee (19/08/2026) — inscripción + talleres. Decisión
-     * revertida de la original "decisión T6" (18/08/2026, fee solo sobre
-     * inscripción): SIP/Multipago cobran su comisión sobre el monto total
-     * procesado, no por ítem, así que dejar los talleres fuera del fee
-     * significa absorber ese costo de gateway en esa porción — relevante
-     * porque un taller puede valer más que la inscripción misma.
-     * Souvenirs y donación siguen excluidos (igual que siempre).
+     * Base del fee (19/08/2026) — inscripción + talleres por default.
+     * Decisión revertida de la original "decisión T6" (18/08/2026, fee
+     * solo sobre inscripción): SIP/Multipago cobran su comisión sobre el
+     * monto total procesado, no por ítem, así que dejar los talleres
+     * fuera del fee significa absorber ese costo de gateway en esa
+     * porción — relevante porque un taller puede valer más que la
+     * inscripción misma. Souvenirs y donación siguen excluidos (igual
+     * que siempre).
+     *
+     * `fee_incluye_talleres` (mismo día) — configurable por evento, para
+     * cuando el organizador no quiere aplicar el cargo a los talleres
+     * (p.ej. convenio de gateway distinto). Default true.
      */
     private function validateFeePct(RegistrationDTO $dto): void
     {
@@ -374,7 +379,7 @@ class CrearInscripcionAction
             return; // el chequeo de evento inexistente ya lo hizo elascenso/event antes de llegar acá
         }
 
-        $baseFee = $dto->totals->registration + $dto->totals->talleres;
+        $baseFee = $dto->totals->registration + ($evento->fee_incluye_talleres ? $dto->totals->talleres : 0);
         $feeEsperado = round($baseFee * (float) $evento->fee_pct, 2);
 
         if (abs($feeEsperado - $dto->totals->fee) > 0.02) {

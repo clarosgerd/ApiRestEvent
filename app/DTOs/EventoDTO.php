@@ -23,6 +23,12 @@ class EventoDTO
         // lo prende, los talleres del evento no cobran aunque tengan un
         // precio individual cargado.
         public bool $talleresConCosto = false,
+        // Cargo de servicio sobre talleres (19/08/2026) — default true:
+        // mantiene el comportamiento recién confirmado (fee sobre
+        // inscripción + talleres) para todo evento nuevo; el organizador
+        // lo puede apagar puntualmente. Ver
+        // CrearInscripcionAction::validateFeePct().
+        public bool $feeIncluyeTalleres = true,
         public ?int $organizadorId,
         public ?int $tipoEventoId,
         public ?int $subtipoEventoId,
@@ -77,6 +83,8 @@ class EventoDTO
             aceptaUsd: (bool) ($data['aceptaUsd'] ?? false),
             // Congresos con talleres (19/08/2026).
             talleresConCosto: (bool) ($data['talleresConCosto'] ?? $data['talleres_con_costo'] ?? false),
+            // Cargo de servicio sobre talleres (19/08/2026).
+            feeIncluyeTalleres: (bool) ($data['feeIncluyeTalleres'] ?? $data['fee_incluye_talleres'] ?? true),
             organizadorId: isset($data['organizador_id']) ? (int) $data['organizador_id'] : null,
             // Default 1 ("Carrera de Ruta") si no viene: mismo comportamiento
             // histórico para no romper callers que todavía no lo mandan (la

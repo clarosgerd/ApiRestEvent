@@ -107,6 +107,13 @@ class EventoResource extends JsonResource
             // carga sus sesiones activas con cupo/ocupados.
             'talleres'                   =>TallerResource::collection($this->whenLoaded('talleres')),
             'talleresConCosto'           =>(bool) $this->talleres_con_costo,
+            // Cargo de servicio sobre talleres, configurable por evento
+            // (19/08/2026) — si es false, el fee vuelve a calcularse solo
+            // sobre inscripción (talleres quedan afuera de esa base, igual
+            // que souvenirs/donación). Ver
+            // CrearInscripcionAction::validateFeePct() y
+            // elascenso/event/api/_registro_validacion.php.
+            'feeIncluyeTalleres'         =>(bool) $this->fee_incluye_talleres,
             // Inscripción en BOB y USD (18/08/2026) — ver
             // brain/PLAN-INSCRIPCION-BOB-USD-IMPLEMENTACION.md. Si es
             // false, el frontend del participante oculta el selector de

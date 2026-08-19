@@ -46,6 +46,8 @@ class CrearEventoAction
                 'acepta_usd'          => $dto->aceptaUsd,
                 // Congresos con talleres (19/08/2026).
                 'talleres_con_costo'  => $dto->talleresConCosto,
+                // Cargo de servicio sobre talleres (19/08/2026).
+                'fee_incluye_talleres' => $dto->feeIncluyeTalleres,
                 'video_url'           => $dto->videoUrl ?? '',
                 'imagen_portada_url'  => $dto->imagenPortadaUrl ?? '',
                 // Default navy: mismo color que ya usaban gafetes/certificados antes de

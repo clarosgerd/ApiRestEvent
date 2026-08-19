@@ -58,6 +58,8 @@ class UpdateEventosRequest extends FormRequest
             'aceptaUsd'        => 'sometimes|boolean',
             // Congresos con talleres (19/08/2026) — ver EventoService::update().
             'talleresConCosto' => 'sometimes|boolean',
+            // Cargo de servicio sobre talleres (19/08/2026) — ver EventoService::update().
+            'feeIncluyeTalleres' => 'sometimes|boolean',
             'video'            => 'sometimes|nullable|string|max:255',
             'image'            => 'sometimes|nullable|string|max:255',
             'colorHex'         => 'sometimes|nullable|string|max:7',

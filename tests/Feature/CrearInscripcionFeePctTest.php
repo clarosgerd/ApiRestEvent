@@ -154,4 +154,31 @@ class CrearInscripcionFeePctTest extends TestCase
         // pero con talleres (200) en la base, el esperado es 15.00.
         app(CrearInscripcionAction::class)->handle($this->dtoConFee(5.00, talleres: 200));
     }
+
+    /**
+     * fee_incluye_talleres = false (19/08/2026) — pedido: "una opción que
+     * no apliquemos el fee a los talleres". Con el flag apagado, el fee
+     * vuelve a calcularse solo sobre inscripción (100), 5% = 5.00, aunque
+     * haya talleres (200) en la inscripción.
+     */
+    public function test_con_fee_incluye_talleres_apagado_el_fee_ignora_talleres(): void
+    {
+        $this->evento->update(['fee_incluye_talleres' => false]);
+
+        $registration = app(CrearInscripcionAction::class)->handle($this->dtoConFee(5.00, talleres: 200));
+
+        $this->assertDatabaseHas('registrations', ['id' => $registration->id]);
+    }
+
+    public function test_con_fee_incluye_talleres_apagado_rechaza_un_fee_que_si_los_incluye(): void
+    {
+        $this->evento->update(['fee_incluye_talleres' => false]);
+
+        $this->expectException(\DomainException::class);
+        $this->expectExceptionMessage('cargo de servicio no coincide');
+
+        // 15.00 sería correcto con el flag prendido (default) — pero acá
+        // está apagado, así que el esperado es 5.00 (solo inscripción).
+        app(CrearInscripcionAction::class)->handle($this->dtoConFee(15.00, talleres: 200));
+    }
 }

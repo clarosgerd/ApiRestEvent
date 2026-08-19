@@ -62,6 +62,9 @@ class Evento extends Model
         // false, los talleres siguen siendo seleccionables (con cupo /
         // conflicto / obligatorios) pero no suman al grand_total.
         'talleres_con_costo',
+        // Cargo de servicio sobre talleres, configurable por evento
+        // (19/08/2026) — ver migración add_fee_incluye_talleres_to_eventos_table.
+        'fee_incluye_talleres',
         // Inscripción en BOB y USD (18/08/2026) — ver
         // brain/PLAN-INSCRIPCION-BOB-USD-IMPLEMENTACION.md. Bandera por
         // evento que permite al organizador habilitar el pago en USD
@@ -82,6 +85,7 @@ protected $casts = [
     'es_historico'     => 'boolean',
     'fee_pct'          => 'float',
     'talleres_con_costo' => 'boolean',
+    'fee_incluye_talleres' => 'boolean',
     'acepta_usd'        => 'boolean',
 ];
     /**

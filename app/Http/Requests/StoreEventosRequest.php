@@ -53,6 +53,8 @@ class StoreEventosRequest extends FormRequest
             // y ResolverPrecioTallerData. Default false (los talleres se
             // configuran después de crear el evento).
             'talleresConCosto'      => 'nullable|boolean',
+            // Cargo de servicio sobre talleres (19/08/2026) — ver EventoDTO/CrearEventoAction.
+            'feeIncluyeTalleres'    => 'nullable|boolean',
             'video'                 => 'nullable|string|max:255',
             'image'                 => 'nullable|string|max:255',
             'colorHex'              => 'nullable|string|max:7',
