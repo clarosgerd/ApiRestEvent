@@ -32,7 +32,12 @@ class StoreEventosRequest extends FormRequest
             'subtipo_evento_id'     => 'nullable|integer|exists:subtipos_evento,id',
             'name'                  => 'required|string|max:255',
             'description'           => 'required|string|max:500',
-            'longDescription'       => 'nullable|string|max:500',
+            // Descripción larga (19/08/2026) — el límite de 500 quedaba corto
+            // para el uso real ("descripción larga" debía admitir más que la
+            // corta de arriba); la columna es TEXT (hasta 65535 bytes), así
+            // que 10000 caracteres es solo un techo razonable de captura, no
+            // una limitación real de la BD.
+            'longDescription'       => 'nullable|string|max:10000',
             'date'                  => 'required|date',
             'localTime'             => 'nullable|string',
             'location'              => 'required|string|max:500',
@@ -44,6 +49,10 @@ class StoreEventosRequest extends FormRequest
             // organizador habilita pago en USD (extranjeros). Default
             // false si no se manda (eventos existentes siguen BOB-only).
             'aceptaUsd'             => 'nullable|boolean',
+            // Congresos con talleres (19/08/2026) — ver EventoService::update()
+            // y ResolverPrecioTallerData. Default false (los talleres se
+            // configuran después de crear el evento).
+            'talleresConCosto'      => 'nullable|boolean',
             'video'                 => 'nullable|string|max:255',
             'image'                 => 'nullable|string|max:255',
             'colorHex'              => 'nullable|string|max:7',

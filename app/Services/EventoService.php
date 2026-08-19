@@ -44,6 +44,11 @@ class EventoService
             // brain/PLAN-INSCRIPCION-BOB-USD-IMPLEMENTACION.md. Mapea la
             // clave camelCase del Resource/Request a la columna snake_case.
             'aceptaUsd'        => 'acepta_usd',
+            // Congresos con talleres (19/08/2026) — el panel no tenía forma
+            // de prender este flag (solo se podía escribir directo en BD);
+            // sin él, ResolverPrecioTallerData siempre cobra $0 aunque el
+            // taller tenga precio cargado. Mismo patrón que aceptaUsd.
+            'talleresConCosto' => 'talleres_con_costo',
         ];
 
         // Columnas NOT NULL sin default en la migración original de `eventos`

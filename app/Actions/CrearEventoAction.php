@@ -44,6 +44,8 @@ class CrearEventoAction
                 // Inscripción en BOB y USD (18/08/2026) — ver
                 // brain/PLAN-INSCRIPCION-BOB-USD-IMPLEMENTACION.md.
                 'acepta_usd'          => $dto->aceptaUsd,
+                // Congresos con talleres (19/08/2026).
+                'talleres_con_costo'  => $dto->talleresConCosto,
                 'video_url'           => $dto->videoUrl ?? '',
                 'imagen_portada_url'  => $dto->imagenPortadaUrl ?? '',
                 // Default navy: mismo color que ya usaban gafetes/certificados antes de

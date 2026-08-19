@@ -46,7 +46,8 @@ class UpdateEventosRequest extends FormRequest
         return [
             'name'             => 'sometimes|string|max:255',
             'description'      => 'sometimes|string|max:500',
-            'longDescription'  => 'sometimes|nullable|string|max:500',
+            // Ver StoreEventosRequest — mismo motivo, 500 quedaba corto.
+            'longDescription'  => 'sometimes|nullable|string|max:10000',
             'date'             => 'sometimes|date',
             'localTime'        => 'sometimes|nullable|string',
             'location'         => 'sometimes|string|max:500',
@@ -55,6 +56,8 @@ class UpdateEventosRequest extends FormRequest
             // Inscripción en BOB y USD (18/08/2026) — ver
             // brain/PLAN-INSCRIPCION-BOB-USD-IMPLEMENTACION.md.
             'aceptaUsd'        => 'sometimes|boolean',
+            // Congresos con talleres (19/08/2026) — ver EventoService::update().
+            'talleresConCosto' => 'sometimes|boolean',
             'video'            => 'sometimes|nullable|string|max:255',
             'image'            => 'sometimes|nullable|string|max:255',
             'colorHex'         => 'sometimes|nullable|string|max:7',

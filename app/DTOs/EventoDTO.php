@@ -18,6 +18,11 @@ class EventoDTO
         // brain/PLAN-INSCRIPCION-BOB-USD-IMPLEMENTACION.md. Default
         // false: eventos existentes siguen BOB-only.
         public bool $aceptaUsd = false,
+        // Congresos con talleres (19/08/2026) — ver EventoService::update()
+        // y ResolverPrecioTallerData. Default false: si el organizador no
+        // lo prende, los talleres del evento no cobran aunque tengan un
+        // precio individual cargado.
+        public bool $talleresConCosto = false,
         public ?int $organizadorId,
         public ?int $tipoEventoId,
         public ?int $subtipoEventoId,
@@ -70,6 +75,8 @@ class EventoDTO
             hasDonation: (bool) ($data['hasDonation'] ?? false),
             // Inscripción en BOB y USD (18/08/2026).
             aceptaUsd: (bool) ($data['aceptaUsd'] ?? false),
+            // Congresos con talleres (19/08/2026).
+            talleresConCosto: (bool) ($data['talleresConCosto'] ?? $data['talleres_con_costo'] ?? false),
             organizadorId: isset($data['organizador_id']) ? (int) $data['organizador_id'] : null,
             // Default 1 ("Carrera de Ruta") si no viene: mismo comportamiento
             // histórico para no romper callers que todavía no lo mandan (la

@@ -358,6 +358,14 @@ class CrearInscripcionAction
      * período). Se cierra acá: se recalcula con el `fee_pct` real del
      * evento y se rechaza si no coincide (tolerancia de 2 centavos por
      * redondeo, no por permisividad).
+     *
+     * Base del fee (19/08/2026) — inscripción + talleres. Decisión
+     * revertida de la original "decisión T6" (18/08/2026, fee solo sobre
+     * inscripción): SIP/Multipago cobran su comisión sobre el monto total
+     * procesado, no por ítem, así que dejar los talleres fuera del fee
+     * significa absorber ese costo de gateway en esa porción — relevante
+     * porque un taller puede valer más que la inscripción misma.
+     * Souvenirs y donación siguen excluidos (igual que siempre).
      */
     private function validateFeePct(RegistrationDTO $dto): void
     {
@@ -366,7 +374,8 @@ class CrearInscripcionAction
             return; // el chequeo de evento inexistente ya lo hizo elascenso/event antes de llegar acá
         }
 
-        $feeEsperado = round($dto->totals->registration * (float) $evento->fee_pct, 2);
+        $baseFee = $dto->totals->registration + $dto->totals->talleres;
+        $feeEsperado = round($baseFee * (float) $evento->fee_pct, 2);
 
         if (abs($feeEsperado - $dto->totals->fee) > 0.02) {
             throw new \DomainException(

@@ -36,6 +36,7 @@ use App\Http\Controllers\CiudadController;
 use App\Http\Controllers\SexoController;
 use App\Http\Controllers\SubtipoEventoController;
 use App\Http\Controllers\RelacionContactoController;
+use App\Http\Controllers\FormasPagoController;
 
 Route::get('/user', function (Request $request) {
     return $request->user();
@@ -249,6 +250,12 @@ Route::group(['prefix' => 'v1','namespace' => 'App\Http\Controllers'], function 
             ->parameters(['organizadores' => 'organizador'])
             ->only(['index', 'show', 'store', 'update', 'destroy']);
 
+        // Formas de pago activas por organizador (19/08/2026) — ver
+        // brain/PLAN-INTEGRACION-PAGO-MERU-19082026.md y
+        // Organizador::formasPagoSeleccionadas()/formasPagoEfectivas().
+        Route::get('/organizadores/{organizador}/formas-pago', [OrganizadorController::class, 'formasPago']);
+        Route::put('/organizadores/{organizador}/formas-pago', [OrganizadorController::class, 'updateFormasPago']);
+
         // Catálogos globales (15/08/2026) — País/Ciudad/Sexo/Tipo de
         // evento/Subtipo de evento/Relación de contacto, todos config
         // global (no scoped por evento), solo super_admin, mismo criterio
@@ -289,6 +296,15 @@ Route::group(['prefix' => 'v1','namespace' => 'App\Http\Controllers'], function 
             Route::post('/relaciones-contacto', [RelacionContactoController::class, 'store']);
             Route::put('/relaciones-contacto/{relacionContacto}', [RelacionContactoController::class, 'update']);
             Route::delete('/relaciones-contacto/{relacionContacto}', [RelacionContactoController::class, 'destroy']);
+
+            // Formas de pago (19/08/2026) — ver
+            // brain/PLAN-INTEGRACION-PAGO-MERU-19082026.md. Mismo criterio
+            // que los catálogos de arriba, pero administra formas_pagos, no
+            // uno de los catálogos "config" clásicos.
+            Route::get('/formas-pago', [FormasPagoController::class, 'index']);
+            Route::post('/formas-pago', [FormasPagoController::class, 'store']);
+            Route::put('/formas-pago/{formasPago}', [FormasPagoController::class, 'update']);
+            Route::delete('/formas-pago/{formasPago}', [FormasPagoController::class, 'destroy']);
         });
 
         Route::get('/event/{event}/liquidacion/preview', [LiquidacionController::class, 'preview']);

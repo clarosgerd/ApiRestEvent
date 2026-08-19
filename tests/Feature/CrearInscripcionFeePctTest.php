@@ -69,7 +69,7 @@ class CrearInscripcionFeePctTest extends TestCase
         ]);
     }
 
-    private function dtoConFee(float $fee): RegistrationDTO
+    private function dtoConFee(float $fee, float $talleres = 0): RegistrationDTO
     {
         $participante = [
             'nombre' => 'Ana', 'apellido' => 'Prueba', 'alias' => '', 'genero' => 'Femenino',
@@ -80,7 +80,7 @@ class CrearInscripcionFeePctTest extends TestCase
             'contacto_emergencia' => ['nombre' => 'X', 'celular' => '123', 'relacion' => 'Madre'],
             'souvenirs' => [], 'answers' => [],
             'categoria' => (string) $this->categoria->id, 'precioCategoria' => 100, 'donacion' => 0, 'promoDescuento' => 0, 'promoCodigo' => '',
-            'subtotal' => 100 + $fee,
+            'subtotal' => 100 + $fee + $talleres,
         ];
 
         return RegistrationDTO::fromArray([
@@ -93,8 +93,8 @@ class CrearInscripcionFeePctTest extends TestCase
             'pago_status' => 'pending',
             'pay_order_number' => null,
             'totales' => [
-                'inscripcion' => 100, 'donacion' => 0, 'souvenirs' => 0, 'fee' => $fee,
-                'descuento' => 0, 'descuento_registrante' => 0, 'grand_total' => 100 + $fee,
+                'inscripcion' => 100, 'donacion' => 0, 'souvenirs' => 0, 'talleres' => $talleres, 'fee' => $fee,
+                'descuento' => 0, 'descuento_registrante' => 0, 'grand_total' => 100 + $fee + $talleres,
             ],
             'participantes' => [$participante],
         ]);
@@ -131,5 +131,27 @@ class CrearInscripcionFeePctTest extends TestCase
         $this->expectException(\DomainException::class);
 
         app(CrearInscripcionAction::class)->handle($this->dtoConFee(5.00));
+    }
+
+    /**
+     * Base del fee = inscripción + talleres (19/08/2026) — antes solo
+     * inscripción ("decisión T6"). Inscripción 100 + talleres 200 = 300
+     * base, 5% = 15.00.
+     */
+    public function test_acepta_el_fee_correcto_incluyendo_talleres(): void
+    {
+        $registration = app(CrearInscripcionAction::class)->handle($this->dtoConFee(15.00, talleres: 200));
+
+        $this->assertDatabaseHas('registrations', ['id' => $registration->id]);
+    }
+
+    public function test_rechaza_un_fee_que_ignora_los_talleres(): void
+    {
+        $this->expectException(\DomainException::class);
+        $this->expectExceptionMessage('cargo de servicio no coincide');
+
+        // 5.00 sería correcto si el fee solo mirara inscripción (100) —
+        // pero con talleres (200) en la base, el esperado es 15.00.
+        app(CrearInscripcionAction::class)->handle($this->dtoConFee(5.00, talleres: 200));
     }
 }
