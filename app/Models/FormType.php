@@ -14,6 +14,9 @@ class FormType extends Model
         'event_id',
         'name',
         'icon',
+        // Tarjeta de tipo de formulario simplificada (19/08/2026) — imagen
+        // opcional; si está vacía, el frontend cae al emoji de `icon`.
+        'imagen_url',
         'description',
         'tipo',
         'cupo_total',

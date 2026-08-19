@@ -18,6 +18,9 @@ use App\Services\NotificacionService;
 use App\Services\RegistrationService;
 use App\Support\DisponibilidadItemData;
 use App\Support\PrecioVigenteData;
+use App\Support\CurrencyResolverData;
+use App\Support\Taller\ResolverPrecioTallerData;
+use App\Support\Taller\ValidarSeleccionesTallerAction;
 use Illuminate\Support\Facades\DB;
 
 class CrearInscripcionAction
@@ -81,13 +84,31 @@ class CrearInscripcionAction
 
             $this->validateFormTypeActivoYStock($dto);
             $this->validateFeePct($dto);
+            // Inscripción en BOB y USD (18/08/2026) — ver
+            // brain/PLAN-INSCRIPCION-BOB-USD-IMPLEMENTACION.md. Valida
+            // que el snapshot de moneda/tasa enviado por el frontend sea
+            // consistente con el grand_total BOB dentro de la tolerancia.
+            // Si la moneda es BOB simplemente se ignora el snapshot y se
+            // persiste null (default legacy).
+            $this->validateMonedaPago($dto);
 
             foreach ($dto->participants as $participant) {
                 $this->validateParticipantRegistration($dto, $participant);
                 $this->validatePrecioCategoria($dto, $participant);
                 $this->validateEquipo($dto, $participant);
                 $this->validateDelivery($dto, $participant);
+                // Congresos con talleres (18/08/2026) — pertenencia,
+                // duplicado y solape, sin lock (la capacidad se valida
+                // aparte, ya con lockForUpdate). Ver
+                // brain/PLAN-CONGRESOS-TALLERES-HORARIOS-IMPLEMENTACION.md.
+                ValidarSeleccionesTallerAction::runPorParticipante($dto, $participant);
             }
+
+            // Capacidad de cada sesión con lock (transaccional) y
+            // validación de talleres REQUIRED — ambas dentro del mismo
+            // `DB::transaction` que ya existe.
+            ValidarSeleccionesTallerAction::runCapacidad($dto);
+            ValidarSeleccionesTallerAction::runRequeridos($dto);
 
             $this->validateDuplicateParticipants($dto);
 
@@ -100,6 +121,13 @@ class CrearInscripcionAction
                 'tipo_pago' => $dto->paymentType,
                 'pago_status' => $dto->paymentStatus,
                 'pay_order_number' => $dto->payOrderNumber,
+                // Inscripción en BOB y USD (18/08/2026) — snapshot
+                // persistido por CurrencyResolverData (BOB => null/USD =>
+                // valores validados). El default null de la BD hace que
+                // eventos BOB-only existentes queden sin cambios.
+                'moneda_pago' => $dto->monedaPago ?? 'BOB',
+                'tipo_cambio_aplicado' => $dto->tipoCambioAplicado,
+                'total_pagado' => $dto->totalPagado,
             ]);
 
             foreach ($dto->participants as $participant) {
@@ -139,6 +167,10 @@ class CrearInscripcionAction
             'inscripcion' => $dto->totals->registration,
             'donacion' => $dto->totals->donation,
             'souvenirs' => $dto->totals->souvenirs,
+            // Congresos con talleres (18/08/2026) — ver
+            // brain/PLAN-CONGRESOS-TALLERES-HORARIOS-IMPLEMENTACION.md.
+            // Default 0 si el evento no tiene talleres (compatibilidad).
+            'talleres' => $dto->totals->talleres,
             'fee' => $dto->totals->fee,
             'descuento' => $dto->totals->discount,
             'descuento_registrante' => $dto->totals->groupDiscount,
@@ -226,6 +258,45 @@ class CrearInscripcionAction
                 'value'           => $answer->value,
             ]);
         }
+
+        // Congresos con talleres (18/08/2026) — ver
+        // brain/PLAN-CONGRESOS-TALLERES-HORARIOS-IMPLEMENTACION.md. Por
+        // cada selección de taller del participante: resolver precio
+        // efectivo server-side (cliente nunca es autoridad — mismo
+        // criterio que precioCategoria/fee) y persistir snapshot.
+        if (! empty($dto->talleres)) {
+            $evento = Evento::find($registration->evento_id);
+            foreach ($dto->talleres as $tallerSel) {
+                $sesion = \App\Models\SesionCongreso::with('taller')
+                    ->where('id', $tallerSel->sesionCongresoId)
+                    ->where('evento_id', $registration->evento_id)
+                    ->first();
+
+                if (! $sesion || ! $sesion->taller_id) {
+                    continue; // ya validado arriba; defensa silenciosa
+                }
+
+                $unitPrice = ResolverPrecioTallerData::unitPrice(
+                    $sesion->taller,
+                    $sesion,
+                    $evento
+                );
+                $total = ResolverPrecioTallerData::total(
+                    $sesion->taller,
+                    $sesion,
+                    $evento
+                );
+
+                \App\Models\ParticipanteTallerSesion::create([
+                    'participante_id'     => $participant->id,
+                    'sesion_congreso_id'  => $sesion->id,
+                    'taller_id'           => $sesion->taller_id,
+                    'unit_price'          => $unitPrice,
+                    'discount'            => 0,
+                    'total'               => $total,
+                ]);
+            }
+        }
     }
 
     /**
@@ -305,6 +376,54 @@ class CrearInscripcionAction
                 )
             );
         }
+    }
+
+    /**
+     * Inscripción en BOB y USD (18/08/2026) — ver
+     * brain/PLAN-INSCRIPCION-BOB-USD-IMPLEMENTACION.md. Enforce:
+     *
+     * 1. Si el evento NO tiene `acepta_usd` y el cliente mandó USD →
+     *    DomainException (defensa en profundidad: el proxy PHP
+     *    `_registro_validacion.php` ya filtra antes, pero si alguien
+     *    llama esta Action directo con un payload mal formado, no pasa).
+     * 2. Si el cliente eligió USD con snapshot válido, CurrencyResolverData
+     *    valida que `total_pagado ≈ grand_total_bob * tipo_cambio_aplicado`
+     *    dentro de tolerancia.
+     * 3. Normaliza el DTO: persiste los campos validados en el DTO para
+     *    que el `Registration::create([...])` de más abajo los guarde.
+     *
+     * Llamar ANTES del loop de participantes (las validaciones de cada
+     * participante no dependen de la moneda, pero el save sí — mejor
+     * normalizar el DTO al inicio).
+     */
+    private function validateMonedaPago(RegistrationDTO $dto): void
+    {
+        $evento = Evento::find($dto->eventId);
+        if (!$evento) {
+            return; // chequeo previo del caller
+        }
+
+        $moneda = strtoupper((string) ($dto->monedaPago ?? 'BOB'));
+
+        if ($moneda === 'USD' && ! $evento->acepta_usd) {
+            throw new \DomainException(
+                'Este evento solo acepta pago en BOB. Recargá la página e intentá de nuevo.'
+            );
+        }
+
+        $resuelto = CurrencyResolverData::resolver(
+            (float) ($dto->totals->grandTotal ?? 0),
+            $moneda,
+            $dto->tipoCambioAplicado,
+            $dto->totalPagado,
+        );
+
+        // Normalizamos el DTO para que `Registration::create()` y
+        // `RegistrationResource` lean siempre los valores finales validados.
+        // En BOB quedan null (default legacy, comportamiento idéntico a hoy).
+        $dto->monedaPago = $moneda;
+        $dto->totalPagado = $resuelto['total_pagado'];
+        $dto->tipoCambioAplicado = $resuelto['tipo_cambio_aplicado'];
     }
 
     private function validateParticipantRegistration(

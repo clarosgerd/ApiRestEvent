@@ -11,6 +11,19 @@ class StoreEventosRequest extends FormRequest
         return true;
     }
 
+    /**
+     * `nullable` solo exime el valor `null` real — un `url_slug=""` (campo
+     * de formulario dejado en blanco) sigue siendo un string y rompería el
+     * `regex` de abajo. Se normaliza a `null` acá para que "vacío" siempre
+     * signifique "auto-generar" (ver CrearEventoAction).
+     */
+    protected function prepareForValidation(): void
+    {
+        if ($this->has('url_slug') && trim((string) $this->input('url_slug')) === '') {
+            $this->merge(['url_slug' => null]);
+        }
+    }
+
     public function rules(): array
     {
         return [
@@ -26,12 +39,21 @@ class StoreEventosRequest extends FormRequest
             'status'                => 'nullable|string|in:open,closed,coming_soon',
             'publicado'             => 'nullable|boolean',
             'hasDonation'           => 'nullable|boolean',
+            // Inscripción en BOB y USD (18/08/2026) — ver
+            // brain/PLAN-INSCRIPCION-BOB-USD-IMPLEMENTACION.md. Si el
+            // organizador habilita pago en USD (extranjeros). Default
+            // false si no se manda (eventos existentes siguen BOB-only).
+            'aceptaUsd'             => 'nullable|boolean',
             'video'                 => 'nullable|string|max:255',
             'image'                 => 'nullable|string|max:255',
             'colorHex'              => 'nullable|string|max:7',
             'chronotrackEventId'    => 'nullable|string|max:50',
             'deslinde'              => 'nullable|string|max:500',
             'deslinde_pdf_url'      => 'nullable|string|max:500',
+            // Link directo al evento (18/08/2026) — ver elascenso/event,
+            // Evento::resolveRouteBinding(). Vacío/ausente = se
+            // auto-genera desde `name` (ver CrearEventoAction).
+            'url_slug'              => 'nullable|string|max:255|regex:/^[a-z0-9]+(-[a-z0-9]+)*$/|unique:eventos,url_slug',
 
             'coordinates'           => 'nullable|array',
             'coordinates.*.lat'     => 'required_with:coordinates|numeric',
@@ -51,6 +73,8 @@ class StoreEventosRequest extends FormRequest
             'formTypes'             => 'nullable|array',
             'formTypes.*.name'      => 'required_with:formTypes|string|max:255',
             'formTypes.*.icon'      => 'nullable|string',
+            // Tarjeta de tipo de formulario simplificada (19/08/2026).
+            'formTypes.*.imagen_url' => 'nullable|string|max:500',
             'formTypes.*.description' => 'nullable|string',
             'formTypes.*.tipo'      => 'nullable|string',
             'formTypes.*.cupo_total' => 'required_with:formTypes|integer|min:0',

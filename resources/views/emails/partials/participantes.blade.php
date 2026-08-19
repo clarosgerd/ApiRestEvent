@@ -16,7 +16,7 @@
           Categoría: <strong>{{ $categoriasPorId->get($p->categoria)->name ?? $p->categoria }}</strong> · Bs{{ number_format((float) $p->precio_categoria, 2) }}<br>
           Documento: <strong>{{ $p->tipo_documento }} {{ $p->numero_documento }}</strong><br>
           Camiseta: <strong>{{ $p->polera }}</strong><br>
-          Recuerdos:
+          Taller:
           @if ($p->souvenirParticipante->isEmpty())
             Ninguno
           @else

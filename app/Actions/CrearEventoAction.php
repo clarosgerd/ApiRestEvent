@@ -41,6 +41,9 @@ class CrearEventoAction
                 'publicado'           => $dto->publicado,
                 'hasDonation'         => $dto->hasDonation,
                 'hasPromoCode'        => !empty($dto->promoCodes),
+                // Inscripción en BOB y USD (18/08/2026) — ver
+                // brain/PLAN-INSCRIPCION-BOB-USD-IMPLEMENTACION.md.
+                'acepta_usd'          => $dto->aceptaUsd,
                 'video_url'           => $dto->videoUrl ?? '',
                 'imagen_portada_url'  => $dto->imagenPortadaUrl ?? '',
                 // Default navy: mismo color que ya usaban gafetes/certificados antes de
@@ -69,7 +72,13 @@ class CrearEventoAction
                 'pais_id'                => 1,
                 'ciudad_id'              => 1,
                 'nombre_corto'           => Str::limit($dto->nombre, 60, ''),
-                'url_slug'               => Str::slug($dto->nombre) . '-' . Str::lower(Str::random(6)),
+                // Link directo al evento (18/08/2026) — ver elascenso/event,
+                // Evento::resolveRouteBinding(). Si el caller (admin-eventos)
+                // mandó uno propio, ya viene validado y único
+                // (StoreEventosRequest); si no, se auto-genera desde el
+                // nombre + sufijo random (comportamiento histórico desde
+                // 09/08/2026, sigue garantizando unicidad de hecho).
+                'url_slug'               => $dto->urlSlug ?: (Str::slug($dto->nombre) . '-' . Str::lower(Str::random(6))),
                 'keyword'                => Str::slug($dto->nombre),
                 'reglamento'             => '',
                 'deslinde'               => $dto->deslinde ?? '',
@@ -199,6 +208,8 @@ class CrearEventoAction
                 'event_id'              => $evento->id,
                 'name'                  => $formTypeDTO->name,
                 'icon'                  => $formTypeDTO->icon,
+                // Tarjeta de tipo de formulario simplificada (19/08/2026).
+                'imagen_url'            => $formTypeDTO->imagenUrl,
                 'description'           => $formTypeDTO->description,
                 'tipo'                  => $formTypeDTO->tipo,
                 'cupo_total'            => $formTypeDTO->cupoTotal,

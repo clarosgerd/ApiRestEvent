@@ -23,11 +23,21 @@ class Registration extends Model
         'tipo_pago',
         'pago_status',
         'pay_order_number',
+        // Inscripción en BOB y USD (18/08/2026) — ver
+        // brain/PLAN-INSCRIPCION-BOB-USD-IMPLEMENTACION.md. Snapshot de la
+        // moneda y la tasa al confirmar el pago (USD) o null/BOB en el
+        // camino legacy. Default 'BOB' en la BD.
+        'moneda_pago',
+        'tipo_cambio_aplicado',
+        'total_pagado',
         'origen_legado', // ETL de datos históricos 2014-hoy, ver elascenso/event/brain/
     ];
 
     protected $casts = [
         'fecha' => 'datetime',
+        'moneda_pago' => 'string',
+        'tipo_cambio_aplicado' => 'decimal:4',
+        'total_pagado' => 'decimal:2',
     ];
 
     public function totals(): HasOne

@@ -14,6 +14,10 @@ class EventoDTO
         public string $status,
         public bool $publicado,
         public bool $hasDonation,
+        // Inscripción en BOB y USD (18/08/2026) — ver
+        // brain/PLAN-INSCRIPCION-BOB-USD-IMPLEMENTACION.md. Default
+        // false: eventos existentes siguen BOB-only.
+        public bool $aceptaUsd = false,
         public ?int $organizadorId,
         public ?int $tipoEventoId,
         public ?int $subtipoEventoId,
@@ -26,6 +30,11 @@ class EventoDTO
         public ?string $chronotrackEventId,
         public ?string $deslinde,
         public ?string $deslindePdfUrl,
+        // Link directo al evento (18/08/2026) — ver elascenso/event,
+        // Evento::resolveRouteBinding(). Si viene vacío, CrearEventoAction
+        // auto-genera uno desde `nombre` (comportamiento histórico desde
+        // 09/08/2026) — acá solo se lee lo que mandó el caller.
+        public ?string $urlSlug,
         /** @var CoordinateDTO[] */
         public array $coordinates,
         /** @var RouteDTO[] */
@@ -59,6 +68,8 @@ class EventoDTO
             // verdad lo necesita, pero el default ya no es "publicado".
             publicado: (bool) ($data['publicado'] ?? false),
             hasDonation: (bool) ($data['hasDonation'] ?? false),
+            // Inscripción en BOB y USD (18/08/2026).
+            aceptaUsd: (bool) ($data['aceptaUsd'] ?? false),
             organizadorId: isset($data['organizador_id']) ? (int) $data['organizador_id'] : null,
             // Default 1 ("Carrera de Ruta") si no viene: mismo comportamiento
             // histórico para no romper callers que todavía no lo mandan (la
@@ -72,6 +83,7 @@ class EventoDTO
             chronotrackEventId: $data['chronotrackEventId'] ?? $data['chronotrack_event_id'] ?? null,
             deslinde: $data['deslinde'] ?? null,
             deslindePdfUrl: $data['deslinde_pdf_url'] ?? null,
+            urlSlug: $data['url_slug'] ?? $data['urlSlug'] ?? null,
             coordinates: array_map(
                 fn(array $c) => CoordinateDTO::fromArray($c),
                 $data['coordinates'] ?? []

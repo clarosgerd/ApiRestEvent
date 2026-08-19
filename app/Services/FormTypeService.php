@@ -23,6 +23,8 @@ class FormTypeService
                 'event_id'                   => $data['event_id'],
                 'name'                       => $data['name'],
                 'icon'                       => $data['icon'],
+                // Tarjeta de tipo de formulario simplificada (19/08/2026).
+                'imagen_url'                 => $data['imagen_url'] ?? null,
                 'description'                => $data['description'],
                 'tipo'                       => $data['tipo'] ?? 'deportivo',
                 'cupo_total'                 => $data['cupo_total'],

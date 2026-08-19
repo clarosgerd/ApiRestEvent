@@ -7,6 +7,7 @@ use Illuminate\Http\Resources\Json\JsonResource;
 use App\Http\Resources\ContactoEmergenciaParticipanteResource;
 use App\Http\Resources\SouvenirParticipanteResource;
 use App\Http\Resources\AnswerResource;
+use App\Http\Resources\ParticipanteTallerSesionResource;
 
 class ParticipanteResource extends JsonResource
 {
@@ -47,6 +48,14 @@ class ParticipanteResource extends JsonResource
 
             'souvenirs' => SouvenirParticipanteResource::collection(
                 $this->whenLoaded('souvenirParticipante')
+            ),
+
+            // Congresos con talleres (18/08/2026) — ver
+            // brain/PLAN-CONGRESOS-TALLERES-HORARIOS-IMPLEMENTACION.md.
+            // Se expone solo si el eager-load está presente (mismo patrón
+            // que souvenirs/answers).
+            'talleres' => ParticipanteTallerSesionResource::collection(
+                $this->whenLoaded('talleresSesiones')
             ),
 
             'answers' => AnswerResource::collection(

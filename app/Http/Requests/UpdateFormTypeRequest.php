@@ -30,6 +30,8 @@ class UpdateFormTypeRequest extends FormRequest
         return [
             'name'                       => 'sometimes|string|max:255',
             'icon'                       => 'sometimes|string|max:255',
+            // Tarjeta de tipo de formulario simplificada (19/08/2026).
+            'imagen_url'                 => 'sometimes|nullable|string|max:500',
             'description'                => 'sometimes|string',
             'tipo'                       => 'sometimes|nullable|string',
             'cupo_total'                 => 'sometimes|integer|min:0',

@@ -14,6 +14,7 @@ use App\Models\PresupuestoEvento;
 use App\Models\Registration;
 use App\Models\SesionCongreso;
 use App\Models\SubtipoEvento;
+use App\Models\Taller;
 use App\Models\TipoEvento;
 use Illuminate\Database\Seeder;
 
@@ -49,14 +50,39 @@ class DemoCongresoSeeder extends Seeder
             'pais_id' => $pais->id,
             'ciudad_id' => $ciudad->id,
             'estado_evento_id' => 'closed',
+            // Congresos con talleres (18/08/2026) — ver
+            // brain/PLAN-CONGRESOS-TALLERES-HORARIOS-IMPLEMENTACION.md.
+            // El evento demo cobra por taller para ejercitar la ruta de
+            // precios.
+            'talleres_con_costo' => true,
             'nombre' => 'Congreso Demo QA (seeder 11/08/2026)',
         ]);
 
         $formType = FormType::factory()->create(['event_id' => $evento->id]);
 
+        // Congresos con talleres (18/08/2026) — crear 2 talleres antes de
+        // asignar las sesiones. Uno REQUIRED (Ética profesional) y uno
+        // OPTIONAL (IA aplicada) con horarios distintos.
+        $tallerEtica = Taller::factory()->create([
+            'evento_id'  => $evento->id,
+            'nombre'     => 'Ética profesional',
+            'modalidad'  => 'REQUIRED',
+            'precio'     => 50,
+            'orden'      => 1,
+        ]);
+
+        $tallerIA = Taller::factory()->create([
+            'evento_id'  => $evento->id,
+            'nombre'     => 'IA aplicada',
+            'modalidad'  => 'OPTIONAL',
+            'precio'     => 75,
+            'orden'      => 2,
+        ]);
+
         $sesiones = [
             SesionCongreso::factory()->create([
                 'evento_id' => $evento->id,
+                'taller_id' => null, // keynote sigue como ponencia suelta
                 'titulo' => 'Keynote de apertura',
                 'ponente' => 'Jane Doe',
                 'sala' => 'Auditorio Principal',
@@ -65,19 +91,36 @@ class DemoCongresoSeeder extends Seeder
             ]),
             SesionCongreso::factory()->create([
                 'evento_id' => $evento->id,
-                'titulo' => 'Taller de Laravel',
-                'ponente' => 'John Smith',
-                'sala' => 'Sala B',
+                'taller_id' => $tallerEtica->id,
+                'titulo' => 'Ética — sesión mañana',
+                'ponente' => 'Carlos López',
+                'sala' => 'Sala A',
                 'hora_inicio' => '10:30:00',
                 'hora_fin' => '12:00:00',
+                'cupo' => 30,
             ]),
             SesionCongreso::factory()->create([
                 'evento_id' => $evento->id,
-                'titulo' => 'Panel de cierre',
+                'taller_id' => $tallerEtica->id,
+                // Congresos con talleres (18/08/2026) — override de precio
+                // por sesión (mayor al del taller).
+                'precio' => 60,
+                'titulo' => 'Ética — sesión tarde',
+                'ponente' => 'Carlos López',
+                'sala' => 'Sala A',
+                'hora_inicio' => '14:00:00',
+                'hora_fin' => '16:00:00',
+                'cupo' => 30,
+            ]),
+            SesionCongreso::factory()->create([
+                'evento_id' => $evento->id,
+                'taller_id' => $tallerIA->id,
+                'titulo' => 'IA aplicada — bloque único',
                 'ponente' => 'María Pérez',
-                'sala' => 'Auditorio Principal',
+                'sala' => 'Sala B',
                 'hora_inicio' => '15:00:00',
                 'hora_fin' => '16:00:00',
+                'cupo' => 25,
             ]),
         ];
 

@@ -23,6 +23,7 @@ class SesionCongreso extends Model
     protected $fillable = [
         'evento_id',
         'agenda_item_id',
+        'taller_id',
         'titulo',
         'ponente',
         'ponente_cargo',
@@ -31,12 +32,14 @@ class SesionCongreso extends Model
         'hora_inicio',
         'hora_fin',
         'cupo',
+        'precio',
         'requiere_inscripcion',
         'activa',
     ];
 
     protected $casts = [
         'fecha' => 'date',
+        'precio' => 'decimal:2',
         'requiere_inscripcion' => 'boolean',
         'activa' => 'boolean',
     ];
@@ -44,6 +47,25 @@ class SesionCongreso extends Model
     public function evento(): BelongsTo
     {
         return $this->belongsTo(Evento::class, 'evento_id');
+    }
+
+    /**
+     * Taller al que pertenece esta sesión. Si es null, la sesión es una
+     * ponencia suelta (no seleccionable en la inscripción, solo visible
+     * en agenda / check-in). Ver
+     * brain/PLAN-CONGRESOS-TALLERES-HORARIOS-IMPLEMENTACION.md.
+     */
+    public function taller(): BelongsTo
+    {
+        return $this->belongsTo(Taller::class, 'taller_id');
+    }
+
+    /**
+     * Selecciones (pivote) de esta sesión — útil para cupos y reportes.
+     */
+    public function participanteSesiones(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(ParticipanteTallerSesion::class, 'sesion_congreso_id');
     }
 
     public function agendaItem(): BelongsTo

@@ -76,6 +76,16 @@ class Participante extends Model
         return $this->hasMany(SouvenirParticipante::class);
     }
 
+    /**
+     * Sesiones de taller (de congreso) que este participante seleccionó
+     * durante su inscripción. Snapshot financiero por fila. Ver
+     * brain/PLAN-CONGRESOS-TALLERES-HORARIOS-IMPLEMENTACION.md.
+     */
+    public function talleresSesiones(): HasMany
+    {
+        return $this->hasMany(ParticipanteTallerSesion::class, 'participante_id');
+    }
+
      public function answers(): HasMany
     {
         return $this->hasMany(Answer::class);

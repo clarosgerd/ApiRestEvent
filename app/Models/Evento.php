@@ -57,6 +57,17 @@ class Evento extends Model
         'tiene_delivery',
         'tiene_punto_venta',
         'tiene_desafios',
+        // Congresos con talleres (18/08/2026) — ver
+        // brain/PLAN-CONGRESOS-TALLERES-HORARIOS-IMPLEMENTACION.md. Si es
+        // false, los talleres siguen siendo seleccionables (con cupo /
+        // conflicto / obligatorios) pero no suman al grand_total.
+        'talleres_con_costo',
+        // Inscripción en BOB y USD (18/08/2026) — ver
+        // brain/PLAN-INSCRIPCION-BOB-USD-IMPLEMENTACION.md. Bandera por
+        // evento que permite al organizador habilitar el pago en USD
+        // (extranjeros). Default false: comportamiento BOB-only idéntico
+        // al actual.
+        'acepta_usd',
         'publicado',
         'destacado',
         'es_historico', // ETL de datos históricos 2014-hoy, ver elascenso/event/brain/
@@ -65,12 +76,33 @@ class Evento extends Model
     ];
 
 protected $casts = [
-    'hasDonation'  => 'boolean',
-    'hasPromoCode' => 'boolean',
-    'publicado'    => 'boolean',
-    'es_historico' => 'boolean',
-    'fee_pct'      => 'float',
+    'hasDonation'      => 'boolean',
+    'hasPromoCode'     => 'boolean',
+    'publicado'        => 'boolean',
+    'es_historico'     => 'boolean',
+    'fee_pct'          => 'float',
+    'talleres_con_costo' => 'boolean',
+    'acepta_usd'        => 'boolean',
 ];
+    /**
+     * Permite que las rutas `{event}` (GET/PUT/DELETE /event/{event}, y
+     * todas las que cuelgan de ella) acepten tanto el id numérico como
+     * `url_slug` — ver elascenso/event, pedido 18/08/2026: link directo al
+     * evento (?evento=<slug>) legible en vez de solo el id. `url_slug` no
+     * tiene índice único todavía (columna libre, sin UI en admin-eventos
+     * para editarla hoy) — si dos eventos comparten el mismo valor, se
+     * resuelve al primero que encuentre; agregar un índice único cuando
+     * `url_slug` se vuelva editable de verdad.
+     */
+    public function resolveRouteBinding($value, $field = null)
+    {
+        if ($field === null && ctype_digit((string) $value)) {
+            return $this->where('id', $value)->first();
+        }
+
+        return $this->where($field ?? 'url_slug', $value)->first();
+    }
+
       public function coordinates()
    {
       return $this->hasMany('App\Models\Coordinate', 'event_id');
@@ -128,6 +160,16 @@ protected $casts = [
     public function sesionesCongreso()
     {
        return $this->hasMany(SesionCongreso::class, 'evento_id');
+    }
+
+    /**
+     * Talleres del congreso (sesiones agrupadas con modalidad y precio
+     * propio). Ver
+     * brain/PLAN-CONGRESOS-TALLERES-HORARIOS-IMPLEMENTACION.md.
+     */
+    public function talleres()
+    {
+        return $this->hasMany(Taller::class, 'evento_id')->orderBy('orden')->orderBy('id');
     }
 
     public function organizador()

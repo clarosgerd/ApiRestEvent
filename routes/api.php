@@ -22,6 +22,7 @@ use App\Http\Controllers\PresupuestoCategoriaController;
 use App\Http\Controllers\SesionCongresoController;
 use App\Http\Controllers\SesionCongresoStaffController;
 use App\Http\Controllers\AsistenciaSesionController;
+use App\Http\Controllers\TallerCongresoController;
 use App\Http\Controllers\ItemBodegaController;
 use App\Http\Controllers\ItemStockController;
 use App\Http\Controllers\CategoryPricePeriodController;
@@ -172,6 +173,16 @@ Route::group(['prefix' => 'v1','namespace' => 'App\Http\Controllers'], function 
         Route::post('/event/{event}/sesiones', [SesionCongresoController::class, 'store']);
         Route::put('/event/{event}/sesiones/{sesion}', [SesionCongresoController::class, 'update']);
         Route::delete('/event/{event}/sesiones/{sesion}', [SesionCongresoController::class, 'destroy']);
+
+        // Congresos con talleres (18/08/2026) — ver
+        // brain/PLAN-CONGRESOS-TALLERES-HORARIOS-IMPLEMENTACION.md. CRUD
+        // de talleres (agrupación de sesiones con modalidad REQUIRED/
+        // OPTIONAL y precio). Mismo scoping que sesiones.
+        Route::get('/event/{event}/talleres', [TallerCongresoController::class, 'index']);
+        Route::post('/event/{event}/talleres', [TallerCongresoController::class, 'store']);
+        Route::get('/event/{event}/talleres/{taller}', [TallerCongresoController::class, 'show']);
+        Route::put('/event/{event}/talleres/{taller}', [TallerCongresoController::class, 'update']);
+        Route::delete('/event/{event}/talleres/{taller}', [TallerCongresoController::class, 'destroy']);
         Route::get('/event/{event}/sesiones/{sesion}/lookup/{reference}', [AsistenciaSesionController::class, 'lookup']);
         Route::patch('/event/{event}/sesiones/{sesion}/participantes/{participante}/checkin', [AsistenciaSesionController::class, 'checkin']);
         Route::post('/event/{event}/sesiones/{sesion}/checkin-bulk', [AsistenciaSesionController::class, 'checkinBulk']);

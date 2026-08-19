@@ -48,7 +48,11 @@ class EventoResource extends JsonResource
             //new UserResource($this->whenLoaded('author')),
             'status'                    =>$this->estado_evento_id,
      //       'nombre_corto'              =>$this->nombre_corto,
-     //       'url_slug'                  =>$this->url_slug,
+            // Link directo al evento (18/08/2026) — ver elascenso/event,
+            // Evento::resolveRouteBinding(). Null/'' si el organizador
+            // nunca lo seteó (sin UI en admin-eventos todavía); el
+            // frontend cae a `id` para armar el link para compartir.
+            'urlSlug'                   =>$this->url_slug ?: null,
      //       'keyword'                   =>$this->keyword,
             'image'                     =>$this->imagen_portada_url,
             'colorHex'                  =>$this->color_hex,
@@ -96,6 +100,18 @@ class EventoResource extends JsonResource
             'promoCodes'                 =>PromoCodeResource::collection($this->whenLoaded('promoCodes')),  // Códigos promocionales del evento
             'auspiciadores'              =>AuspiciadorResource::collection($this->whenLoaded('auspiciadores')),  // Auspiciadores del evento (carrusel de logos)
             'agenda'                     =>AgendaItemResource::collection($this->whenLoaded('agendaItems')),  // Agenda del evento (sesiones/ponentes/salas o cronograma del día)
+            // Congresos con talleres (18/08/2026) — ver
+            // brain/PLAN-CONGRESOS-TALLERES-HORARIOS-IMPLEMENTACION.md.
+            // Solo se carga cuando el eager-load lo pide (talleres.sesiones)
+            // para no inflar el payload público con datos admin. Cada taller
+            // carga sus sesiones activas con cupo/ocupados.
+            'talleres'                   =>TallerResource::collection($this->whenLoaded('talleres')),
+            'talleresConCosto'           =>(bool) $this->talleres_con_costo,
+            // Inscripción en BOB y USD (18/08/2026) — ver
+            // brain/PLAN-INSCRIPCION-BOB-USD-IMPLEMENTACION.md. Si es
+            // false, el frontend del participante oculta el selector de
+            // moneda y fuerza BOB (comportamiento legacy).
+            'aceptaUsd'                  =>(bool) $this->acepta_usd,
             'equipos'                    =>EquipoResource::collection($this->whenLoaded('equipos')),  // Catálogo de equipos (precargado por el organizador) para form_types con hasTeam
     //        'contador_visitas'          =>$this->contador_visitas
     ];

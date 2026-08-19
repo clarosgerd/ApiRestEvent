@@ -271,9 +271,22 @@ class EventoController extends Controller
 //    ->onQueue('whatsapp');
 
 
-        return response()->json([
+return response()->json([
             'success' => true,
-            'eventos' => new EventoResource($event->loadMissing(['coordinates', 'routes', 'promoCodes','categories.pricePeriods','formTypes.souvenirs','formTypes.formularioCampos.options','organizador.formasPagoSeleccionadas','auspiciadores','agendaItems','equipos','tipoEvento','subtipoEvento'])),
+            // Congresos con talleres (18/08/2026) — ver
+            // brain/PLAN-CONGRESOS-TALLERES-HORARIOS-IMPLEMENTACION.md.
+            // Solo talleres activos, y dentro solo sesiones activas, para
+            // no exponer datos admin ni sesiones inactivas al público.
+            'eventos' => new EventoResource($event->loadMissing([
+                'coordinates', 'routes', 'promoCodes',
+                'categories.pricePeriods',
+                'formTypes.souvenirs', 'formTypes.formularioCampos.options',
+                'organizador.formasPagoSeleccionadas',
+                'auspiciadores', 'agendaItems', 'equipos',
+                'tipoEvento', 'subtipoEvento',
+                'talleres' => fn ($q) => $q->where('activo', true)->orderBy('orden')->orderBy('id'),
+                'talleres.sesiones' => fn ($q) => $q->where('activa', true),
+            ])),
         ]);
 
        // return   new EventoResource($event);

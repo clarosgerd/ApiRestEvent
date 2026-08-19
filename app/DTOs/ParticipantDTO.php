@@ -26,6 +26,17 @@ class ParticipantDTO
         /** @var AnswerDTO[] */
         public array $answers,
 
+        /**
+         * Congresos con talleres (18/08/2026) — ver
+         * brain/PLAN-CONGRESOS-TALLERES-HORARIOS-IMPLEMENTACION.md. Cada
+         * elemento es la selección de una sesión que pertenece a un
+         * taller. El backend revalida pertenencia / cupo / solape /
+         * requerido y recalcula el precio — el cliente solo manda IDs.
+         *
+         * @var TallerSesionDTO[]
+         */
+        public array $talleres = [],
+
         public string $category,
         public float $categoryPrice,
         public float $donation,
@@ -68,6 +79,14 @@ class ParticipantDTO
             answers: array_map(
                 fn(array $a) => AnswerDTO::fromArray($a),
                 $data['answers'] ?? []
+            ),
+            // Selección de talleres de congreso (18/08/2026) — ver
+            // brain/PLAN-CONGRESOS-TALLERES-HORARIOS-IMPLEMENTACION.md.
+            // Default [] para mantener compatibilidad con eventos sin
+            // talleres (legacy).
+            talleres: array_map(
+                fn(array $t) => TallerSesionDTO::fromArray($t),
+                $data['talleres'] ?? []
             ),
 
             category: (string) $data['categoria'],

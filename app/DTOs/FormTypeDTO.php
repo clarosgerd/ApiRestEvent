@@ -7,6 +7,8 @@ class FormTypeDTO
     public function __construct(
         public string $name,
         public string $icon,
+        // Tarjeta de tipo de formulario simplificada (19/08/2026).
+        public ?string $imagenUrl,
         public string $description,
         public string $tipo,
         public int $cupoTotal,
@@ -41,6 +43,7 @@ class FormTypeDTO
         return new self(
             name: $data['name'],
             icon: $data['icon'] ?? '🏃',
+            imagenUrl: $data['imagen_url'] ?? $data['imagenUrl'] ?? null,
             description: $data['description'] ?? '',
             tipo: $data['tipo'] ?? 'deportivo',
             cupoTotal: (int) $data['cupo_total'],

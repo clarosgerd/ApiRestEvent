@@ -18,6 +18,10 @@ class FormTypeResource extends JsonResource
            
             'name'            =>$this->name ,
             'icon'            =>$this->icon,
+            // Tarjeta de tipo de formulario simplificada (19/08/2026) —
+            // imagen opcional cargada desde admin-eventos; el frontend la
+            // muestra en vez del emoji de `icon` cuando está presente.
+            'imagenUrl'       =>$this->imagen_url ?: null,
             'description'     =>$this->description,
             'tipo'            =>$this->tipo,
             'cupo_total'      =>$this->cupo_total,

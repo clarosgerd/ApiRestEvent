@@ -191,6 +191,48 @@ class RegistrationService
                 'value'           => $answer['value'],
             ]);
         }
+
+        // Congresos con talleres (18/08/2026) — ver
+        // brain/PLAN-CONGRESOS-TALLERES-HORARIOS-IMPLEMENTACION.md.
+        // Misma lógica que CrearInscripcionAction: el cliente solo manda
+        // IDs, el backend recalcula el precio efectivo server-side y
+        // persiste el snapshot. La validación de pertenencia / duplicado /
+        // solape / capacidad / requeridos ya se hizo arriba en
+        // ActualizarInscripcionAction (antes del `participants()->delete()`)
+        // o se hace en ActualizarInscripcionPagadaAction.
+        if (! empty($data['talleres'])) {
+            $evento = Evento::find($registration->evento_id);
+            foreach ($data['talleres'] as $tallerSel) {
+                $sesion = SesionCongreso::with('taller')
+                    ->where('id', $tallerSel['sesion_congreso_id'])
+                    ->where('evento_id', $registration->evento_id)
+                    ->first();
+
+                if (! $sesion || ! $sesion->taller_id) {
+                    continue; // defensa silenciosa; validación ya corrió
+                }
+
+                $unitPrice = \App\Support\Taller\ResolverPrecioTallerData::unitPrice(
+                    $sesion->taller,
+                    $sesion,
+                    $evento
+                );
+                $total = \App\Support\Taller\ResolverPrecioTallerData::total(
+                    $sesion->taller,
+                    $sesion,
+                    $evento
+                );
+
+                ParticipanteTallerSesion::create([
+                    'participante_id'     => $participant->id,
+                    'sesion_congreso_id'  => $sesion->id,
+                    'taller_id'           => $sesion->taller_id,
+                    'unit_price'          => $unitPrice,
+                    'discount'            => 0,
+                    'total'               => $total,
+                ]);
+            }
+        }
     }
 
     /**

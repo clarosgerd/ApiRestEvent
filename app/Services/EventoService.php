@@ -29,6 +29,9 @@ class EventoService
             'chronotrackEventId' => 'chronotrack_event_id',
             'deslinde'         => 'deslinde',
             'deslinde_pdf_url' => 'deslinde_pdf_url',
+            // Link directo al evento (18/08/2026) — ver elascenso/event,
+            // Evento::resolveRouteBinding().
+            'url_slug'         => 'url_slug',
             // Ver brain/PLAN-ENDPOINT-CONSUMO-05082026.md — permite corregir
             // desde el panel eventos ya creados que quedaron con el default
             // histórico (tipo_evento_id=1, "Carrera de Ruta") aunque en
@@ -37,6 +40,10 @@ class EventoService
             'subtipo_evento_id' => 'subtipo_evento_id',
             'organizador_id'    => 'organizador_id',
             'feePct'            => 'fee_pct',
+            // Inscripción en BOB y USD (18/08/2026) — ver
+            // brain/PLAN-INSCRIPCION-BOB-USD-IMPLEMENTACION.md. Mapea la
+            // clave camelCase del Resource/Request a la columna snake_case.
+            'aceptaUsd'        => 'acepta_usd',
         ];
 
         // Columnas NOT NULL sin default en la migración original de `eventos`

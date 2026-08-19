@@ -30,6 +30,8 @@ class StoreFormTypeRequest extends FormRequest
             'event_id'                   => 'required|integer|exists:eventos,id',
             'name'                       => 'required|string|max:255',
             'icon'                       => 'required|string|max:255',
+            // Tarjeta de tipo de formulario simplificada (19/08/2026).
+            'imagen_url'                 => 'nullable|string|max:500',
             'description'                => 'required|string',
             'tipo'                       => 'nullable|string',
             'cupo_total'                 => 'required|integer|min:0',
