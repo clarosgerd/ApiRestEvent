@@ -2,28 +2,32 @@
 
 namespace App\Http\Requests;
 
-use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
 class UpdateFormularioCamposRequest extends FormRequest
 {
-    /**
-     * Determine if the user is authorized to make this request.
-     */
     public function authorize(): bool
     {
-        return false;
+        return true;
     }
 
     /**
-     * Get the validation rules that apply to the request.
-     *
-     * @return array<string, ValidationRule|array<mixed>|string>
+     * @return array<string, mixed>
      */
     public function rules(): array
     {
         return [
-            //
+            'seccion'            => 'sometimes|required|in:personal,kit,encuesta,legal,otro',
+            'nombre_campo'       => 'sometimes|required|string|max:255',
+            'etiqueta'           => 'sometimes|required|string|max:255',
+            'tipo_input'         => 'sometimes|required|in:text,email,tel,date,number,select,checkbox,radio,textarea',
+            'placeholder'        => 'nullable|string|max:255',
+            'obligatorio'        => 'sometimes|boolean',
+            'visible_en_reporte' => 'sometimes|boolean',
+            'orden'              => 'nullable|integer|min:0',
+            'options'               => 'sometimes|array',
+            'options.*.option_text' => 'required_with:options|string|max:255',
+            'options.*.order'       => 'nullable|integer|min:0',
         ];
     }
 }

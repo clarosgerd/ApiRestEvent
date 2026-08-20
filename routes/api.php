@@ -37,6 +37,7 @@ use App\Http\Controllers\SexoController;
 use App\Http\Controllers\SubtipoEventoController;
 use App\Http\Controllers\RelacionContactoController;
 use App\Http\Controllers\FormasPagoController;
+use App\Http\Controllers\FormularioCamposController;
 
 Route::get('/user', function (Request $request) {
     return $request->user();
@@ -97,6 +98,15 @@ Route::group(['prefix' => 'v1','namespace' => 'App\Http\Controllers'], function 
         Route::apiResource('/form-type', FormTypeController::class)->only(['store', 'update', 'destroy']);
         Route::apiResource('/promo-code', PromoCodeController::class)->only(['store', 'update', 'destroy']);
         Route::apiResource('/souvenir', SouvenirController::class)->only(['store', 'update', 'destroy']);
+
+        // Preguntas adicionales del formulario de inscripción (20/08/2026) —
+        // ver FormularioCamposController. Mismo scoping que souvenir/
+        // category-price-period (admin de su propio evento, o
+        // super_admin). Sin index() propio: la lista ya viaja embebida en
+        // FormTypeResource.preguntas (GET /event/{id}).
+        Route::post('/form-type/{formType}/preguntas', [FormularioCamposController::class, 'store']);
+        Route::put('/pregunta/{pregunta}', [FormularioCamposController::class, 'update']);
+        Route::delete('/pregunta/{pregunta}', [FormularioCamposController::class, 'destroy']);
 
         // Kit/tallas/stock (11/08/2026) — ver
         // PRD-kit-tallas-stock-lista-espera.md. Mismo scoping que
