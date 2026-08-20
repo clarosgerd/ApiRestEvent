@@ -8,6 +8,7 @@ use App\DTOs\TotalsDTO;
 use App\DTOs\ContactoEmergenciaParticipanteDTO;
 use App\DTOs\BirthDateDTO;
 use App\DTOs\SouvenirParticipanteDTO;
+use App\DTOs\TallerSesionDTO;
 use App\Actions\CrearInscripcionAction;
 use App\Models\Category;
 use App\Models\Ciudad;
@@ -15,7 +16,9 @@ use App\Models\Evento;
 use App\Models\FormType;
 use App\Models\Organizador;
 use App\Models\Pais;
+use App\Models\SesionCongreso;
 use App\Models\SubtipoEvento;
+use App\Models\Taller;
 use App\Models\TipoEvento;
 use App\Support\CurrencyResolverData;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -25,8 +28,9 @@ use Tests\TestCase;
  * Precio USD fijo, sin tipo de cambio (19/08/2026) — ver
  * brain/PLAN-PRECIO-USD-FIJO-19082026.md. Modo alternativo a
  * `acepta_usd` con tasa (cubierto en MonedaPagoRegistrationTest, que
- * sigue intacto). Alcance: solo categoría/inscripción, sin souvenirs,
- * talleres, donación ni camiseta.
+ * sigue intacto). Alcance: categoría/inscripción + talleres (extendido el
+ * mismo día, ver bloque "Talleres en modo USD fijo" más abajo) — sin
+ * souvenirs, donación ni camiseta.
  */
 class PrecioUsdFijoTest extends TestCase
 {
@@ -81,7 +85,7 @@ class PrecioUsdFijoTest extends TestCase
         ]);
     }
 
-    private function makeParticipant(Category $categoria, float $donation = 0, float $shirtPrice = 0, array $souvenirs = []): ParticipantDTO
+    private function makeParticipant(Category $categoria, float $donation = 0, float $shirtPrice = 0, array $souvenirs = [], array $talleres = []): ParticipantDTO
     {
         return new ParticipantDTO(
             firstName: 'Ana',
@@ -107,7 +111,7 @@ class PrecioUsdFijoTest extends TestCase
             promoDiscount: 0,
             promoCode: '',
             subtotal: (float) $categoria->price,
-            talleres: [],
+            talleres: $talleres,
         );
     }
 
@@ -205,5 +209,123 @@ class PrecioUsdFijoTest extends TestCase
         $r = CurrencyResolverData::resolver(700.0, 'USD', 0.144, 100.80);
         $this->assertSame(0.144, $r['tipo_cambio_aplicado']);
         $this->assertSame(100.80, $r['total_pagado']);
+    }
+
+    // ────────────────────────────────────────────────────────────
+    // Talleres en modo USD fijo (19/08/2026) — antes cualquier taller
+    // seleccionado rechazaba la inscripción en este modo (ver el resto de
+    // esta clase, decisión original del 19/08). Extendido el mismo día a
+    // pedido del usuario: un taller SÍ se puede cobrar en USD fijo si
+    // tiene `price_usd` cargado (taller o su sesión, mismo override que
+    // el precio en Bs) — ver ResolverPrecioTallerData::unitPriceUsd().
+    // ────────────────────────────────────────────────────────────
+
+    private function crearTallerConSesion(?float $precioUsdTaller, ?float $precioUsdSesion = null): SesionCongreso
+    {
+        $taller = Taller::factory()->create([
+            'evento_id' => $this->evento->id,
+            'modalidad' => 'OPTIONAL',
+            'precio' => 0,
+            'price_usd' => $precioUsdTaller,
+        ]);
+
+        return SesionCongreso::factory()->create([
+            'evento_id' => $this->evento->id,
+            'taller_id' => $taller->id,
+            'precio' => 0,
+            'price_usd' => $precioUsdSesion,
+            'cupo' => null,
+        ]);
+    }
+
+    public function test_suma_taller_con_precio_usd_cargado_en_el_taller(): void
+    {
+        $this->evento->update(['talleres_con_costo' => true]);
+        $sesion = $this->crearTallerConSesion(precioUsdTaller: 15.0);
+
+        $talleres = [new TallerSesionDTO(tallerId: $sesion->taller_id, sesionCongresoId: $sesion->id)];
+        // 50 (categoría) + 15 (taller) = 65, +5% fee = 68.25.
+        $dto = $this->makeRegistrationDTO(
+            $this->makeParticipant($this->categoriaConPrecioUsd, talleres: $talleres),
+            68.25
+        );
+
+        $reg = app(CrearInscripcionAction::class)->handle($dto);
+
+        $reg->refresh();
+        $this->assertNull($reg->tipo_cambio_aplicado);
+        $this->assertEquals(68.25, (float) $reg->total_pagado);
+    }
+
+    public function test_override_de_sesion_gana_sobre_el_precio_usd_del_taller(): void
+    {
+        $this->evento->update(['talleres_con_costo' => true]);
+        $sesion = $this->crearTallerConSesion(precioUsdTaller: 15.0, precioUsdSesion: 20.0);
+
+        $talleres = [new TallerSesionDTO(tallerId: $sesion->taller_id, sesionCongresoId: $sesion->id)];
+        // 50 (categoría) + 20 (override de sesión, no el 15 del taller) = 70, +5% = 73.50.
+        $dto = $this->makeRegistrationDTO(
+            $this->makeParticipant($this->categoriaConPrecioUsd, talleres: $talleres),
+            73.50
+        );
+
+        $reg = app(CrearInscripcionAction::class)->handle($dto);
+
+        $reg->refresh();
+        $this->assertEquals(73.50, (float) $reg->total_pagado);
+    }
+
+    public function test_rechaza_taller_sin_precio_usd_configurado(): void
+    {
+        $this->evento->update(['talleres_con_costo' => true]);
+        $sesion = $this->crearTallerConSesion(precioUsdTaller: null);
+
+        $talleres = [new TallerSesionDTO(tallerId: $sesion->taller_id, sesionCongresoId: $sesion->id)];
+        $dto = $this->makeRegistrationDTO(
+            $this->makeParticipant($this->categoriaConPrecioUsd, talleres: $talleres),
+            52.50
+        );
+
+        $this->expectException(\DomainException::class);
+        $this->expectExceptionMessageMatches('/no tiene precio USD configurado/');
+        app(CrearInscripcionAction::class)->handle($dto);
+    }
+
+    public function test_taller_gratis_en_usd_si_talleres_con_costo_apagado(): void
+    {
+        // talleres_con_costo=false (default del evento en este test) — el
+        // taller es gratis en USD igual que en Bs, aunque no tenga
+        // price_usd cargado. No debe rechazar.
+        $sesion = $this->crearTallerConSesion(precioUsdTaller: null);
+
+        $talleres = [new TallerSesionDTO(tallerId: $sesion->taller_id, sesionCongresoId: $sesion->id)];
+        $dto = $this->makeRegistrationDTO(
+            $this->makeParticipant($this->categoriaConPrecioUsd, talleres: $talleres),
+            52.50
+        );
+
+        $reg = app(CrearInscripcionAction::class)->handle($dto);
+
+        $reg->refresh();
+        $this->assertEquals(52.50, (float) $reg->total_pagado);
+    }
+
+    public function test_fee_usd_respeta_fee_incluye_talleres_apagado(): void
+    {
+        $this->evento->update(['talleres_con_costo' => true, 'fee_incluye_talleres' => false]);
+        $sesion = $this->crearTallerConSesion(precioUsdTaller: 15.0);
+
+        $talleres = [new TallerSesionDTO(tallerId: $sesion->taller_id, sesionCongresoId: $sesion->id)];
+        // Fee solo sobre los 50 de categoría (no sobre los 15 del taller):
+        // 50*0.05=2.50. Total = 50 + 15 + 2.50 = 67.50.
+        $dto = $this->makeRegistrationDTO(
+            $this->makeParticipant($this->categoriaConPrecioUsd, talleres: $talleres),
+            67.50
+        );
+
+        $reg = app(CrearInscripcionAction::class)->handle($dto);
+
+        $reg->refresh();
+        $this->assertEquals(67.50, (float) $reg->total_pagado);
     }
 }

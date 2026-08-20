@@ -24,6 +24,8 @@ class StoreTallerRequest extends FormRequest
             'descripcion' => 'nullable|string|max:2000',
             'modalidad'   => 'required|in:REQUIRED,OPTIONAL',
             'precio'      => 'nullable|numeric|min:0',
+            // price_usd (19/08/2026) — ver ResolverPrecioTallerData::unitPriceUsd().
+            'price_usd'   => 'nullable|numeric|min:0',
             'orden'       => 'nullable|integer|min:0',
             'activo'      => 'nullable|boolean',
         ];

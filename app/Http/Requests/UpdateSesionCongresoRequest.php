@@ -27,6 +27,8 @@ class UpdateSesionCongresoRequest extends FormRequest
             'hora_fin' => 'sometimes|required|date_format:H:i|after:hora_inicio',
             'cupo' => 'nullable|integer|min:1',
             'precio' => 'nullable|numeric|min:0',
+            // price_usd (19/08/2026) — ver Store.
+            'price_usd' => 'nullable|numeric|min:0',
             'requiere_inscripcion' => 'nullable|boolean',
             'activa' => 'nullable|boolean',
         ];

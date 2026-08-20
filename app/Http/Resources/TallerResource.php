@@ -23,6 +23,8 @@ class TallerResource extends JsonResource
             'descripcion' => $this->descripcion,
             'modalidad'   => $this->modalidad,
             'precio'      => $this->precio !== null ? (float) $this->precio : null,
+            // precioUsd (19/08/2026) — ver ResolverPrecioTallerData::unitPriceUsd().
+            'precioUsd'   => $this->price_usd !== null ? (float) $this->price_usd : null,
             'orden'       => (int) $this->orden,
             'activo'      => (bool) $this->activo,
             'sesiones'    => TallerSesionResource::collection(

@@ -3,6 +3,8 @@
 namespace App\Support;
 
 use App\DTOs\RegistrationDTO;
+use App\Models\SesionCongreso;
+use App\Support\Taller\ResolverPrecioTallerData;
 
 /**
  * Inscripción en BOB y USD (18/08/2026) — ver
@@ -137,20 +139,23 @@ class CurrencyResolverData
      * liquidaciones, etc. Solo cambia de dónde sale el número que se
      * cobra realmente en la pasarela cuando el pago es en USD.
      *
-     * Alcance confirmado con el usuario (19/08/2026): solo
-     * categoría/inscripción — souvenirs, donación, talleres y el add-on
-     * de camiseta no tienen precio en USD fijo todavía. Para no cobrar de
-     * menos en silencio, se rechaza si el participante trae alguno de
-     * esos ítems distinto de cero.
+     * Alcance confirmado con el usuario: categoría/inscripción + talleres
+     * (19/08/2026, extendido el mismo día — antes cualquier taller
+     * bloqueaba el pago en USD fijo). Souvenirs, donación y el add-on de
+     * camiseta siguen sin precio en USD fijo. Para no cobrar de menos en
+     * silencio, se rechaza si el participante trae alguno de esos ítems
+     * distinto de cero, o si un taller seleccionado no tiene price_usd
+     * cargado (ver ResolverPrecioTallerData::unitPriceUsd()).
      */
     public static function resolverPrecioFijo(RegistrationDTO $dto, \App\Models\Evento $evento): array
     {
         $totalUsd = 0.0;
+        $totalTalleresUsd = 0.0;
 
         foreach ($dto->participants as $p) {
-            if ($p->donation > 0 || !empty($p->souvenirs) || !empty($p->talleres) || $p->shirtPrice > 0) {
+            if ($p->donation > 0 || !empty($p->souvenirs) || $p->shirtPrice > 0) {
                 throw new \DomainException(
-                    'Este evento cobra en USD solo la inscripción — sacá souvenirs, talleres, camiseta o donación del carrito, o pagá en BOB.'
+                    'Este evento cobra en USD solo la inscripción y los talleres — sacá souvenirs, camiseta o donación del carrito, o pagá en BOB.'
                 );
             }
 
@@ -162,12 +167,37 @@ class CurrencyResolverData
             }
 
             $totalUsd += (float) $categoria->price_usd;
+
+            foreach ($p->talleres as $tallerSel) {
+                $sesion = SesionCongreso::with('taller')
+                    ->where('id', $tallerSel->sesionCongresoId)
+                    ->where('evento_id', $evento->id)
+                    ->first();
+
+                if (!$sesion || !$sesion->taller) {
+                    throw new \DomainException('El taller seleccionado no pertenece a este evento.');
+                }
+
+                $unitUsd = ResolverPrecioTallerData::unitPriceUsd($sesion->taller, $sesion, $evento);
+                if ($unitUsd === null) {
+                    throw new \DomainException(
+                        "El taller '{$sesion->taller->nombre}' no tiene precio USD configurado para este evento. Recargá la página e intentá de nuevo."
+                    );
+                }
+
+                $totalUsd += $unitUsd;
+                $totalTalleresUsd += $unitUsd;
+            }
         }
 
         // Mismo fee_pct que ya usa el evento — aplicado directo sobre la
         // base USD, sin pasar por BOB (ver validateFeePct() para el
         // camino BOB, que sigue intacto y corre en paralelo a esto).
-        $feeUsd = round($totalUsd * (float) $evento->fee_pct, 2);
+        // Respeta feeIncluyeTalleres igual que el camino BOB — antes de
+        // que los talleres se pudieran cobrar en USD fijo esto no hacía
+        // falta (talleres estaba bloqueado en este modo).
+        $feeBaseUsd = $totalUsd - ($evento->fee_incluye_talleres ? 0.0 : $totalTalleresUsd);
+        $feeUsd = round($feeBaseUsd * (float) $evento->fee_pct, 2);
         $esperado = round($totalUsd + $feeUsd, 2);
 
         if ($dto->totalPagado === null) {

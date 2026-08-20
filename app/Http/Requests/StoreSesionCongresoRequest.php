@@ -30,6 +30,9 @@ public function rules(): array
             // Override de precio a nivel de sesión — si es NULL hereda el
             // precio del taller. Solo aplica si evento.talleres_con_costo.
             'precio' => 'nullable|numeric|min:0',
+            // price_usd (19/08/2026) — mismo override, para el modo Precio
+            // USD fijo. Ver ResolverPrecioTallerData::unitPriceUsd().
+            'price_usd' => 'nullable|numeric|min:0',
             'requiere_inscripcion' => 'nullable|boolean',
             'activa' => 'nullable|boolean',
         ];

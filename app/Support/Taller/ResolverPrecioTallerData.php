@@ -57,4 +57,32 @@ class ResolverPrecioTallerData
 
         return round($unit - $discount, 2);
     }
+
+    /**
+     * Precio USD fijo efectivo (19/08/2026) — usado solo cuando el evento
+     * tiene `usd_precio_fijo=true` (ver CurrencyResolverData::resolverPrecioFijo()).
+     * Mismo patrón override que unitPrice(): sesión gana, si no hereda del
+     * taller. A diferencia de unitPrice() (que cae a 0.0 cuando falta el
+     * precio), acá se distingue "gratis" de "falta cargar el precio":
+     *
+     * - talleres_con_costo=false → 0.0 (el taller es gratis igual en USD).
+     * - talleres_con_costo=true y ninguno de los dos tiene price_usd → null
+     *   (el caller debe rechazar la inscripción, no cobrar $0 en silencio).
+     */
+    public static function unitPriceUsd(Taller $taller, SesionCongreso $sesion, Evento $evento): ?float
+    {
+        if (! $evento->talleres_con_costo) {
+            return 0.0;
+        }
+
+        if ($sesion->price_usd !== null) {
+            return (float) $sesion->price_usd;
+        }
+
+        if ($taller->price_usd !== null) {
+            return (float) $taller->price_usd;
+        }
+
+        return null;
+    }
 }

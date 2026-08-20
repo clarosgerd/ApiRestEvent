@@ -27,12 +27,15 @@ class Taller extends Model
         'descripcion',
         'modalidad',
         'precio',
+        // price_usd (19/08/2026) — ver ResolverPrecioTallerData::unitPriceUsd().
+        'price_usd',
         'orden',
         'activo',
     ];
 
     protected $casts = [
         'precio' => 'decimal:2',
+        'price_usd' => 'decimal:2',
         'orden' => 'integer',
         'activo' => 'boolean',
     ];

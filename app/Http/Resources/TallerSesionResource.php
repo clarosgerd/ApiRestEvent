@@ -31,6 +31,8 @@ class TallerSesionResource extends JsonResource
             'ocupados'   => $ocupados,
             'disponibles'=> $this->cupo === null ? null : max(0, (int) $this->cupo - $ocupados),
             'precio'     => $this->precio !== null ? (float) $this->precio : null,
+            // precioUsd (19/08/2026) — override de sesión, ver TallerResource.
+            'precioUsd'  => $this->price_usd !== null ? (float) $this->price_usd : null,
             'activa'     => (bool) $this->activa,
         ];
     }

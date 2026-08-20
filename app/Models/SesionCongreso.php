@@ -33,6 +33,10 @@ class SesionCongreso extends Model
         'hora_fin',
         'cupo',
         'precio',
+        // price_usd (19/08/2026) — override por sesión del precio USD fijo
+        // del taller, mismo patrón que `precio` en Bs. Ver
+        // ResolverPrecioTallerData::unitPriceUsd().
+        'price_usd',
         'requiere_inscripcion',
         'activa',
     ];
@@ -40,6 +44,7 @@ class SesionCongreso extends Model
     protected $casts = [
         'fecha' => 'date',
         'precio' => 'decimal:2',
+        'price_usd' => 'decimal:2',
         'requiere_inscripcion' => 'boolean',
         'activa' => 'boolean',
     ];
