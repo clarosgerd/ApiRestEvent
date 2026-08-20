@@ -55,11 +55,18 @@ class ReporteInscritosData
             ->with(['registration', 'talleresSesiones.taller', 'talleresSesiones.sesionCongreso'])
             ->get();
 
+        $porTaller = self::agruparPorTaller($participantesPagados);
+        // Detalle sin agrupar (20/08/2026) — pedido del usuario para poder
+        // descargarlo en CSV: fila por cada selección de taller (participante
+        // × sesión), ordenado por fecha/hora — a diferencia de `filas` de
+        // arriba (agrupado por sesión, con conteo/recaudación).
+        $porTaller['detalle'] = self::detalleTalleres($participantesPagados);
+
         return [
             'porModalidad' => self::agruparPorFormulario($evento, $participantesPagados),
             'porCategoria' => self::agruparPorCategoria($evento, $participantesPagados),
             'poleras' => self::agruparPoleras($participantesPagados),
-            'porTaller' => self::agruparPorTaller($participantesPagados),
+            'porTaller' => $porTaller,
         ];
     }
 
@@ -171,6 +178,53 @@ class ReporteInscritosData
             'totalCantidad' => array_sum(array_column($filas, 'cantidad')),
             'totalRecaudacion' => round(array_sum(array_column($filas, 'recaudacion')), 2),
         ];
+    }
+
+    /**
+     * Detalle sin agrupar de talleres (20/08/2026) — pedido del usuario:
+     * "un reporte csv que también pueda bajarlo el cliente, este reporte
+     * no debe estar agrupado pero ordenado por fecha". Una fila por cada
+     * selección de taller (participante × sesión) — un participante con 2
+     * talleres aparece 2 veces, a diferencia de `agruparPorTaller()` que
+     * lo cuenta una vez por sesión. Mismo criterio de "solo pagados" que
+     * el resto de este reporte. Ordenado por fecha/hora de la sesión, y a
+     * igualdad de fecha/hora por apellido del participante (orden estable
+     * y legible para el organizador, no por ID interno).
+     */
+    private static function detalleTalleres(Collection $participantes): array
+    {
+        $filas = [];
+
+        foreach ($participantes as $p) {
+            foreach ($p->talleresSesiones as $pts) {
+                $sesion = $pts->sesionCongreso;
+                $taller = $pts->taller;
+
+                $filas[] = [
+                    'fecha'                => optional($sesion?->fecha)->format('Y-m-d'),
+                    'horaInicio'           => $sesion ? substr((string) $sesion->hora_inicio, 0, 5) : null,
+                    'horaFin'              => $sesion ? substr((string) $sesion->hora_fin, 0, 5) : null,
+                    'sala'                 => $sesion->sala ?? null,
+                    'tallerNombre'         => $taller->nombre ?? 'Sin especificar',
+                    'sesionTitulo'         => $sesion->titulo ?? null,
+                    'participanteNombre'   => $p->nombre,
+                    'participanteApellido' => $p->apellido,
+                    'numeroDocumento'      => $p->numero_documento,
+                    'correo'               => $p->correo,
+                    'telefono'             => $p->telefono,
+                    'referencia'           => $p->registration->referencia ?? null,
+                    'precio'               => round((float) $pts->total, 2),
+                ];
+            }
+        }
+
+        usort($filas, fn ($a, $b) => [
+            $a['fecha'] ?? '', $a['horaInicio'] ?? '', $a['participanteApellido'],
+        ] <=> [
+            $b['fecha'] ?? '', $b['horaInicio'] ?? '', $b['participanteApellido'],
+        ]);
+
+        return $filas;
     }
 
     private static function totalizar(array $grupos): array

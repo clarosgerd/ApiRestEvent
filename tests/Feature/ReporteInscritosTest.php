@@ -185,6 +185,62 @@ class ReporteInscritosTest extends TestCase
         $this->assertSame(18, $fila['disponible']);
     }
 
+    /**
+     * Detalle sin agrupar de talleres (20/08/2026) — CSV descargable para
+     * el organizador, no confundir con `porTaller.filas` (agrupado por
+     * sesión, ver test de arriba). Una fila por cada selección de taller,
+     * ordenado por fecha/hora.
+     */
+    public function test_detalle_de_talleres_sin_agrupar_ordenado_por_fecha(): void
+    {
+        $formType = FormType::factory()->create(['event_id' => $this->evento->id]);
+        $categoria = Category::factory()->create(['event_id' => $this->evento->id, 'price' => 100]);
+
+        $taller = Taller::factory()->create(['evento_id' => $this->evento->id, 'nombre' => 'Bombas Elastoméricas']);
+        $sesionTemprano = SesionCongreso::factory()->create([
+            'evento_id' => $this->evento->id, 'taller_id' => $taller->id,
+            'fecha' => '2026-10-15', 'hora_inicio' => '08:00:00', 'hora_fin' => '10:00:00',
+        ]);
+        $sesionTarde = SesionCongreso::factory()->create([
+            'evento_id' => $this->evento->id, 'taller_id' => $taller->id,
+            'fecha' => '2026-10-16', 'hora_inicio' => '14:00:00', 'hora_fin' => '16:00:00',
+        ]);
+
+        // Participante con 2 talleres — debe aparecer 2 veces (sin agrupar).
+        $p1 = $this->crearInscripcion($formType, $categoria, ['nombre' => 'Beto', 'apellido' => 'Zeta', 'subtotal' => 900]);
+        ParticipanteTallerSesion::create([
+            'participante_id' => $p1->id, 'sesion_congreso_id' => $sesionTarde->id, 'taller_id' => $taller->id,
+            'unit_price' => 800, 'discount' => 0, 'total' => 800,
+        ]);
+        ParticipanteTallerSesion::create([
+            'participante_id' => $p1->id, 'sesion_congreso_id' => $sesionTemprano->id, 'taller_id' => $taller->id,
+            'unit_price' => 800, 'discount' => 0, 'total' => 800,
+        ]);
+        // Otro participante, pendiente — no debe aparecer.
+        $p2 = $this->crearInscripcion($formType, $categoria, ['subtotal' => 900, 'pago_status' => 'pending']);
+        ParticipanteTallerSesion::create([
+            'participante_id' => $p2->id, 'sesion_congreso_id' => $sesionTemprano->id, 'taller_id' => $taller->id,
+            'unit_price' => 800, 'discount' => 0, 'total' => 800,
+        ]);
+
+        $admin = $this->actingAsAdmin();
+        $admin->update(['rol' => 'admin', 'evento_id' => $this->evento->id]);
+
+        $response = $this->getJson("/api/v1/event/{$this->evento->id}/dashboard-inscripciones")
+            ->assertStatus(200);
+
+        $detalle = $response->json('reporteInscritos.porTaller.detalle');
+
+        // Solo las 2 filas del participante pagado, no la del pendiente.
+        $this->assertCount(2, $detalle);
+        // Ordenado por fecha: la sesión temprana (15/10) va antes que la tarde (16/10).
+        $this->assertSame('2026-10-15', $detalle[0]['fecha']);
+        $this->assertSame('2026-10-16', $detalle[1]['fecha']);
+        $this->assertSame('Beto', $detalle[0]['participanteNombre']);
+        $this->assertSame('Bombas Elastoméricas', $detalle[0]['tallerNombre']);
+        $this->assertEquals(800.0, $detalle[0]['precio']);
+    }
+
     public function test_admin_de_otro_evento_no_ve_el_reporte(): void
     {
         $otroEvento = Evento::factory()->create([

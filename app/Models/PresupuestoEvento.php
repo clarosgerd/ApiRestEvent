@@ -31,6 +31,7 @@ class PresupuestoEvento extends Model
     ];
 
     protected $casts = [
+        'evento_id' => 'integer',
         'monto' => 'decimal:2',
         'fecha' => 'date',
     ];

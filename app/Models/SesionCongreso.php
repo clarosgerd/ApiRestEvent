@@ -42,6 +42,8 @@ class SesionCongreso extends Model
     ];
 
     protected $casts = [
+        'evento_id' => 'integer',
+        'taller_id' => 'integer',
         'fecha' => 'date',
         'precio' => 'decimal:2',
         'price_usd' => 'decimal:2',

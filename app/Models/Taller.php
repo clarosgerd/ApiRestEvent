@@ -34,6 +34,7 @@ class Taller extends Model
     ];
 
     protected $casts = [
+        'evento_id' => 'integer',
         'precio' => 'decimal:2',
         'price_usd' => 'decimal:2',
         'orden' => 'integer',
