@@ -16,6 +16,19 @@ class StoreCategoryRequest extends FormRequest
     }
 
     /**
+     * Precio USD fijo (19/08/2026) — un <input type="number"> vacío en
+     * admin-eventos manda `price_usd=""`, no ausente. Sin esto, "sin
+     * precio en USD" fallaría la regla `numeric` en vez de guardarse como
+     * null (mismo patrón que StoreEventosRequest con organizador_id).
+     */
+    protected function prepareForValidation(): void
+    {
+        if ($this->input('price_usd') === '') {
+            $this->merge(['price_usd' => null]);
+        }
+    }
+
+    /**
      * Get the validation rules that apply to the request.
      *
      * @return array<string, ValidationRule|array<mixed>|string>
@@ -26,6 +39,8 @@ class StoreCategoryRequest extends FormRequest
             'event_id'        => 'required|integer|exists:eventos,id',
             'name'            => 'required|string|max:255',
             'price'           => 'required|numeric|min:0',
+            // Precio USD fijo (19/08/2026) — ver brain/PLAN-PRECIO-USD-FIJO-19082026.md.
+            'price_usd'       => 'nullable|numeric|min:0',
             'description'     => 'nullable|string',
             'color'           => 'nullable|string|max:7',
             'formulario_id'   => 'nullable|integer',

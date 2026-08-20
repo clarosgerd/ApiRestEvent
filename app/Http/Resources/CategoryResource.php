@@ -32,6 +32,11 @@ class CategoryResource extends JsonResource
             'id'                          => $this->id,
             'name'                        => $this->name,
             'price'                       => $this->price,
+            // Precio USD fijo, sin tipo de cambio (19/08/2026) — ver
+            // brain/PLAN-PRECIO-USD-FIJO-19082026.md. Null si el
+            // organizador no cargó precio en USD para esta categoría (no
+            // vendible en USD fijo hasta que lo cargue).
+            'priceUsd'                    => $this->price_usd,
             'description'                 => $this->description,
             'color'                       => $this->color,
             'precio_vigente'              => $vigente['precio'],

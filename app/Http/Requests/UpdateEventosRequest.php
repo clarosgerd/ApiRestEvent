@@ -60,6 +60,8 @@ class UpdateEventosRequest extends FormRequest
             'talleresConCosto' => 'sometimes|boolean',
             // Cargo de servicio sobre talleres (19/08/2026) — ver EventoService::update().
             'feeIncluyeTalleres' => 'sometimes|boolean',
+            // Precio USD fijo (19/08/2026) — ver EventoService::update().
+            'usdPrecioFijo'    => 'sometimes|boolean',
             'video'            => 'sometimes|nullable|string|max:255',
             'image'            => 'sometimes|nullable|string|max:255',
             'colorHex'         => 'sometimes|nullable|string|max:7',

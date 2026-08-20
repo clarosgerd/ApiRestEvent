@@ -29,6 +29,10 @@ class EventoDTO
         // lo puede apagar puntualmente. Ver
         // CrearInscripcionAction::validateFeePct().
         public bool $feeIncluyeTalleres = true,
+        // Precio USD fijo, sin tipo de cambio (19/08/2026) — ver
+        // brain/PLAN-PRECIO-USD-FIJO-19082026.md. Default false: modo
+        // alternativo a `aceptaUsd` con tasa, no reemplaza nada existente.
+        public bool $usdPrecioFijo = false,
         public ?int $organizadorId,
         public ?int $tipoEventoId,
         public ?int $subtipoEventoId,
@@ -85,6 +89,8 @@ class EventoDTO
             talleresConCosto: (bool) ($data['talleresConCosto'] ?? $data['talleres_con_costo'] ?? false),
             // Cargo de servicio sobre talleres (19/08/2026).
             feeIncluyeTalleres: (bool) ($data['feeIncluyeTalleres'] ?? $data['fee_incluye_talleres'] ?? true),
+            // Precio USD fijo (19/08/2026).
+            usdPrecioFijo: (bool) ($data['usdPrecioFijo'] ?? $data['usd_precio_fijo'] ?? false),
             organizadorId: isset($data['organizador_id']) ? (int) $data['organizador_id'] : null,
             // Default 1 ("Carrera de Ruta") si no viene: mismo comportamiento
             // histórico para no romper callers que todavía no lo mandan (la

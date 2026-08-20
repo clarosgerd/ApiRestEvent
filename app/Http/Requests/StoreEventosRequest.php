@@ -55,6 +55,8 @@ class StoreEventosRequest extends FormRequest
             'talleresConCosto'      => 'nullable|boolean',
             // Cargo de servicio sobre talleres (19/08/2026) — ver EventoDTO/CrearEventoAction.
             'feeIncluyeTalleres'    => 'nullable|boolean',
+            // Precio USD fijo (19/08/2026) — ver EventoDTO/CrearEventoAction.
+            'usdPrecioFijo'         => 'nullable|boolean',
             'video'                 => 'nullable|string|max:255',
             'image'                 => 'nullable|string|max:255',
             'colorHex'              => 'nullable|string|max:7',
@@ -78,6 +80,8 @@ class StoreEventosRequest extends FormRequest
             'categories'            => 'required|array|min:1',
             'categories.*.name'     => 'required|string|max:255',
             'categories.*.price'    => 'required|numeric|min:0',
+            // Precio USD fijo (19/08/2026) — ver brain/PLAN-PRECIO-USD-FIJO-19082026.md.
+            'categories.*.price_usd' => 'nullable|numeric|min:0',
             'categories.*.description' => 'nullable|string',
             'categories.*.color'    => 'nullable|string|max:7',
 

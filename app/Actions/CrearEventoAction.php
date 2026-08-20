@@ -48,6 +48,8 @@ class CrearEventoAction
                 'talleres_con_costo'  => $dto->talleresConCosto,
                 // Cargo de servicio sobre talleres (19/08/2026).
                 'fee_incluye_talleres' => $dto->feeIncluyeTalleres,
+                // Precio USD fijo (19/08/2026).
+                'usd_precio_fijo'     => $dto->usdPrecioFijo,
                 'video_url'           => $dto->videoUrl ?? '',
                 'imagen_portada_url'  => $dto->imagenPortadaUrl ?? '',
                 // Default navy: mismo color que ya usaban gafetes/certificados antes de
@@ -148,6 +150,8 @@ class CrearEventoAction
             'event_id'    => $evento->id,
             'name'        => $c->name,
             'price'       => $c->price,
+            // Precio USD fijo (19/08/2026) — ver brain/PLAN-PRECIO-USD-FIJO-19082026.md.
+            'price_usd'   => $c->priceUsd,
             'description' => $c->description,
             'color'       => $c->color,
         ], $dto->categories);

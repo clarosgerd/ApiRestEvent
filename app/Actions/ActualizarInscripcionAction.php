@@ -97,12 +97,18 @@ class ActualizarInscripcionAction
             if ($monedaRef === 'USD' && (! $eventoRef || ! $eventoRef->acepta_usd)) {
                 throw new \DomainException('Este evento solo acepta pago en BOB.');
             }
-            $resuelto  = CurrencyResolverData::resolver(
-                (float) $data['totales']['grand_total'],
-                $monedaRef,
-                $tasaRef,
-                $totalRef,
-            );
+            // Precio USD fijo (19/08/2026) — ver
+            // brain/PLAN-PRECIO-USD-FIJO-19082026.md. Reusa el
+            // $registrationDto ya armado arriba (mismos participantes y
+            // total_pagado que $totalRef).
+            $resuelto  = ($monedaRef === 'USD' && $eventoRef && $eventoRef->usd_precio_fijo)
+                ? CurrencyResolverData::resolverPrecioFijo($registrationDto, $eventoRef)
+                : CurrencyResolverData::resolver(
+                    (float) $data['totales']['grand_total'],
+                    $monedaRef,
+                    $tasaRef,
+                    $totalRef,
+                );
             $registration->moneda_pago        = $monedaRef;
             $registration->tipo_cambio_aplicado = $resuelto['tipo_cambio_aplicado'];
             $registration->total_pagado       = $resuelto['total_pagado'];

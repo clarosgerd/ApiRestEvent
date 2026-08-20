@@ -9,8 +9,11 @@ use App\Models\FormType;
 use App\Models\Organizador;
 use App\Models\Pais;
 use App\Models\Participante;
+use App\Models\ParticipanteTallerSesion;
 use App\Models\Registration;
+use App\Models\SesionCongreso;
 use App\Models\SubtipoEvento;
+use App\Models\Taller;
 use App\Models\TipoEvento;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -112,6 +115,74 @@ class ReporteInscritosTest extends TestCase
         $poleras = collect($reporte['poleras']['filas']);
         $this->assertTrue($poleras->contains(fn ($f) => $f['sexo'] === 'Femenino' && $f['talla'] === 'M' && $f['cantidad'] === 1));
         $this->assertTrue($poleras->contains(fn ($f) => $f['sexo'] === 'Masculino' && $f['talla'] === 'L' && $f['cantidad'] === 1));
+    }
+
+    /**
+     * Reporte de talleres (19/08/2026) — pedido del usuario tras el bug
+     * real de `participante_taller_sesion` (ver
+     * brain/... si aplica). Se agrupa por sesión, solo cuenta lo pagado
+     * (mismo criterio que el resto de este reporte).
+     */
+    public function test_agrupa_por_taller_sesion_solo_pagados(): void
+    {
+        $formType = FormType::factory()->create(['event_id' => $this->evento->id]);
+        $categoria = Category::factory()->create(['event_id' => $this->evento->id, 'price' => 100]);
+
+        $taller = Taller::factory()->create([
+            'evento_id' => $this->evento->id,
+            'nombre' => 'Bombas Elastoméricas',
+            'modalidad' => 'OPTIONAL',
+            'precio' => 800,
+        ]);
+        $sesion = SesionCongreso::factory()->create([
+            'evento_id' => $this->evento->id,
+            'taller_id' => $taller->id,
+            'titulo' => '15 OCT · TARDE',
+            'fecha' => '2026-10-15',
+            'hora_inicio' => '13:00:00',
+            'hora_fin' => '18:30:00',
+            'cupo' => 20,
+        ]);
+
+        // 2 pagados con el taller.
+        $p1 = $this->crearInscripcion($formType, $categoria, ['subtotal' => 900]);
+        ParticipanteTallerSesion::create([
+            'participante_id' => $p1->id, 'sesion_congreso_id' => $sesion->id, 'taller_id' => $taller->id,
+            'unit_price' => 800, 'discount' => 0, 'total' => 800,
+        ]);
+        $p2 = $this->crearInscripcion($formType, $categoria, ['subtotal' => 900]);
+        ParticipanteTallerSesion::create([
+            'participante_id' => $p2->id, 'sesion_congreso_id' => $sesion->id, 'taller_id' => $taller->id,
+            'unit_price' => 800, 'discount' => 0, 'total' => 800,
+        ]);
+        // 1 pendiente con el taller — no debe contarse.
+        $p3 = $this->crearInscripcion($formType, $categoria, ['subtotal' => 900, 'pago_status' => 'pending']);
+        ParticipanteTallerSesion::create([
+            'participante_id' => $p3->id, 'sesion_congreso_id' => $sesion->id, 'taller_id' => $taller->id,
+            'unit_price' => 800, 'discount' => 0, 'total' => 800,
+        ]);
+        // 1 pagado SIN taller — no debe aparecer en porTaller.
+        $this->crearInscripcion($formType, $categoria);
+
+        $admin = $this->actingAsAdmin();
+        $admin->update(['rol' => 'admin', 'evento_id' => $this->evento->id]);
+
+        $response = $this->getJson("/api/v1/event/{$this->evento->id}/dashboard-inscripciones")
+            ->assertStatus(200);
+
+        $porTaller = $response->json('reporteInscritos.porTaller');
+
+        $this->assertSame(2, $porTaller['totalCantidad']);
+        $this->assertEquals(1600.0, $porTaller['totalRecaudacion']);
+        $this->assertCount(1, $porTaller['filas']);
+
+        $fila = $porTaller['filas'][0];
+        $this->assertSame('Bombas Elastoméricas', $fila['tallerNombre']);
+        $this->assertSame($sesion->id, $fila['sesionId']);
+        $this->assertSame(2, $fila['cantidad']);
+        $this->assertEquals(1600.0, $fila['recaudacion']);
+        $this->assertSame(20, $fila['cupo']);
+        $this->assertSame(18, $fila['disponible']);
     }
 
     public function test_admin_de_otro_evento_no_ve_el_reporte(): void

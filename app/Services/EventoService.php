@@ -52,6 +52,8 @@ class EventoService
             // Cargo de servicio sobre talleres, configurable por evento
             // (19/08/2026) — ver migración add_fee_incluye_talleres_to_eventos_table.
             'feeIncluyeTalleres' => 'fee_incluye_talleres',
+            // Precio USD fijo (19/08/2026) — ver brain/PLAN-PRECIO-USD-FIJO-19082026.md.
+            'usdPrecioFijo'    => 'usd_precio_fijo',
         ];
 
         // Columnas NOT NULL sin default en la migración original de `eventos`

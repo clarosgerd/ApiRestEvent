@@ -116,6 +116,26 @@ class ExpirarInscripcionesPendientesTest extends TestCase
         $this->assertSame('pending', $registration->fresh()->pago_status);
     }
 
+    /**
+     * Bug real de producción (19/08/2026) — `Carbon::rawAddUnit(): Argument
+     * #3 ($value) must be of type int|float, string given` en
+     * addMinutes(), porque `tiempo_expiracion_min` no tenía cast en
+     * FormType y en el hosting real PDO devuelve columnas numéricas como
+     * string (mismo driver quirk ya documentado antes con `evento_id`).
+     * No se puede reproducir el driver real en este entorno (localmente
+     * PDO ya devuelve int) — `setRawAttributes()` simula exactamente lo
+     * que Eloquent recibe antes de aplicar el cast, sin importar el
+     * driver, para probar que `FormType::$casts` lo convierte a int igual.
+     */
+    public function test_formtype_castea_tiempo_expiracion_min_a_int_aunque_llegue_como_string(): void
+    {
+        $formType = new FormType();
+        $formType->setRawAttributes(['tiempo_expiracion_min' => '30'], true);
+
+        $this->assertIsInt($formType->tiempo_expiracion_min);
+        $this->assertSame(30, $formType->tiempo_expiracion_min);
+    }
+
     public function test_does_not_touch_already_paid_registration(): void
     {
         $evento = Evento::factory()->create();

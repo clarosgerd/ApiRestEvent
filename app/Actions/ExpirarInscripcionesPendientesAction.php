@@ -43,7 +43,11 @@ class ExpirarInscripcionesPendientesAction
             ->with('formType')
             ->chunkById(100, function ($registrations) use (&$expiradas) {
                 foreach ($registrations as $registration) {
-                    $minutos = $registration->formType->tiempo_expiracion_min ?? 0;
+                    // (int) explícito (19/08/2026) — defensa en profundidad
+                    // además del cast agregado en FormType::$casts: sin
+                    // esto, un valor string (PDO en el hosting real) tumba
+                    // addMinutes() más abajo con un TypeError de Carbon.
+                    $minutos = (int) ($registration->formType->tiempo_expiracion_min ?? 0);
 
                     // 0 (o form_type borrado/sin relación) = sin expiración
                     // configurada — no tocar. NOT NULL en la BD, pero

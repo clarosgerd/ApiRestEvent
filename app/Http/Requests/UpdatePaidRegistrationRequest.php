@@ -43,6 +43,11 @@ class UpdatePaidRegistrationRequest extends FormRequest
             'participantes.*.contacto_emergencia'        => ['required', 'array'],
             'participantes.*.contacto_emergencia.*'      => ['required', 'string'],
             'participantes.*.souvenirs'                  => ['nullable', 'array'],
+            // Congresos con talleres (18/08/2026) — bug real encontrado el
+            // 19/08/2026, ver StoreRegistrationRequest: sin esta regla,
+            // $request->validated() descarta `talleres` en silencio, así
+            // que editar una inscripción pagada con talleres los perdía.
+            'participantes.*.talleres'                   => ['nullable', 'array'],
             'participantes.*.answers'                    => ['nullable', 'array'],
             'participantes.*.answers.*.form_types_id'    => ['required_with:participantes.*.answers|integer'],
             'participantes.*.answers.*.question_id'      => ['required_with:participantes.*.answers|integer'],
@@ -52,6 +57,7 @@ class UpdatePaidRegistrationRequest extends FormRequest
             'totales.inscripcion'                       => ['required', 'numeric'],
             'totales.donacion'                          => ['required', 'numeric'],
             'totales.souvenirs'                         => ['required', 'numeric'],
+            'totales.talleres'                          => ['nullable', 'numeric'],
             'totales.fee'                               => ['required', 'numeric'],
             'totales.descuento'                         => ['required', 'numeric'],
             'totales.descuento_registrante'              => ['nullable', 'numeric'],

@@ -28,7 +28,13 @@ class RevertirCupo extends Command
                         continue;
                     }
 
-                    $diasGracia = $registration->evento?->organizador?->dias_gracia_reversion ?? 3;
+                    // (int) explícito (19/08/2026) — mismo motivo que
+                    // ExpirarInscripcionesPendientesAction: aunque
+                    // Organizador::$casts ya tiene 'dias_gracia_reversion'
+                    // => 'integer', esto es defensa en profundidad barata
+                    // para el mismo TypeError de Carbon si ese cast se
+                    // llegara a perder.
+                    $diasGracia = (int) ($registration->evento?->organizador?->dias_gracia_reversion ?? 3);
                     $vence      = $notificacion->enviado_at->copy()->addDays($diasGracia);
 
                     if (now()->greaterThanOrEqualTo($vence)) {

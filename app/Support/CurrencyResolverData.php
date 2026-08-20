@@ -125,4 +125,78 @@ class CurrencyResolverData
             $dto->totalPagado,
         );
     }
+
+    /**
+     * Precio USD fijo, sin tipo de cambio (19/08/2026) — ver
+     * brain/PLAN-PRECIO-USD-FIJO-19082026.md. Modo alternativo a
+     * `resolver()` para eventos con `usd_precio_fijo=true`: en vez de
+     * `grand_total_BOB × tasa`, el USD esperado sale de sumar
+     * `categories.price_usd` de cada participante — sin tocar para nada
+     * el bookkeeping en BOB (`totals->registration/fee/grandTotal`), que
+     * sigue siendo la fuente de verdad de siempre para reportes,
+     * liquidaciones, etc. Solo cambia de dónde sale el número que se
+     * cobra realmente en la pasarela cuando el pago es en USD.
+     *
+     * Alcance confirmado con el usuario (19/08/2026): solo
+     * categoría/inscripción — souvenirs, donación, talleres y el add-on
+     * de camiseta no tienen precio en USD fijo todavía. Para no cobrar de
+     * menos en silencio, se rechaza si el participante trae alguno de
+     * esos ítems distinto de cero.
+     */
+    public static function resolverPrecioFijo(RegistrationDTO $dto, \App\Models\Evento $evento): array
+    {
+        $totalUsd = 0.0;
+
+        foreach ($dto->participants as $p) {
+            if ($p->donation > 0 || !empty($p->souvenirs) || !empty($p->talleres) || $p->shirtPrice > 0) {
+                throw new \DomainException(
+                    'Este evento cobra en USD solo la inscripción — sacá souvenirs, talleres, camiseta o donación del carrito, o pagá en BOB.'
+                );
+            }
+
+            $categoria = \App\Models\Category::find((int) $p->category);
+            if (!$categoria || $categoria->price_usd === null) {
+                throw new \DomainException(
+                    'La categoría elegida no tiene precio en USD configurado para este evento. Recargá la página e intentá de nuevo.'
+                );
+            }
+
+            $totalUsd += (float) $categoria->price_usd;
+        }
+
+        // Mismo fee_pct que ya usa el evento — aplicado directo sobre la
+        // base USD, sin pasar por BOB (ver validateFeePct() para el
+        // camino BOB, que sigue intacto y corre en paralelo a esto).
+        $feeUsd = round($totalUsd * (float) $evento->fee_pct, 2);
+        $esperado = round($totalUsd + $feeUsd, 2);
+
+        if ($dto->totalPagado === null) {
+            throw new \DomainException(
+                'Para pagar en USD se requiere total_pagado.'
+            );
+        }
+
+        $delta = abs($esperado - $dto->totalPagado);
+        // Sin tasa de cambio de por medio acá, la única tolerancia real es
+        // redondeo — no hace falta el margen por drift de tasa de
+        // resolver().
+        $tolerancia = 0.02;
+
+        if ($delta > $tolerancia) {
+            throw new \DomainException(
+                sprintf(
+                    'El total_pagado en USD (%.2f) no coincide con el precio fijo esperado (%.2f). Recargá la página e intentá de nuevo.',
+                    $dto->totalPagado,
+                    $esperado
+                )
+            );
+        }
+
+        return [
+            'total_pagado'        => round($dto->totalPagado, 2),
+            // Sin tasa en este modo — a propósito, es la señal de que esta
+            // inscripción usó precio fijo y no tipo de cambio.
+            'tipo_cambio_aplicado' => null,
+        ];
+    }
 }

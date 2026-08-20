@@ -425,12 +425,18 @@ class CrearInscripcionAction
             );
         }
 
-        $resuelto = CurrencyResolverData::resolver(
-            (float) ($dto->totals->grandTotal ?? 0),
-            $moneda,
-            $dto->tipoCambioAplicado,
-            $dto->totalPagado,
-        );
+        // Precio USD fijo (19/08/2026) — ver
+        // brain/PLAN-PRECIO-USD-FIJO-19082026.md. Camino alternativo a
+        // resolver() (tasa de cambio), sin tocarlo — solo aplica si el
+        // evento lo tiene prendido.
+        $resuelto = ($moneda === 'USD' && $evento->usd_precio_fijo)
+            ? CurrencyResolverData::resolverPrecioFijo($dto, $evento)
+            : CurrencyResolverData::resolver(
+                (float) ($dto->totals->grandTotal ?? 0),
+                $moneda,
+                $dto->tipoCambioAplicado,
+                $dto->totalPagado,
+            );
 
         // Normalizamos el DTO para que `Registration::create()` y
         // `RegistrationResource` lean siempre los valores finales validados.

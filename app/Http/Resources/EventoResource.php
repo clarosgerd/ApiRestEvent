@@ -119,6 +119,11 @@ class EventoResource extends JsonResource
             // false, el frontend del participante oculta el selector de
             // moneda y fuerza BOB (comportamiento legacy).
             'aceptaUsd'                  =>(bool) $this->acepta_usd,
+            // Precio USD fijo, sin tipo de cambio (19/08/2026) — ver
+            // brain/PLAN-PRECIO-USD-FIJO-19082026.md. Modo alternativo a
+            // `aceptaUsd` con tasa: cuando está prendido, el frontend usa
+            // `category.priceUsd` directo en vez de tipo_cambio.php.
+            'usdPrecioFijo'              =>(bool) $this->usd_precio_fijo,
             'equipos'                    =>EquipoResource::collection($this->whenLoaded('equipos')),  // Catálogo de equipos (precargado por el organizador) para form_types con hasTeam
     //        'contador_visitas'          =>$this->contador_visitas
     ];

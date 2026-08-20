@@ -55,6 +55,14 @@ class FormType extends Model
         'has_promo_code' => 'boolean',
         'es_staff'       => 'boolean',
         'es_ponente'     => 'boolean',
+        // Bug real (19/08/2026) — mismo patrón ya visto antes con
+        // evento_id (memoria: "403 falso solo en UAT por driver PDO
+        // devolviendo string"): sin cast, PDO en el hosting real devuelve
+        // esta columna como string, y Carbon 3.x rechaza un string en
+        // addMinutes() ("rawAddUnit(): Argument #3 must be of type
+        // int|float, string given") — ver ExpirarInscripcionesPendientesAction,
+        // que corre por cron y tumbaba el comando entero.
+        'tiempo_expiracion_min' => 'integer',
     ];
 
 

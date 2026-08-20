@@ -36,6 +36,18 @@ class StoreRegistrationRequest extends FormRequest
             '*.totales' => ['required','array'],
             '*.participantes.*.contacto_emergencia' => ['required','array'],
             '*.participantes.*.souvenirs' => ['nullable','array'],
+            // Congresos con talleres (18/08/2026) — bug real encontrado el
+            // 19/08/2026: esta regla nunca existió, así que
+            // $request->validated() descartaba `talleres` en silencio (mismo
+            // motivo por el que `souvenirs`/`answers` sí sobrevivían: son las
+            // únicas claves anidadas que Laravel conserva son las que tienen
+            // su propia regla). Ninguna inscripción con taller llegaba a
+            // CrearInscripcionAction con el array real — siempre vacío, así
+            // que nunca se creaba la fila en participante_taller_sesion. Los
+            // tests existentes (TallerSeleccionInscripcionTest, etc.) no lo
+            // agarraron porque llaman a CrearInscripcionAction::handle()
+            // directo, saltándose esta capa de validación HTTP.
+            '*.participantes.*.talleres' => ['nullable','array'],
             '*.participantes.*.answers' => ['nullable','array'],
             '*.participantes.*.answers.*.form_types_id' => ['required_with:*.participantes.*.answers|integer'],
             '*.participantes.*.answers.*.question_id' => ['required_with:*.participantes.*.answers|integer'],

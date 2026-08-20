@@ -71,6 +71,12 @@ class Evento extends Model
         // (extranjeros). Default false: comportamiento BOB-only idéntico
         // al actual.
         'acepta_usd',
+        // Precio USD fijo, sin tipo de cambio (19/08/2026) — ver
+        // brain/PLAN-PRECIO-USD-FIJO-19082026.md. Modo alternativo a
+        // `acepta_usd` con tasa: cuando está prendido, el USD sale de
+        // `categories.price_usd` directo, sin tipo_cambio.php. Default
+        // false: no cambia nada de lo que ya existe.
+        'usd_precio_fijo',
         'publicado',
         'destacado',
         'es_historico', // ETL de datos históricos 2014-hoy, ver elascenso/event/brain/
@@ -87,6 +93,7 @@ protected $casts = [
     'talleres_con_costo' => 'boolean',
     'fee_incluye_talleres' => 'boolean',
     'acepta_usd'        => 'boolean',
+    'usd_precio_fijo'   => 'boolean',
 ];
     /**
      * Permite que las rutas `{event}` (GET/PUT/DELETE /event/{event}, y

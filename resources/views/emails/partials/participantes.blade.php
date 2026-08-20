@@ -13,7 +13,19 @@
         <strong style="color:#022858;font-size:15px;">{{ $p->alias }}</strong>
         <span style="color:#607080;"> — {{ $p->nombre }} {{ $p->apellido }}</span><br>
         <span style="font-size:13px;color:#607080;line-height:2;">
-          Categoría: <strong>{{ $categoriasPorId->get($p->categoria)->name ?? $p->categoria }}</strong> · Bs{{ number_format((float) $p->precio_categoria, 2) }}<br>
+          {{--
+              Precio USD fijo (19/08/2026) — si la inscripción se pagó en
+              USD, se agrega el precio USD de la categoría al lado del de
+              Bs (que sigue siendo el precio base real, no se reemplaza).
+              Antes esta línea era siempre Bs sin importar la moneda de
+              cobro real de la inscripción.
+          --}}
+          @php($categoriaActual = $categoriasPorId->get($p->categoria))
+          Categoría: <strong>{{ $categoriaActual->name ?? $p->categoria }}</strong> · Bs{{ number_format((float) $p->precio_categoria, 2) }}
+          @if ($registration->moneda_pago === 'USD' && $categoriaActual && $categoriaActual->price_usd !== null)
+            <span style="color:#607080;">(US${{ number_format((float) $categoriaActual->price_usd, 2) }})</span>
+          @endif
+          <br>
           Documento: <strong>{{ $p->tipo_documento }} {{ $p->numero_documento }}</strong><br>
           Camiseta: <strong>{{ $p->polera }}</strong><br>
           Taller:

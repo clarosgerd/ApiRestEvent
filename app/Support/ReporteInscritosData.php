@@ -48,12 +48,18 @@ class ReporteInscritosData
         $participantesPagados = Participante::whereHas(
             'registration',
             fn ($q) => $q->where('evento_id', $evento->id)->where('pago_status', 'paid')
-        )->with('registration')->get();
+        )
+            // Reporte de talleres (19/08/2026) — eager-cargado para no hacer
+            // N+1 al armar porTaller() más abajo. Vacío para eventos sin
+            // talleres (relación vacía, no rompe nada).
+            ->with(['registration', 'talleresSesiones.taller', 'talleresSesiones.sesionCongreso'])
+            ->get();
 
         return [
             'porModalidad' => self::agruparPorFormulario($evento, $participantesPagados),
             'porCategoria' => self::agruparPorCategoria($evento, $participantesPagados),
             'poleras' => self::agruparPoleras($participantesPagados),
+            'porTaller' => self::agruparPorTaller($participantesPagados),
         ];
     }
 
@@ -108,6 +114,62 @@ class ReporteInscritosData
         return [
             'filas' => $filas,
             'total' => array_sum(array_column($filas, 'cantidad')),
+        ];
+    }
+
+    /**
+     * Reporte de talleres (19/08/2026) — pedido del usuario: "no tenemos
+     * reporte de talleres". Se agrupa por SESIÓN (no solo por taller),
+     * porque el cupo y el horario son por sesión — un mismo taller puede
+     * repetirse en más de una sesión (ej. "REASE: Manejo de Paro
+     * Intraoperatorio" dos veces en el evento real que motivó este
+     * reporte). `disponible` sale de `sesiones_congreso.cupo` menos la
+     * cantidad de PAGADOS acá — no es el mismo `disponibles` que expone
+     * TallerSesionResource al público (ese cuenta cualquier estado no
+     * cancelado/fallido, ver participanteSesiones() en SesionCongreso);
+     * acá es a propósito solo lo efectivamente cobrado, mismo criterio de
+     * "recaudación" que el resto de este reporte.
+     */
+    private static function agruparPorTaller(Collection $participantes): array
+    {
+        $grupos = [];
+
+        foreach ($participantes as $p) {
+            foreach ($p->talleresSesiones as $pts) {
+                $sesion = $pts->sesionCongreso;
+                $taller = $pts->taller;
+                $id = $pts->sesion_congreso_id;
+
+                $grupos[$id] ??= [
+                    'sesionId'     => $id,
+                    'tallerId'     => $pts->taller_id,
+                    'tallerNombre' => $taller->nombre ?? 'Sin especificar',
+                    'sesionTitulo' => $sesion->titulo ?? null,
+                    'fecha'        => optional($sesion?->fecha)->format('Y-m-d'),
+                    'horaInicio'   => $sesion ? substr((string) $sesion->hora_inicio, 0, 5) : null,
+                    'horaFin'      => $sesion ? substr((string) $sesion->hora_fin, 0, 5) : null,
+                    'cupo'         => $sesion?->cupo,
+                    'cantidad'     => 0,
+                    'recaudacion'  => 0.0,
+                ];
+                $grupos[$id]['cantidad']++;
+                $grupos[$id]['recaudacion'] += (float) $pts->total;
+            }
+        }
+
+        foreach ($grupos as &$grupo) {
+            $grupo['recaudacion'] = round($grupo['recaudacion'], 2);
+            $grupo['disponible']  = $grupo['cupo'] !== null ? max(0, $grupo['cupo'] - $grupo['cantidad']) : null;
+        }
+        unset($grupo);
+
+        uasort($grupos, fn ($a, $b) => [$a['fecha'], $a['horaInicio']] <=> [$b['fecha'], $b['horaInicio']]);
+        $filas = array_values($grupos);
+
+        return [
+            'filas' => $filas,
+            'totalCantidad' => array_sum(array_column($filas, 'cantidad')),
+            'totalRecaudacion' => round(array_sum(array_column($filas, 'recaudacion')), 2),
         ];
     }
 
