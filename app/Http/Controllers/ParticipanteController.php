@@ -206,7 +206,13 @@ class ParticipanteController extends Controller
                 $q->where('evento_id', $event->id)
                     ->when($data['pago_status'] ?? null, fn ($q2, $estado) => $q2->where('pago_status', $estado));
             })
-            ->with('registration:id,referencia,pago_status,fecha')
+            // talleresSesiones: reporte detallado de inscritos (19/08/2026) —
+            // `subtotal` nunca incluyó el importe de talleres (ver
+            // App\Support\ReporteInscritosData, mismo criterio), así que el
+            // organizador no podía conciliar contra el banco con lo que ya
+            // mostraba este reporte. Eager-load para no hacer N+1 al sumar
+            // `total` por participante en el map() de abajo.
+            ->with(['registration:id,referencia,pago_status,fecha', 'talleresSesiones'])
             ->when($data['categoria'] ?? null, fn ($q, $categoria) => $q->where('categoria', $categoria))
             ->orderBy('categoria')
             ->orderBy('apellido');
@@ -243,6 +249,14 @@ class ParticipanteController extends Controller
             // (15/08/2026), pantalla nueva "Detalle de inscritos" en
             // admin-eventos.
             'importe'         => (float) $p->subtotal,
+            // importeTaller/importeTotal (19/08/2026) — `importe` (subtotal)
+            // no incluye talleres, así que no alcanzaba para conciliar
+            // contra el banco lo que el participante realmente pagó.
+            // `importeTotal` es lo comparable contra el depósito real
+            // (no incluye el cargo de servicio, que se cobra por
+            // inscripción/registro completo, no por participante).
+            'importeTaller'   => round((float) $p->talleresSesiones->sum('total'), 2),
+            'importeTotal'    => round((float) $p->subtotal + (float) $p->talleresSesiones->sum('total'), 2),
             'fechaInscripcion' => optional($p->registration->fecha)->toIso8601String(),
         ];
 

@@ -9,8 +9,11 @@ use App\Models\FormType;
 use App\Models\Organizador;
 use App\Models\Pais;
 use App\Models\Participante;
+use App\Models\ParticipanteTallerSesion;
 use App\Models\Registration;
+use App\Models\SesionCongreso;
 use App\Models\SubtipoEvento;
+use App\Models\Taller;
 use App\Models\TipoEvento;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -127,6 +130,54 @@ class ParticipantesPorEventoTest extends TestCase
         $p = $response->json('participantes.0');
         $this->assertEquals(75.0, $p['importe']);
         $this->assertNotNull($p['fechaInscripcion']);
+    }
+
+    /**
+     * Reporte detallado de inscritos (19/08/2026) — `importe` (subtotal)
+     * nunca incluyó talleres, así que no servía para conciliar contra el
+     * banco. `importeTaller`/`importeTotal` cierran ese gap.
+     */
+    public function test_expone_importe_taller_e_importe_total(): void
+    {
+        $participante = $this->crearInscripcion(['subtotal' => 100]);
+
+        $taller = Taller::factory()->create(['evento_id' => $this->evento->id]);
+        $sesion = SesionCongreso::factory()->create([
+            'evento_id' => $this->evento->id,
+            'taller_id' => $taller->id,
+        ]);
+        ParticipanteTallerSesion::create([
+            'participante_id' => $participante->id,
+            'sesion_congreso_id' => $sesion->id,
+            'taller_id' => $taller->id,
+            'unit_price' => 80, 'discount' => 0, 'total' => 80,
+        ]);
+
+        $admin = $this->actingAsAdmin();
+        $admin->update(['rol' => 'admin', 'evento_id' => $this->evento->id]);
+
+        $response = $this->getJson("/api/v1/event/{$this->evento->id}/participantes")
+            ->assertStatus(200);
+
+        $p = $response->json('participantes.0');
+        $this->assertEquals(100.0, $p['importe']);
+        $this->assertEquals(80.0, $p['importeTaller']);
+        $this->assertEquals(180.0, $p['importeTotal']);
+    }
+
+    public function test_importe_taller_es_cero_sin_talleres(): void
+    {
+        $this->crearInscripcion(['subtotal' => 50]);
+
+        $admin = $this->actingAsAdmin();
+        $admin->update(['rol' => 'admin', 'evento_id' => $this->evento->id]);
+
+        $response = $this->getJson("/api/v1/event/{$this->evento->id}/participantes")
+            ->assertStatus(200);
+
+        $p = $response->json('participantes.0');
+        $this->assertEquals(0.0, $p['importeTaller']);
+        $this->assertEquals(50.0, $p['importeTotal']);
     }
 
     public function test_pagina_cuando_se_pide_per_page(): void

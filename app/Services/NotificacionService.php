@@ -123,7 +123,16 @@ class NotificacionService
             return;
         }
 
-        $registration->loadMissing(['participants.souvenirParticipante', 'totals', 'evento.organizador']);
+        // formType/participants.talleresSesiones.taller (19/08/2026) — el
+        // partial de participantes del email necesita `formType.tipo` para
+        // ocultar "Camiseta" en congresos, y la relación real de talleres
+        // (antes el partial mostraba `souvenirParticipante` bajo la
+        // etiqueta "Taller:" por error — ver participantes.blade.php).
+        $registration->loadMissing([
+            'participants.souvenirParticipante',
+            'participants.talleresSesiones.taller',
+            'totals', 'evento.organizador', 'formType',
+        ]);
 
         $destinatarios = $registration->participants->pluck('correo')->filter()->unique();
 
