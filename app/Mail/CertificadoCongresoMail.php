@@ -41,9 +41,12 @@ class CertificadoCongresoMail extends Mailable
                 'sesiones' => $this->sesiones,
             ]);
 
+        // Título (20/08/2026) — mismo criterio que EventoController::
+        // certificadosPdf(), ver el comentario ahí.
         $item = [
             'tipo' => 'asistencia_congreso',
-            'nombre' => trim($this->participante->nombre.' '.$this->participante->apellido),
+            'nombre' => collect([$this->participante->alias, $this->participante->nombre, $this->participante->apellido])
+                ->filter()->implode(' '),
             'sesiones' => $this->sesiones->map(fn ($s) => [
                 'titulo' => $s->titulo,
                 'ponente' => $s->ponente,

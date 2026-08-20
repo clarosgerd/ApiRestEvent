@@ -497,6 +497,14 @@ return response()->json([
      */
     public function gafetesPdf(Evento $event)
     {
+        // Nombres de categoría (20/08/2026) — participante->categoria guarda
+        // el ID, no el nombre (mismo bug que ya se resolvió en
+        // certificadosPdf() y en el email de participantes, ver
+        // BUG-FILTRO-CATEGORIA-NUMERACION-10082026.md). Sin este mapa, el
+        // gafete mostraría "1" en vez de "5K"/"Ponente".
+        $event->loadMissing('categories');
+        $categoryNames = $event->categories->pluck('name', 'id');
+
         $registrations = Registration::where('evento_id', $event->id)
             ->whereNotIn('pago_status', ['cancelled', 'failed'])
             ->with(['participants', 'formType'])
@@ -509,7 +517,12 @@ return response()->json([
             foreach ($registration->participants as $participante) {
                 $items[] = [
                     'nombre'     => trim($participante->nombre . ' ' . $participante->apellido),
-                    'categoria'  => $registration->formType->name ?? $participante->categoria,
+                    // 'rol' (tipo de inscripción, ej. "Individual"/"Staff")
+                    // y 'categoria' (categoría real del participante, ej.
+                    // "5K"/"Ponente") — antes el gafete repetía el mismo
+                    // valor dos veces en las dos líneas del rol-cell.
+                    'rol'        => $registration->formType->name ?? '',
+                    'categoria'  => $categoryNames[$participante->categoria] ?? $participante->categoria,
                     'referencia' => $registration->referencia,
                     'qr'         => ReferenceQrService::toBase64Png($registration->referencia),
                     'color'      => $color,
@@ -575,15 +588,22 @@ return response()->json([
     /**
      * Certificados en bulk para imprimir/entregar en el evento — uno por
      * participante elegible, un PDF por página (orientación horizontal).
-     * Dos variantes según el form_type de la inscripción:
-     * - `requiere_categoria = true` (carreras): "certificado de
-     *   participación", solo para quienes tienen un Resultado cargado con
-     *   estado `finisher` (dns/dnf/dsq quedan afuera, igual que el ranking
-     *   de equipo — ver brain/PLAN-RESULTADOS-EQUIPOS-31072026.md), incluye
-     *   tiempo oficial y posición.
-     * - `requiere_categoria = false` (congresos, staff, voluntariado):
-     *   "certificado de asistencia" simple, para cualquier inscripción
-     *   pagada — no depende de resultados.
+     * Dos variantes, según si el participante tiene un Resultado cargado:
+     * - Con Resultado en estado `finisher`: "certificado de participación",
+     *   con tiempo oficial y posición.
+     * - Sin eso (cualquier otro caso, pagado): "certificado de asistencia"
+     *   simple, sin datos de resultado.
+     *
+     * Antes esto ramificaba por `formType->requiere_categoria` (asumiendo
+     * true=carrera, false=congreso/staff/voluntariado) — bug real
+     * encontrado el 20/08/2026 con datos de UAT: `requiere_categoria` en
+     * realidad solo significa "cobra por categoría de precio" (ver
+     * CrearInscripcionAction::validatePrecioCategoria()), no "es una
+     * carrera". Congresos reales (CIACRUZ, evento 1) cobran por categoría
+     * igual que una carrera, así que sus asistentes pagados caían en la
+     * rama que exige `finisher` y nunca recibían certificado. Ahora la
+     * única señal es la presencia real de un Resultado — data-driven, no
+     * depende de ninguna clasificación de form_type.
      */
     public function certificadosPdf(Evento $event)
     {
@@ -592,21 +612,15 @@ return response()->json([
 
         $registrations = Registration::where('evento_id', $event->id)
             ->whereNotIn('pago_status', ['cancelled', 'failed'])
-            ->with(['formType', 'participants.resultado'])
+            ->with('participants.resultado')
             ->get();
 
         $items = [];
         foreach ($registrations as $registration) {
-            $formType = $registration->formType;
-            $requiereCategoria = $formType ? (bool) $formType->requiere_categoria : true;
-
             foreach ($registration->participants as $participante) {
-                if ($requiereCategoria) {
-                    $resultado = $participante->resultado;
-                    if (! $resultado || $resultado->estado !== 'finisher') {
-                        continue;
-                    }
+                $resultado = $participante->resultado;
 
+                if ($resultado && $resultado->estado === 'finisher') {
                     $items[] = [
                         'tipo'              => 'participacion',
                         'nombre'            => trim($participante->nombre . ' ' . $participante->apellido),
@@ -617,10 +631,20 @@ return response()->json([
                         'referencia'        => $registration->referencia,
                     ];
                 } else {
+                    // Título (20/08/2026) — $participante->alias es la misma
+                    // columna renombrada a "Título" en el form de congreso
+                    // (11/08/2026, Dr./Dra./Lic./Ing./Msc./Mgr./Est./PhD./
+                    // Otro). Vacío en staff/voluntariado/DNS-DNF de carrera,
+                    // que no la usan — el filter() se lo salta sin dejar un
+                    // espacio de más.
                     $items[] = [
                         'tipo'       => 'asistencia',
-                        'nombre'     => trim($participante->nombre . ' ' . $participante->apellido),
-                        'rol'        => $participante->categoria,
+                        'nombre'     => collect([$participante->alias, $participante->nombre, $participante->apellido])
+                            ->filter()->implode(' '),
+                        // Mismo mapa $categoryNames de la rama de arriba —
+                        // sin esto salía el ID crudo ("12") en vez del
+                        // nombre real ("Ponente") en el diploma.
+                        'rol'        => $categoryNames[$participante->categoria] ?? $participante->categoria,
                         'referencia' => $registration->referencia,
                     ];
                 }

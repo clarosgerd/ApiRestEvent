@@ -51,8 +51,12 @@
                 <img class="qr" src="data:image/png;base64,{{ $item['qr'] }}">
               </div>
               <div class="role-cell">
-                <div class="role" style="color: {{ $itemColor }};">{{ $item['categoria'] }}</div>
-                <div class="role" style="color: {{ $itemColor }};">{{ $item['categoria'] }}</div>
+                @if (!empty($item['rol']))
+                  <div class="role" style="color: {{ $itemColor }};">{{ $item['rol'] }}</div>
+                @endif
+                @if (!empty($item['categoria']) && $item['categoria'] !== ($item['rol'] ?? null))
+                  <div class="role" style="color: {{ $itemColor }};">{{ $item['categoria'] }}</div>
+                @endif
               </div>
             </div>
           </div>

@@ -134,9 +134,8 @@
       <div class="frame-inner">
         <div style="padding-top: 200px; color: #607080;">
           Este evento todavía no tiene participantes elegibles para
-          certificado (carreras: se necesitan resultados cargados con
-          estado "finisher"; congresos: se necesitan inscripciones
-          pagadas).
+          certificado — se necesita al menos una inscripción pagada
+          (no cancelada ni fallida).
         </div>
       </div>
     </div>
