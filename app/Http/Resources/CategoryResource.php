@@ -40,6 +40,13 @@ class CategoryResource extends JsonResource
             'description'                 => $this->description,
             'color'                       => $this->color,
             'precio_vigente'              => $vigente['precio'],
+            // Precio USD fijo por período (20/08/2026) — mismo criterio
+            // que precio_vigente, ver PrecioVigenteData. El frontend de
+            // inscripción (usdPrecioFijo) y CurrencyResolverData::
+            // resolverPrecioFijo() deben usar este campo, no `priceUsd`
+            // directo (ese es el valor plano de la categoría, sin
+            // resolver por período).
+            'precio_usd_vigente'          => $vigente['precio_usd'],
             'periodo_vigente_nombre'      => $vigente['periodo_nombre'],
             'periodo_vigente_fecha_hasta' => $vigente['periodo_fecha_hasta'],
             'periodos'                    => $vigente['periodos'],

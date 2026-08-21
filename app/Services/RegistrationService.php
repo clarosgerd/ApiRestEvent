@@ -158,12 +158,15 @@ class RegistrationService
             'subtotal'         => $data['subtotal'],
         ]);
 
-        $emergency = $data['contacto_emergencia'];
+        // Caja para eventos tipo congreso (20/08/2026) — puede llegar
+        // vacío si form_types.requiere_contacto_emergencia es false, ver
+        // ValidaContactoEmergenciaCondicional.
+        $emergency = $data['contacto_emergencia'] ?? [];
         ContactoEmergenciaParticipante::create([
             'participante_id' => $participant->id,
-            'nombre'          => $emergency['nombre'],
-            'celular'         => $emergency['celular'],
-            'relacion'        => $emergency['relacion'],
+            'nombre'          => $emergency['nombre'] ?? '',
+            'celular'         => $emergency['celular'] ?? '',
+            'relacion'        => $emergency['relacion'] ?? '',
         ]);
 
         foreach ($data['souvenirs'] ?? [] as $souvenir) {

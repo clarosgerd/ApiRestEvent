@@ -2,10 +2,14 @@
 
 namespace App\Http\Requests;
 
+use App\Http\Requests\Concerns\ValidaContactoEmergenciaCondicional;
+use App\Models\Registration;
 use Illuminate\Foundation\Http\FormRequest;
 
 class UpdateRegistrationRequest extends FormRequest
 {
+    use ValidaContactoEmergenciaCondicional;
+
     public function authorize(): bool
     {
         return true;
@@ -38,8 +42,10 @@ class UpdateRegistrationRequest extends FormRequest
             'participantes.*.promoDescuento'             => ['nullable', 'numeric'],
             'participantes.*.promoCodigo'                => ['nullable', 'string'],
             'participantes.*.subtotal'                   => ['required', 'numeric'],
-            'participantes.*.contacto_emergencia'        => ['required', 'array'],
-            'participantes.*.contacto_emergencia.*'      => ['required', 'string'],
+            // Caja para eventos tipo congreso (20/08/2026) — obligatoriedad
+            // condicional por form_type, ver withValidator() más abajo.
+            'participantes.*.contacto_emergencia'        => ['nullable', 'array'],
+            'participantes.*.contacto_emergencia.*'      => ['nullable', 'string'],
             'participantes.*.souvenirs'                  => ['nullable', 'array'],
             // Congresos con talleres (18/08/2026) — bug real encontrado el
             // 19/08/2026, ver StoreRegistrationRequest: sin esta regla,
@@ -71,5 +77,28 @@ class UpdateRegistrationRequest extends FormRequest
             'participantes.*.correo.email'    => 'Correo inválido.',
             'totales.required'                => 'Los totales son obligatorios.',
         ];
+    }
+
+    /**
+     * Caja para eventos tipo congreso (20/08/2026) — el `form_types_id`
+     * no viaja en el body de un edit (no se puede cambiar), se resuelve
+     * desde la inscripción existente vía el `{reference}` de la ruta.
+     */
+    public function withValidator($validator): void
+    {
+        $validator->after(function ($validator) {
+            $registration = Registration::where('referencia', $this->route('reference'))->first();
+            if (!$this->formTypeRequiereContactoEmergencia($registration?->form_types_id)) {
+                return;
+            }
+            foreach ($this->input('participantes', []) as $j => $participante) {
+                foreach ($this->camposContactoEmergenciaFaltantes($participante['contacto_emergencia'] ?? []) as $campo) {
+                    $validator->errors()->add(
+                        "participantes.{$j}.contacto_emergencia.{$campo}",
+                        'El contacto de emergencia es obligatorio para este tipo de inscripción.'
+                    );
+                }
+            }
+        });
     }
 }

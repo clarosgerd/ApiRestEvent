@@ -140,6 +140,11 @@ class RegistrationController extends Controller
            'participants.contactoEmergenciaParticipante',
            'participants.souvenirParticipante',
            'participants.answers',
+           // Caja para eventos tipo congreso (20/08/2026) — faltaba, así
+           // que editar una inscripción con talleres desde Caja no los
+           // prellenaba (mismo gap ya documentado para souvenirs, ver
+           // caja/editar.blade.php).
+           'participants.talleresSesiones',
         ])
         ->where('referencia', $reference)
         ->firstOrFail();

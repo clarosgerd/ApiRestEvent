@@ -2,11 +2,14 @@
 
 namespace App\Http\Requests;
 
+use App\Http\Requests\Concerns\ValidaContactoEmergenciaCondicional;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
 class StoreRegistrationRequest extends FormRequest
 {
+    use ValidaContactoEmergenciaCondicional;
+
     /**
      * Determine if the user is authorized to make this request.
      */
@@ -34,7 +37,10 @@ class StoreRegistrationRequest extends FormRequest
             '*.pago_status' => ['required'],
             '*.pay_order_number' => ['nullable', 'string'],
             '*.totales' => ['required','array'],
-            '*.participantes.*.contacto_emergencia' => ['required','array'],
+            // Caja para eventos tipo congreso (20/08/2026) — obligatoriedad
+            // condicional por form_type, ver withValidator() más abajo.
+            '*.participantes.*.contacto_emergencia' => ['nullable','array'],
+            '*.participantes.*.contacto_emergencia.*' => ['nullable','string'],
             '*.participantes.*.souvenirs' => ['nullable','array'],
             // Congresos con talleres (18/08/2026) — bug real encontrado el
             // 19/08/2026: esta regla nunca existió, así que
@@ -88,5 +94,31 @@ class StoreRegistrationRequest extends FormRequest
             '*.participantes.*.correo.email' => 'Correo inválido.'
 
         ];
+    }
+
+    /**
+     * Caja para eventos tipo congreso (20/08/2026) — contacto de
+     * emergencia obligatorio solo si `form_types.requiere_contacto_emergencia`
+     * lo pide (default true). No se puede expresar como regla declarativa
+     * porque depende de una consulta a `form_types` por cada registro del
+     * array raíz (payload es `[{form_types_id, participantes: [...]}]`).
+     */
+    public function withValidator($validator): void
+    {
+        $validator->after(function ($validator) {
+            foreach ($this->all() as $i => $registro) {
+                if (!is_array($registro) || !$this->formTypeRequiereContactoEmergencia($registro['form_types_id'] ?? null)) {
+                    continue;
+                }
+                foreach ($registro['participantes'] ?? [] as $j => $participante) {
+                    foreach ($this->camposContactoEmergenciaFaltantes($participante['contacto_emergencia'] ?? []) as $campo) {
+                        $validator->errors()->add(
+                            "{$i}.participantes.{$j}.contacto_emergencia.{$campo}",
+                            'El contacto de emergencia es obligatorio para este tipo de inscripción.'
+                        );
+                    }
+                }
+            }
+        });
     }
 }

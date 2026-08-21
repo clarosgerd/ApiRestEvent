@@ -15,6 +15,7 @@ use App\Models\AdminUser;
 use App\Models\CajaMovimiento;
 use App\Models\CajaTurno;
 use App\Models\Evento;
+use App\Models\Persona;
 use App\Models\Registration;
 use App\Services\RegistrationService;
 use Illuminate\Http\JsonResponse;
@@ -75,6 +76,62 @@ class CajaController extends Controller
         return response()->json([
             'success' => true,
             'data'    => RegistrationCollectionResource::collection($registrations),
+        ]);
+    }
+
+    /**
+     * Prellenado desde `personas` (20/08/2026) — `personas` es la tabla
+     * global (no por evento) que RegistrationService::syncPersonas()
+     * mantiene al día con cada inscripción confirmada de CUALQUIER
+     * evento. Sirve para no hacer retipear todo a alguien que ya se
+     * inscribió antes a otro evento. Deliberadamente NO se usa para el
+     * chequeo de "ya está inscrito en este evento" — ese sigue siendo
+     * buscar() (scoped a `evento_id`); acá es solo prellenado de datos
+     * personales, nunca bloquea nada.
+     */
+    public function buscarPersona(Request $request, Evento $event): JsonResponse
+    {
+        $this->assertCanOperarCaja((int) $event->id);
+
+        $data = $request->validate(['numero_documento' => ['required', 'string', 'min:3']]);
+
+        $persona = Persona::with('contactoEmergencia')
+            ->where('numero_documento', $data['numero_documento'])
+            ->first();
+
+        if (!$persona) {
+            return response()->json(['success' => true, 'data' => null]);
+        }
+
+        $ce = $persona->contactoEmergencia;
+
+        return response()->json([
+            'success' => true,
+            'data'    => [
+                'nombre'          => $persona->nombre,
+                'apellido'        => $persona->apellido,
+                'alias'           => $persona->alias,
+                'genero'          => $persona->sexo,
+                'tipoDocumento'   => $persona->tipo_documento,
+                'numeroDocumento' => $persona->numero_documento,
+                'correo'          => $persona->correo,
+                'direccion'       => $persona->direccion,
+                'ciudad'          => $persona->ciudad,
+                'telefono'        => $persona->telefono,
+                // fecha_nacimiento no tiene cast a fecha en el modelo
+                // Persona (columna `dateTime` sin $casts) — se parsea acá
+                // en vez de tocar el modelo, que puede tener otros
+                // consumidores que ya esperan el string crudo.
+                'nacimiento'      => $persona->fecha_nacimiento ? (function () use ($persona) {
+                    $fecha = \Carbon\Carbon::parse($persona->fecha_nacimiento);
+                    return ['dia' => (int) $fecha->format('d'), 'mes' => (int) $fecha->format('m'), 'anio' => (int) $fecha->format('Y')];
+                })() : null,
+                'contacto_emergencia' => $ce ? [
+                    'nombre'   => $ce->nombre,
+                    'celular'  => $ce->celular,
+                    'relacion' => $ce->relacion,
+                ] : null,
+            ],
         ]);
     }
 

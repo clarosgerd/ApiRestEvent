@@ -38,6 +38,7 @@ class FormType extends Model
         'has_promo_code',
         'es_staff',
         'es_ponente',
+        'requiere_contacto_emergencia',
         'max_integrantes_grupo',
         'descuento_registrante_pct',
         'hasQuestion',
@@ -51,10 +52,11 @@ class FormType extends Model
     // la migración 2026_08_10_140000) sin tocar el comportamiento de los
     // demás campos, que seguían funcionando sin casts.
     protected $casts = [
-        'has_donation'   => 'boolean',
-        'has_promo_code' => 'boolean',
-        'es_staff'       => 'boolean',
-        'es_ponente'     => 'boolean',
+        'has_donation'                  => 'boolean',
+        'has_promo_code'                => 'boolean',
+        'es_staff'                      => 'boolean',
+        'es_ponente'                    => 'boolean',
+        'requiere_contacto_emergencia'  => 'boolean',
         // Bug real (19/08/2026) — mismo patrón ya visto antes con
         // evento_id (memoria: "403 falso solo en UAT por driver PDO
         // devolviendo string"): sin cast, PDO en el hosting real devuelve

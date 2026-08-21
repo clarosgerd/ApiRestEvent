@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Http\Requests\Concerns\ValidaContactoEmergenciaCondicional;
 use Illuminate\Foundation\Http\FormRequest;
 
 /**
@@ -12,6 +13,8 @@ use Illuminate\Foundation\Http\FormRequest;
  */
 class StoreInscripcionCajaRequest extends FormRequest
 {
+    use ValidaContactoEmergenciaCondicional;
+
     public function authorize(): bool
     {
         return true;
@@ -49,22 +52,50 @@ class StoreInscripcionCajaRequest extends FormRequest
             'participante.promoDescuento'             => ['nullable', 'numeric'],
             'participante.promoCodigo'                => ['nullable', 'string'],
             'participante.subtotal'                   => ['required', 'numeric'],
-            'participante.contacto_emergencia'        => ['required', 'array'],
-            'participante.contacto_emergencia.nombre' => ['required', 'string'],
-            'participante.contacto_emergencia.celular' => ['required', 'string'],
-            'participante.contacto_emergencia.relacion' => ['required', 'string'],
+            // Caja para eventos tipo congreso (20/08/2026) — obligatoriedad
+            // condicional por form_type, ver withValidator() más abajo.
+            'participante.contacto_emergencia'        => ['nullable', 'array'],
+            'participante.contacto_emergencia.nombre' => ['nullable', 'string'],
+            'participante.contacto_emergencia.celular' => ['nullable', 'string'],
+            'participante.contacto_emergencia.relacion' => ['nullable', 'string'],
             'participante.souvenirs'                  => ['nullable', 'array'],
             'participante.answers'                    => ['nullable', 'array'],
+            // Talleres de congreso en Caja (20/08/2026) — mismas reglas
+            // permisivas que StoreRegistrationRequest/Update*Request: el
+            // detalle de pertenencia/cupo/solape lo revalida
+            // CrearInscripcionAction del lado servidor.
+            'participante.talleres'                   => ['nullable', 'array'],
 
             'totales'                                => ['required', 'array'],
             'totales.inscripcion'                    => ['required', 'numeric'],
             'totales.donacion'                        => ['required', 'numeric'],
             'totales.souvenirs'                       => ['required', 'numeric'],
+            'totales.talleres'                        => ['nullable', 'numeric'],
             'totales.fee'                             => ['required', 'numeric'],
             'totales.descuento'                       => ['required', 'numeric'],
             'totales.descuento_registrante'            => ['nullable', 'numeric'],
             'totales.grand_total'                     => ['required', 'numeric'],
         ];
+    }
+
+    /**
+     * Caja para eventos tipo congreso (20/08/2026) — ver
+     * ValidaContactoEmergenciaCondicional.
+     */
+    public function withValidator($validator): void
+    {
+        $validator->after(function ($validator) {
+            if (!$this->formTypeRequiereContactoEmergencia($this->input('form_types_id'))) {
+                return;
+            }
+            $contacto = (array) $this->input('participante.contacto_emergencia', []);
+            foreach ($this->camposContactoEmergenciaFaltantes($contacto) as $campo) {
+                $validator->errors()->add(
+                    "participante.contacto_emergencia.{$campo}",
+                    'El contacto de emergencia es obligatorio para este tipo de inscripción.'
+                );
+            }
+        });
     }
 
     public function messages(): array

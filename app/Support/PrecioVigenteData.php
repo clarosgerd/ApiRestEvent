@@ -29,15 +29,25 @@ use Carbon\CarbonImmutable;
  * Aplica solo a categorías (`requiereCategoria=true`). Cuando
  * `requiereCategoria=false` el precio sale de `form_types.precio_base`
  * directo, sin pasar por acá — ver sección 0 del PRD.
+ *
+ * Precio USD fijo por período (20/08/2026) — `precio_usd` sigue la
+ * MISMA selección de período que `precio` (mismo caso 1-4), pero lee
+ * `price_usd` de ese período en vez de `price`. Si el período elegido no
+ * tiene `price_usd` cargado (el organizador todavía no lo completó, o
+ * nunca lo va a usar), cae a `categories.price_usd` — igual que
+ * `categories.price` es el fallback de `precio` en los casos 1 y 4.
+ * `null` si ni el período ni la categoría tienen USD cargado (evento que
+ * no vende en USD fijo). Ver CurrencyResolverData::resolverPrecioFijo().
  */
 class PrecioVigenteData
 {
     /**
      * @return array{
      *   precio: float,
+     *   precio_usd: ?float,
      *   periodo_nombre: ?string,
      *   periodo_fecha_hasta: ?string,
-     *   periodos: array<int, array{id:int, nombre:string, price:float, fecha_desde:string, fecha_hasta:string}>
+     *   periodos: array<int, array{id:int, nombre:string, price:float, price_usd:?float, fecha_desde:string, fecha_hasta:string}>
      * }
      */
     public static function paraCategoria(Category $category): array
@@ -48,6 +58,7 @@ class PrecioVigenteData
             'id'          => $p->id,
             'nombre'      => $p->nombre,
             'price'       => (float) $p->price,
+            'price_usd'   => $p->price_usd !== null ? (float) $p->price_usd : null,
             'fecha_desde' => $p->fecha_desde->toDateString(),
             'fecha_hasta' => $p->fecha_hasta->toDateString(),
         ])->values()->all();
@@ -56,6 +67,7 @@ class PrecioVigenteData
         if ($periodos->isEmpty()) {
             return [
                 'precio'              => (float) $category->price,
+                'precio_usd'          => $category->price_usd !== null ? (float) $category->price_usd : null,
                 'periodo_nombre'      => null,
                 'periodo_fecha_hasta' => null,
                 'periodos'            => $periodosArray,
@@ -72,6 +84,7 @@ class PrecioVigenteData
         if ($vigente) {
             return [
                 'precio'              => (float) $vigente->price,
+                'precio_usd'          => self::precioUsdDelPeriodo($vigente, $category),
                 'periodo_nombre'      => $vigente->nombre,
                 'periodo_fecha_hasta' => $vigente->fecha_hasta->toDateString(),
                 'periodos'            => $periodosArray,
@@ -88,6 +101,7 @@ class PrecioVigenteData
         if ($vencidoMasReciente) {
             return [
                 'precio'              => (float) $vencidoMasReciente->price,
+                'precio_usd'          => self::precioUsdDelPeriodo($vencidoMasReciente, $category),
                 'periodo_nombre'      => $vencidoMasReciente->nombre,
                 'periodo_fecha_hasta' => $vencidoMasReciente->fecha_hasta->toDateString(),
                 'periodos'            => $periodosArray,
@@ -98,9 +112,23 @@ class PrecioVigenteData
         // a categories.price, mismo que el caso "sin períodos".
         return [
             'precio'              => (float) $category->price,
+            'precio_usd'          => $category->price_usd !== null ? (float) $category->price_usd : null,
             'periodo_nombre'      => null,
             'periodo_fecha_hasta' => null,
             'periodos'            => $periodosArray,
         ];
+    }
+
+    /**
+     * `price_usd` del período si lo tiene cargado, si no cae a
+     * `categories.price_usd` — ver docblock de la clase.
+     */
+    private static function precioUsdDelPeriodo(CategoryPricePeriod $periodo, Category $category): ?float
+    {
+        if ($periodo->price_usd !== null) {
+            return (float) $periodo->price_usd;
+        }
+
+        return $category->price_usd !== null ? (float) $category->price_usd : null;
     }
 }

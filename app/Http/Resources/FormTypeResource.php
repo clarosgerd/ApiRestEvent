@@ -48,6 +48,9 @@ class FormTypeResource extends JsonResource
             'esStaff'                    => (bool) $this->es_staff,
             'esPonente'                  => (bool) $this->es_ponente,
             'requiereCategoria'          => (bool) $this->requiere_categoria,
+            // Caja para eventos tipo congreso (20/08/2026) — ver migración
+            // add_requiere_contacto_emergencia_to_form_types_table.
+            'requiereContactoEmergencia' => (bool) $this->requiere_contacto_emergencia,
             'max_integrantes_grupo'      => (int) $this->max_integrantes_grupo,
             'descuento_registrante_pct'  => (float) $this->descuento_registrante_pct,
             // Deprecación hasshirt/costo_polera (12/08) — sin este cast,

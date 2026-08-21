@@ -19,12 +19,16 @@ class CategoryPricePeriod extends Model
         'category_id',
         'nombre',
         'price',
+        // Precio USD fijo por período (20/08/2026) — nullable, ver
+        // migración add_price_usd_to_category_price_periods_table.
+        'price_usd',
         'fecha_desde',
         'fecha_hasta',
     ];
 
     protected $casts = [
         'price'       => 'float',
+        'price_usd'   => 'float',
         'fecha_desde' => 'date',
         'fecha_hasta' => 'date',
     ];

@@ -16,11 +16,14 @@ use App\Models\Evento;
 use App\Models\FormType;
 use App\Models\Organizador;
 use App\Models\Pais;
+use App\Models\CategoryPricePeriod;
 use App\Models\SesionCongreso;
 use App\Models\SubtipoEvento;
 use App\Models\Taller;
 use App\Models\TipoEvento;
 use App\Support\CurrencyResolverData;
+use App\Support\PrecioVigenteData;
+use Illuminate\Support\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -327,5 +330,131 @@ class PrecioUsdFijoTest extends TestCase
 
         $reg->refresh();
         $this->assertEquals(67.50, (float) $reg->total_pagado);
+    }
+
+    // ────────────────────────────────────────────────────────────
+    // Precio USD fijo por período (20/08/2026) — antes de este fix,
+    // CurrencyResolverData::resolverPrecioFijo() leía
+    // categories.price_usd directo, ignorando por completo los períodos
+    // de precio (que sí aplican del lado BOB desde el 12/08). Alguien
+    // pagando en USD siempre pagaba lo mismo sin importar qué período
+    // estuviera vigente, mientras alguien pagando en BOB sí veía el
+    // precio subir/bajar por fecha. Ver PrecioVigenteData.
+    // ────────────────────────────────────────────────────────────
+
+    public function test_precio_usd_vigente_usa_el_price_usd_del_periodo_no_el_de_la_categoria(): void
+    {
+        CategoryPricePeriod::create([
+            'category_id' => $this->categoriaConPrecioUsd->id,
+            'nombre' => 'Preventa',
+            // Mismo price que categories.price (700) a propósito — este
+            // test solo ejercita el lado USD, el precio BOB no debe
+            // cambiar (si no, categoryPrice en makeParticipant() ya no
+            // matchea el vigente BOB y el rechazo sería por otro motivo).
+            'price' => 700,
+            'price_usd' => 35, // distinto del price_usd=50 de la categoría
+            'fecha_desde' => Carbon::today()->subDays(5),
+            'fecha_hasta' => Carbon::today()->addDays(5),
+        ]);
+
+        // 35 USD (período vigente, no los 50 de la categoría) + 5% fee = 36.75.
+        $dto = $this->makeRegistrationDTO($this->makeParticipant($this->categoriaConPrecioUsd), 36.75);
+
+        $reg = app(CrearInscripcionAction::class)->handle($dto);
+
+        $reg->refresh();
+        $this->assertEquals(36.75, (float) $reg->total_pagado);
+    }
+
+    public function test_precio_usd_vigente_rechaza_el_precio_usd_de_la_categoria_si_hay_periodo_vigente_con_otro(): void
+    {
+        CategoryPricePeriod::create([
+            'category_id' => $this->categoriaConPrecioUsd->id,
+            'nombre' => 'Preventa',
+            'price' => 700, // mismo que categories.price, ver nota del test anterior
+            'price_usd' => 35,
+            'fecha_desde' => Carbon::today()->subDays(5),
+            'fecha_hasta' => Carbon::today()->addDays(5),
+        ]);
+
+        // Manda el total viejo (basado en los 50 USD planos de la
+        // categoría) — debe rechazarse porque ahora hay un período
+        // vigente con su propio precio USD (35).
+        $this->expectException(\DomainException::class);
+        $this->expectExceptionMessageMatches('/no coincide con el precio fijo/');
+
+        $dto = $this->makeRegistrationDTO($this->makeParticipant($this->categoriaConPrecioUsd), 52.50);
+        app(CrearInscripcionAction::class)->handle($dto);
+    }
+
+    public function test_periodo_vigente_sin_price_usd_propio_cae_al_de_la_categoria(): void
+    {
+        CategoryPricePeriod::create([
+            'category_id' => $this->categoriaConPrecioUsd->id,
+            'nombre' => 'Preventa',
+            'price' => 700, // mismo que categories.price, ver nota más arriba
+            'price_usd' => null, // el organizador cargó el período en Bs pero no en USD todavía
+            'fecha_desde' => Carbon::today()->subDays(5),
+            'fecha_hasta' => Carbon::today()->addDays(5),
+        ]);
+
+        // Sin price_usd en el período, cae a los 50 de la categoría (fallback).
+        $dto = $this->makeRegistrationDTO($this->makeParticipant($this->categoriaConPrecioUsd), 52.50);
+
+        $reg = app(CrearInscripcionAction::class)->handle($dto);
+
+        $reg->refresh();
+        $this->assertEquals(52.50, (float) $reg->total_pagado);
+    }
+
+    public function test_periodo_vigente_sin_price_usd_propio_ni_en_la_categoria_rechaza(): void
+    {
+        CategoryPricePeriod::create([
+            'category_id' => $this->categoriaSinPrecioUsd->id, // price_usd=null también
+            'nombre' => 'Preventa',
+            'price' => 700, // mismo que categories.price, ver nota más arriba
+            'price_usd' => null,
+            'fecha_desde' => Carbon::today()->subDays(5),
+            'fecha_hasta' => Carbon::today()->addDays(5),
+        ]);
+
+        $this->expectException(\DomainException::class);
+        $this->expectExceptionMessageMatches('/no tiene precio en USD configurado/');
+
+        $dto = $this->makeRegistrationDTO($this->makeParticipant($this->categoriaSinPrecioUsd), 36.75);
+        app(CrearInscripcionAction::class)->handle($dto);
+    }
+
+    /**
+     * Cubre PrecioVigenteData::paraCategoria() directo (sin pasar por
+     * CrearInscripcionAction) para los 4 casos de la regla, del lado
+     * USD — mismo criterio que PreciosPeriodosFechasTest del lado BOB.
+     */
+    public function test_precio_usd_vigente_replica_los_4_casos_de_precio_vigente(): void
+    {
+        // Caso 1: sin períodos → categories.price_usd.
+        $vigente = PrecioVigenteData::paraCategoria($this->categoriaConPrecioUsd->fresh());
+        $this->assertSame(50.0, $vigente['precio_usd']);
+
+        // Caso 2: período vigente hoy, con price_usd propio.
+        CategoryPricePeriod::create([
+            'category_id' => $this->categoriaConPrecioUsd->id,
+            'nombre' => 'Preventa', 'price' => 500, 'price_usd' => 35,
+            'fecha_desde' => Carbon::today()->subDays(5), 'fecha_hasta' => Carbon::today()->addDays(5),
+        ]);
+        $vigente = PrecioVigenteData::paraCategoria($this->categoriaConPrecioUsd->fresh());
+        $this->assertSame(35.0, $vigente['precio_usd']);
+
+        // Caso 4: solo un período futuro → cae a categories.price_usd.
+        $otraCategoria = Category::factory()->create([
+            'event_id' => $this->evento->id, 'price' => 700, 'price_usd' => 60,
+        ]);
+        CategoryPricePeriod::create([
+            'category_id' => $otraCategoria->id,
+            'nombre' => 'Preventa', 'price' => 500, 'price_usd' => 35,
+            'fecha_desde' => Carbon::today()->addDays(5), 'fecha_hasta' => Carbon::today()->addDays(15),
+        ]);
+        $vigente = PrecioVigenteData::paraCategoria($otraCategoria->fresh());
+        $this->assertSame(60.0, $vigente['precio_usd']);
     }
 }

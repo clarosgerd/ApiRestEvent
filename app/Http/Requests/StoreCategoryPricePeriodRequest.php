@@ -23,6 +23,9 @@ class StoreCategoryPricePeriodRequest extends FormRequest
         return [
             'nombre'      => 'required|string|max:255',
             'price'       => 'required|numeric|min:0',
+            // Precio USD fijo por período (20/08/2026) — opcional, ver
+            // PrecioVigenteData::precioUsdDelPeriodo().
+            'price_usd'   => 'nullable|numeric|min:0',
             'fecha_desde' => 'required|date',
             'fecha_hasta' => 'required|date|after_or_equal:fecha_desde',
         ];

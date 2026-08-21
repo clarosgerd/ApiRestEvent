@@ -58,6 +58,7 @@ class UpdateFormTypeRequest extends FormRequest
             'has_promo_code'             => 'sometimes|nullable|boolean',
             'es_staff'                   => 'sometimes|nullable|boolean',
             'es_ponente'                 => 'sometimes|nullable|boolean',
+            'requiere_contacto_emergencia' => 'sometimes|nullable|boolean',
         ];
     }
 }

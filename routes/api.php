@@ -226,6 +226,12 @@ Route::group(['prefix' => 'v1','namespace' => 'App\Http\Controllers'], function 
         Route::get('/event/{event}/caja/turnos', [CajaTurnoController::class, 'index']);
 
         Route::get('/event/{event}/caja/buscar', [CajaController::class, 'buscar']);
+        // Prellenado desde `personas` (20/08/2026) — `Persona` es global
+        // (no por evento), pero la ruta igual queda anidada bajo
+        // /event/{event}/caja para reusar el mismo scoping que el resto
+        // de Caja (assertCanOperarCaja) en vez de abrir un endpoint sin
+        // scope de evento.
+        Route::get('/event/{event}/caja/persona', [CajaController::class, 'buscarPersona']);
         Route::post('/event/{event}/caja/inscripcion', [CajaController::class, 'inscripcion']);
         Route::post('/registrations/{reference}/caja/cobrar-pendiente', [CajaController::class, 'cobrarPendiente']);
         Route::patch('/registrations/{reference}/caja/editar-pendiente', [CajaController::class, 'editarPendiente']);

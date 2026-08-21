@@ -266,6 +266,23 @@ class RegistrationTest extends TestCase
             ->assertUnprocessable();
     }
 
+    /**
+     * Caja para eventos tipo congreso (20/08/2026) — con
+     * `requiere_contacto_emergencia=false` en el form_type, la
+     * inscripción pública se acepta igual sin contacto de emergencia.
+     * Ver ValidaContactoEmergenciaCondicional.
+     */
+    public function test_create_registration_allows_missing_emergency_contact_when_form_type_opts_out(): void
+    {
+        $this->formType->update(['requiere_contacto_emergencia' => false]);
+
+        $payload = $this->validPayload();
+        unset($payload[0]['participantes'][0]['contacto_emergencia']);
+
+        $this->postJson('/api/v1/registrations', $payload)
+            ->assertCreated();
+    }
+
     public function test_create_registration_rejects_missing_participant_email(): void
     {
         $payload = $this->validPayload();

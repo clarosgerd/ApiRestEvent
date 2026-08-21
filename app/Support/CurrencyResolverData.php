@@ -160,13 +160,22 @@ class CurrencyResolverData
             }
 
             $categoria = \App\Models\Category::find((int) $p->category);
-            if (!$categoria || $categoria->price_usd === null) {
+            // Precio USD fijo por período (20/08/2026) — antes esto leía
+            // $categoria->price_usd directo, ignorando por completo los
+            // períodos de precio (que sí aplican del lado BOB, ver
+            // validatePrecioCategoria() en CrearInscripcionAction).
+            // Resultado real: alguien pagando en USD siempre pagaba lo
+            // mismo sin importar el período vigente, mientras alguien
+            // pagando en BOB sí veía el precio subir/bajar por fecha. Ver
+            // PrecioVigenteData::paraCategoria().
+            $precioUsdVigente = $categoria ? PrecioVigenteData::paraCategoria($categoria)['precio_usd'] : null;
+            if (!$categoria || $precioUsdVigente === null) {
                 throw new \DomainException(
                     'La categoría elegida no tiene precio en USD configurado para este evento. Recargá la página e intentá de nuevo.'
                 );
             }
 
-            $totalUsd += (float) $categoria->price_usd;
+            $totalUsd += $precioUsdVigente;
 
             foreach ($p->talleres as $tallerSel) {
                 $sesion = SesionCongreso::with('taller')

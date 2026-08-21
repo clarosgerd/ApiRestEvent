@@ -12,6 +12,8 @@ use App\Models\Evento;
 use App\Models\FormType;
 use App\Models\Organizador;
 use App\Models\Pais;
+use App\Models\Persona;
+use App\Models\ContactoEmergencia;
 use App\Models\SubtipoEvento;
 use App\Models\TipoEvento;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -208,6 +210,154 @@ class CajaTest extends TestCase
             'registration_id' => $registration->id,
             'tipo' => 'cobro_pendiente',
             'monto' => 52.5,
+        ]);
+    }
+
+    /**
+     * Prellenado desde `personas` (20/08/2026) — devuelve null (no 404,
+     * no error) cuando el documento no está en `personas` todavía; es un
+     * prellenado opcional, no una búsqueda que deba fallar.
+     */
+    public function test_buscar_persona_devuelve_null_si_no_existe(): void
+    {
+        $this->actingAsCajero();
+
+        $this->getJson("/api/v1/event/{$this->evento->id}/caja/persona?numero_documento=99999999")
+            ->assertStatus(200)
+            ->assertJson(['success' => true, 'data' => null]);
+    }
+
+    /**
+     * Cubre el caso real: alguien que ya se inscribió a OTRO evento antes
+     * (Persona es global, no por evento) — sus datos personales deben
+     * venir listos para prellenar sin pedirle que retipee todo.
+     */
+    public function test_buscar_persona_devuelve_datos_si_existe(): void
+    {
+        Persona::factory()->create([
+            'numero_documento' => '77778888',
+            'nombre' => 'Carla',
+            'apellido' => 'Vargas',
+            'correo' => 'carla@test.net',
+        ]);
+
+        $this->actingAsCajero();
+
+        $response = $this->getJson("/api/v1/event/{$this->evento->id}/caja/persona?numero_documento=77778888")
+            ->assertStatus(200)
+            ->assertJson(['success' => true]);
+
+        $response->assertJsonPath('data.nombre', 'Carla');
+        $response->assertJsonPath('data.apellido', 'Vargas');
+        $response->assertJsonPath('data.numeroDocumento', '77778888');
+        $response->assertJsonPath('data.correo', 'carla@test.net');
+        $response->assertJsonStructure(['data' => ['nacimiento' => ['dia', 'mes', 'anio']]]);
+    }
+
+    public function test_buscar_persona_requiere_operar_caja(): void
+    {
+        Persona::factory()->create(['numero_documento' => '55556666']);
+        $otroEvento = Evento::factory()->create([
+            'organizador_id' => $this->evento->organizador_id,
+            'tipo_evento_id' => $this->evento->tipo_evento_id,
+            'subtipo_evento_id' => $this->evento->subtipo_evento_id,
+            'pais_id' => $this->evento->pais_id,
+            'ciudad_id' => $this->evento->ciudad_id,
+        ]);
+        $cajero = $this->actingAsAdmin();
+        $cajero->update(['rol' => 'cajero', 'evento_id' => $otroEvento->id]);
+
+        $this->getJson("/api/v1/event/{$this->evento->id}/caja/persona?numero_documento=55556666")
+            ->assertStatus(403);
+    }
+
+    /**
+     * Caja para eventos tipo congreso (20/08/2026) — sin el flag prendido
+     * en el form_type (default true), el contacto de emergencia sigue
+     * siendo obligatorio en Caja igual que antes de este feature.
+     */
+    public function test_caja_rechaza_inscripcion_nueva_sin_contacto_emergencia_por_default(): void
+    {
+        $this->actingAsCajero();
+        $this->postJson("/api/v1/event/{$this->evento->id}/caja/turno/abrir", ['fondo_inicial' => 100]);
+
+        $data = $this->participanteData('88888888');
+        unset($data['contacto_emergencia']);
+
+        $this->postJson("/api/v1/event/{$this->evento->id}/caja/inscripcion", [
+            'form_types_id' => $this->formType->id,
+            'participante'  => $data,
+            'totales'       => $this->totalesData(),
+        ])->assertUnprocessable();
+    }
+
+    /**
+     * Caja para eventos tipo congreso (20/08/2026) — con
+     * `requiere_contacto_emergencia=false` (evento tipo congreso, la
+     * cajera lo desactivó porque el formulario le sobraba para este
+     * tipo de inscripción), la alta nueva se acepta sin esos 3 campos.
+     */
+    public function test_caja_acepta_inscripcion_nueva_sin_contacto_emergencia_cuando_form_type_lo_desactiva(): void
+    {
+        $this->formType->update(['requiere_contacto_emergencia' => false]);
+        $this->actingAsCajero();
+        $this->postJson("/api/v1/event/{$this->evento->id}/caja/turno/abrir", ['fondo_inicial' => 100]);
+
+        $data = $this->participanteData('99999999');
+        unset($data['contacto_emergencia']);
+
+        $this->postJson("/api/v1/event/{$this->evento->id}/caja/inscripcion", [
+            'form_types_id' => $this->formType->id,
+            'participante'  => $data,
+            'totales'       => $this->totalesData(),
+        ])->assertStatus(201)->assertJson(['success' => true]);
+
+        $this->assertDatabaseHas('registrations', [
+            'evento_id'    => $this->evento->id,
+            'pago_status'  => 'paid',
+        ]);
+    }
+
+    /**
+     * Congresos con talleres desde Caja (20/08/2026) — mismo bug real ya
+     * documentado en StoreRegistrationRequest ("$request->validated()
+     * descartaba `talleres` en silencio" sin una regla explícita para la
+     * clave). Cubre que `participante.talleres` y `totales.talleres`
+     * sobrevivan la validación y lleguen a CrearInscripcionAction.
+     */
+    public function test_caja_persiste_taller_seleccionado_en_alta_nueva(): void
+    {
+        $taller = \App\Models\Taller::factory()->create([
+            'evento_id' => $this->evento->id,
+            'modalidad' => 'OPTIONAL',
+            'precio'    => 30,
+        ]);
+        $sesion = \App\Models\SesionCongreso::factory()->create([
+            'evento_id' => $this->evento->id,
+            'taller_id' => $taller->id,
+            'cupo'      => 10,
+        ]);
+
+        $this->actingAsCajero();
+        $this->postJson("/api/v1/event/{$this->evento->id}/caja/turno/abrir", ['fondo_inicial' => 0]);
+
+        $data = $this->participanteData('10101010');
+        $data['talleres'] = [[
+            'taller_id'          => $taller->id,
+            'sesion_congreso_id' => $sesion->id,
+        ]];
+
+        $this->postJson("/api/v1/event/{$this->evento->id}/caja/inscripcion", [
+            'form_types_id' => $this->formType->id,
+            'participante'  => $data,
+            // fee_incluye_talleres default true → fee = (50 + 30) * 5% = 4.
+            'totales'       => $this->totalesData(['talleres' => 30, 'fee' => 4, 'grand_total' => 84]),
+        ])->assertStatus(201)->assertJson(['success' => true]);
+
+        $participante = \App\Models\Participante::where('numero_documento', '10101010')->first();
+        $this->assertDatabaseHas('participante_taller_sesion', [
+            'participante_id'    => $participante->id,
+            'sesion_congreso_id' => $sesion->id,
         ]);
     }
 
