@@ -457,6 +457,11 @@ public function estadoTransaccion(
             'participantes.*.contacto_emergencia_nombre' => ['required', 'string'],
             'participantes.*.contacto_emergencia_telefono' => ['required', 'string'],
             'participantes.*.contacto_emergencia_relacion' => ['required', 'string'],
+            // Talleres (21/08/2026) — opcional, string cruda del CSV (uno o
+            // más nombres de taller separados por ';'); se resuelve fila
+            // por fila en resolverTalleresFila() para que un nombre
+            // inválido/ambiguo rechace SOLO esa fila, no todo el archivo.
+            'participantes.*.talleres' => ['nullable', 'string'],
         ]);
 
         $formType = FormType::where('id', $data['form_types_id'])
@@ -489,8 +494,6 @@ public function estadoTransaccion(
         // no rechaza esta importación cuando la categoría tiene un
         // período de precio activo.
         $precio = \App\Support\PrecioVigenteData::paraCategoria($category)['precio'];
-        $fee = round($precio * 0.05, 2);
-        $grandTotal = round($precio + $fee, 2);
 
         $creados = [];
         $errores = [];
@@ -499,6 +502,27 @@ public function estadoTransaccion(
             $fila = $i + 2; // +1 base 0→1, +1 fila de encabezado del CSV
 
             try {
+                // Talleres (21/08/2026) — ver
+                // brain/api_rest_event/PLAN-CARGA-MASIVA-TALLERES-21082026.md.
+                // Se resuelve ANTES de armar el DTO, dentro del mismo
+                // try/catch de la fila: un nombre de taller inválido o
+                // ambiguo (más de un horario) rechaza solo esta fila, igual
+                // que cualquier otro error de datos del participante — no
+                // tira abajo el resto del archivo.
+                [$talleresFila, $totalTalleres] = $this->resolverTalleresFila($event, $row['talleres'] ?? '');
+
+                // El total de talleres varía por fila (cada participante
+                // puede elegir talleres distintos) — a diferencia de
+                // `$precio` (mismo para todo el archivo), fee/grand_total
+                // se recalculan acá adentro del loop. Antes esto usaba un
+                // 5% hardcodeado en vez de `$event->fee_pct` — bug latente
+                // preexistente para cualquier evento con un cargo de
+                // servicio distinto del default, arreglado de paso porque
+                // fee_incluye_talleres ya obliga a tocar este cálculo.
+                $feeBase = $precio + ($event->fee_incluye_talleres ? $totalTalleres : 0);
+                $fee = round($feeBase * (float) $event->fee_pct, 2);
+                $grandTotal = round($precio + $totalTalleres + $fee, 2);
+
                 $nacimiento = Carbon::parse($row['fecha_nacimiento']);
                 $referencia = 'LA-' . strtoupper(substr(md5(uniqid((string) mt_rand(), true)), 0, 8));
 
@@ -515,6 +539,7 @@ public function estadoTransaccion(
                         'inscripcion' => $precio,
                         'donacion' => 0,
                         'souvenirs' => 0,
+                        'talleres' => $totalTalleres,
                         'fee' => $fee,
                         'descuento' => 0,
                         'descuento_registrante' => 0,
@@ -542,6 +567,7 @@ public function estadoTransaccion(
                         ],
                         'souvenirs' => [],
                         'answers' => [],
+                        'talleres' => $talleresFila,
                         // El registro online (elascenso/event) guarda el ID de
                         // categoría en `participantes.categoria`, no el nombre
                         // — acá se elige la categoría por nombre (más legible
@@ -578,5 +604,71 @@ public function estadoTransaccion(
             'creados' => $creados,
             'errores' => $errores,
         ]);
+    }
+
+    /**
+     * Resuelve la celda "talleres" del CSV (nombres de taller separados
+     * por ';', case-insensitive, opcional — vacío = sin talleres) a la
+     * forma que espera `ParticipantDTO`/`TallerSesionDTO`
+     * (`taller_id`/`sesion_congreso_id`), más el total en Bs a sumar al
+     * `grand_total` de esta fila. El precio real que se persiste lo
+     * vuelve a calcular `ValidarSeleccionesTallerAction`/
+     * `ResolverPrecioTallerData` dentro de `CrearInscripcionAction`
+     * (fuente de verdad, igual que `precioCategoria`) — este total es
+     * solo para que `validateFeePct()` no rechace la fila por un
+     * `grand_total`/`fee` que no cuadra.
+     *
+     * Cada nombre tiene que resolver a un taller con EXACTAMENTE una
+     * sesión activa: un CSV solo puede nombrar el taller, no elegir entre
+     * varios horarios — si el taller tiene 0 sesiones activas (mal
+     * configurado) o más de una (varios horarios posibles), no hay forma
+     * de saber cuál sin ambigüedad, y se rechaza la fila pidiendo cargarla
+     * por el formulario público o el panel en su lugar. Ver
+     * brain/api_rest_event/PLAN-CARGA-MASIVA-TALLERES-21082026.md.
+     *
+     * @return array{0: array<int, array{taller_id:int, sesion_congreso_id:int}>, 1: float}
+     */
+    private function resolverTalleresFila(Evento $event, string $celda): array
+    {
+        $nombres = array_values(array_filter(
+            array_map('trim', explode(';', $celda)),
+            fn ($n) => $n !== ''
+        ));
+
+        if (empty($nombres)) {
+            return [[], 0.0];
+        }
+
+        $talleres = [];
+        $total = 0.0;
+
+        foreach ($nombres as $nombre) {
+            $taller = \App\Models\Taller::where('evento_id', $event->id)
+                ->whereRaw('LOWER(nombre) = ?', [mb_strtolower($nombre)])
+                ->first();
+
+            if (!$taller) {
+                throw new \DomainException("El taller \"{$nombre}\" no existe en este evento.");
+            }
+            if (!$taller->activo) {
+                throw new \DomainException("El taller \"{$nombre}\" no está activo.");
+            }
+
+            $sesionesActivas = $taller->sesiones()->where('activa', true)->get();
+
+            if ($sesionesActivas->isEmpty()) {
+                throw new \DomainException("El taller \"{$nombre}\" no tiene ninguna sesión activa configurada.");
+            }
+            if ($sesionesActivas->count() > 1) {
+                throw new \DomainException("El taller \"{$nombre}\" tiene más de un horario — no se puede identificar por nombre en el CSV, cargá esta fila desde el formulario público o el panel.");
+            }
+
+            $sesion = $sesionesActivas->first();
+
+            $talleres[] = ['taller_id' => $taller->id, 'sesion_congreso_id' => $sesion->id];
+            $total += \App\Support\Taller\ResolverPrecioTallerData::total($taller, $sesion, $event);
+        }
+
+        return [$talleres, round($total, 2)];
     }
 }
