@@ -135,4 +135,147 @@ class RegistroManualBulkTest extends TestCase
         $this->postJson("/api/v1/event/{$this->evento->id}/registro-manual/bulk", $this->payload())
             ->assertStatus(403);
     }
+
+    // ── Talleres (21/08/2026) — ver
+    // brain/api_rest_event/PLAN-CARGA-MASIVA-TALLERES-21082026.md. Se
+    // seleccionan por NOMBRE de taller (case-insensitive, uno o más
+    // separados por ';'), igual criterio que la categoría — y cada
+    // nombre tiene que resolver a un taller con exactamente una sesión
+    // activa (el CSV no puede elegir entre varios horarios). ──
+
+    public function test_sin_talleres_sigue_funcionando_igual_que_antes(): void
+    {
+        // El evento SÍ tiene un taller cargado (solo OPTIONAL), pero el
+        // participante no lo elige — confirma que "0 talleres" sigue
+        // siendo válido cuando ninguno es obligatorio.
+        \App\Models\Taller::factory()->create(['evento_id' => $this->evento->id, 'modalidad' => 'OPTIONAL']);
+        $admin = $this->actingAsAdmin();
+        $admin->update(['rol' => 'super_admin']);
+
+        $response = $this->postJson("/api/v1/event/{$this->evento->id}/registro-manual/bulk", $this->payload());
+
+        $response->assertStatus(200)->assertJson(['success' => true]);
+        $this->assertCount(1, $response->json('creados'));
+        $this->assertCount(0, $response->json('errores'));
+        $this->assertDatabaseCount('participante_taller_sesion', 0);
+    }
+
+    public function test_participante_se_inscribe_a_un_taller_por_nombre(): void
+    {
+        // talleres_con_costo=true — sin esto ResolverPrecioTallerData
+        // siempre devuelve 0 (talleres seleccionables pero gratis),
+        // comportamiento correcto pero no lo que este test quiere probar.
+        $this->evento->update(['talleres_con_costo' => true]);
+        $taller = \App\Models\Taller::factory()->create([
+            'evento_id' => $this->evento->id, 'nombre' => 'POCUS', 'modalidad' => 'OPTIONAL', 'precio' => 100,
+        ]);
+        $sesion = \App\Models\SesionCongreso::factory()->create([
+            'evento_id' => $this->evento->id, 'taller_id' => $taller->id, 'activa' => true,
+        ]);
+        $admin = $this->actingAsAdmin();
+        $admin->update(['rol' => 'super_admin']);
+
+        $response = $this->postJson("/api/v1/event/{$this->evento->id}/registro-manual/bulk",
+            $this->payload(['participantes' => [$this->participanteRow(['talleres' => 'POCUS'])]])
+        );
+
+        $response->assertStatus(200)->assertJson(['success' => true]);
+        $this->assertCount(1, $response->json('creados'));
+        $participante = Participante::first();
+        $this->assertDatabaseHas('participante_taller_sesion', [
+            'participante_id' => $participante->id, 'taller_id' => $taller->id, 'sesion_congreso_id' => $sesion->id,
+        ]);
+        // categoría (50) + taller (100) + 5% de fee sobre (50+100)=150
+        // (fee_incluye_talleres default TRUE en la BD) = 50+100+7.5 = 157.50.
+        $total = \App\Models\RegistrationTotal::where('registration_id', $participante->registration_id)->first();
+        $this->assertEquals(100.0, (float) $total->talleres);
+        $this->assertEquals(157.5, (float) $total->grand_total);
+    }
+
+    public function test_participante_puede_seleccionar_dos_o_mas_talleres(): void
+    {
+        $tallerA = \App\Models\Taller::factory()->create(['evento_id' => $this->evento->id, 'nombre' => 'Taller A', 'modalidad' => 'OPTIONAL', 'precio' => 0]);
+        $sesionA = \App\Models\SesionCongreso::factory()->create(['evento_id' => $this->evento->id, 'taller_id' => $tallerA->id, 'fecha' => '2026-10-15', 'hora_inicio' => '09:00', 'hora_fin' => '10:00']);
+        $tallerB = \App\Models\Taller::factory()->create(['evento_id' => $this->evento->id, 'nombre' => 'Taller B', 'modalidad' => 'OPTIONAL', 'precio' => 0]);
+        $sesionB = \App\Models\SesionCongreso::factory()->create(['evento_id' => $this->evento->id, 'taller_id' => $tallerB->id, 'fecha' => '2026-10-15', 'hora_inicio' => '11:00', 'hora_fin' => '12:00']);
+        $admin = $this->actingAsAdmin();
+        $admin->update(['rol' => 'super_admin']);
+
+        $response = $this->postJson("/api/v1/event/{$this->evento->id}/registro-manual/bulk",
+            $this->payload(['participantes' => [$this->participanteRow(['talleres' => 'Taller A; Taller B'])]])
+        );
+
+        $response->assertStatus(200)->assertJson(['success' => true]);
+        $participante = Participante::first();
+        $this->assertDatabaseHas('participante_taller_sesion', ['participante_id' => $participante->id, 'sesion_congreso_id' => $sesionA->id]);
+        $this->assertDatabaseHas('participante_taller_sesion', ['participante_id' => $participante->id, 'sesion_congreso_id' => $sesionB->id]);
+    }
+
+    public function test_taller_obligatorio_sin_seleccionar_rechaza_solo_esa_fila(): void
+    {
+        \App\Models\Taller::factory()->create(['evento_id' => $this->evento->id, 'nombre' => 'Ética Médica', 'modalidad' => 'REQUIRED']);
+        $admin = $this->actingAsAdmin();
+        $admin->update(['rol' => 'super_admin']);
+
+        $response = $this->postJson("/api/v1/event/{$this->evento->id}/registro-manual/bulk", $this->payload());
+
+        // 422 general NO — el archivo entero no se cae, la fila queda
+        // reportada en "errores" como cualquier otro dato inválido.
+        $response->assertStatus(200)->assertJson(['success' => true]);
+        $this->assertCount(0, $response->json('creados'));
+        $errores = $response->json('errores');
+        $this->assertCount(1, $errores);
+        $this->assertStringContainsString('Ética Médica', $errores[0]['error']);
+    }
+
+    public function test_taller_obligatorio_con_seleccion_correcta_pasa(): void
+    {
+        $taller = \App\Models\Taller::factory()->create(['evento_id' => $this->evento->id, 'nombre' => 'Ética Médica', 'modalidad' => 'REQUIRED', 'precio' => 0]);
+        \App\Models\SesionCongreso::factory()->create(['evento_id' => $this->evento->id, 'taller_id' => $taller->id]);
+        $admin = $this->actingAsAdmin();
+        $admin->update(['rol' => 'super_admin']);
+
+        $response = $this->postJson("/api/v1/event/{$this->evento->id}/registro-manual/bulk",
+            $this->payload(['participantes' => [$this->participanteRow(['talleres' => 'ética médica'])]])
+        );
+
+        $response->assertStatus(200)->assertJson(['success' => true]);
+        $this->assertCount(1, $response->json('creados'));
+    }
+
+    public function test_nombre_de_taller_inexistente_rechaza_solo_esa_fila_no_todo_el_archivo(): void
+    {
+        $admin = $this->actingAsAdmin();
+        $admin->update(['rol' => 'super_admin']);
+
+        $filaValida = $this->participanteRow(['numero_documento' => '11111111']);
+        $filaInvalida = $this->participanteRow(['numero_documento' => '22222222', 'talleres' => 'No Existe']);
+
+        $response = $this->postJson("/api/v1/event/{$this->evento->id}/registro-manual/bulk",
+            $this->payload(['participantes' => [$filaValida, $filaInvalida]])
+        );
+
+        $response->assertStatus(200)->assertJson(['success' => true]);
+        $this->assertCount(1, $response->json('creados'));
+        $errores = $response->json('errores');
+        $this->assertCount(1, $errores);
+        $this->assertStringContainsString('No Existe', $errores[0]['error']);
+    }
+
+    public function test_taller_con_mas_de_una_sesion_activa_rechaza_con_mensaje_claro(): void
+    {
+        $taller = \App\Models\Taller::factory()->create(['evento_id' => $this->evento->id, 'nombre' => 'Multi Horario', 'modalidad' => 'OPTIONAL']);
+        \App\Models\SesionCongreso::factory()->create(['evento_id' => $this->evento->id, 'taller_id' => $taller->id, 'fecha' => '2026-10-15']);
+        \App\Models\SesionCongreso::factory()->create(['evento_id' => $this->evento->id, 'taller_id' => $taller->id, 'fecha' => '2026-10-16']);
+        $admin = $this->actingAsAdmin();
+        $admin->update(['rol' => 'super_admin']);
+
+        $response = $this->postJson("/api/v1/event/{$this->evento->id}/registro-manual/bulk",
+            $this->payload(['participantes' => [$this->participanteRow(['talleres' => 'Multi Horario'])]])
+        );
+
+        $response->assertStatus(200)->assertJson(['success' => true]);
+        $this->assertCount(0, $response->json('creados'));
+        $this->assertStringContainsString('más de un horario', $response->json('errores')[0]['error']);
+    }
 }
