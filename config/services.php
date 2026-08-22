@@ -51,4 +51,14 @@ return [
         'user_pass' => env('CHRONOTRACK_USER_PASS'),
     ],
 
+    // Fase 2b consolidación monolito (22/08/2026) — ex elascenso-blade
+    // config/services.php. 'sip'/'multipago' → SDK real (carpetas hermanas
+    // elascenso/event/{sip,multipago}-payment-integration/, ver
+    // App\Services\QrProviderService); 'new' → QR de la propia
+    // ApiRestEvent; 'none' → simulado, sin llamar a ningún gateway (default
+    // seguro, mismo que usa elascenso-blade en su .env local/tests).
+    'qr' => [
+        'provider' => env('QR_PROVIDER', 'none'),
+    ],
+
 ];

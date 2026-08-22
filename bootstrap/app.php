@@ -20,10 +20,31 @@ return Application::configure(basePath: dirname(__DIR__))
         then: function () {
             \Illuminate\Support\Facades\Route::middleware('web')
                 ->group(__DIR__.'/../routes/admin.php');
+            // Fase 2 (22/08/2026) — shell público, ex elascenso-blade. Ver
+            // brain/api_rest_event/PLAN-CONSOLIDACION-MONOLITO-21082026.md.
+            \Illuminate\Support\Facades\Route::middleware('web')
+                ->group(__DIR__.'/../routes/inscripcion.php');
         },
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->api(prepend: [NormalizeAuthTokenHeader::class]);
+        // Fase 2 — las rutas de routes/inscripcion.php son stateless (token
+        // de Persona/Club reenviado a mano por header, sin sesión de
+        // Laravel autenticando al usuario final), mismo criterio que ya
+        // documentaba elascenso-blade/bootstrap/app.php: CSRF protege
+        // contra un submit malicioso con cookies de sesión ya puestas por
+        // el navegador, escenario que no existe acá. No afecta al panel
+        // admin (Blade con @csrf normal, sigue protegido — esta lista es
+        // aditiva, Laravel arranca sin ningún path exento por defecto).
+        $middleware->validateCsrfTokens(except: [
+            'persona/*',
+            'club/login',
+            'club/logout',
+            'registro',
+            'registro/*',
+            'webhooks/*',
+            'api/*',
+        ]);
         $middleware->alias([
             'admin.token'           => InjectAdminSessionToken::class,
             'admin.superadmin'      => EnsureSuperAdminSession::class,
