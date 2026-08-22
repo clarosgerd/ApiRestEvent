@@ -75,6 +75,15 @@ Route::group(['prefix' => 'v1','namespace' => 'App\Http\Controllers'], function 
     // cuenta todavía.
     Route::post('/event/{event}/lista-espera', [ListaEsperaController::class, 'store']);
 
+    // persona/me tiene que registrarse ANTES que el CRUD admin de
+    // /persona (más abajo, dentro del grupo auth:admins) — Laravel matchea
+    // rutas en orden de registro, y GET /persona/{persona} (el show del
+    // admin) es ambiguo con GET /persona/me (aceptaría "me" como si fuera
+    // un id). Si el admin CRUD se registrara primero, /persona/me dejaría
+    // de funcionar para cualquier Persona pública consultando su propia
+    // cuenta.
+    Route::get('persona/me', [PersonaController::class, 'me'])->middleware('auth:sanctum');
+
     // Escritura — panel de administración de eventos (ver
     // brain/PLAN-PANEL-ADMIN-EVENTOS-02082026.md), protegido con guard
     // `admins` (super_admin ve todo, admin scoped a un evento — el scoping
@@ -334,12 +343,22 @@ Route::group(['prefix' => 'v1','namespace' => 'App\Http\Controllers'], function 
         Route::post('/presupuesto-categorias', [PresupuestoCategoriaController::class, 'store']);
         Route::put('/presupuesto-categorias/{categoria}', [PresupuestoCategoriaController::class, 'update']);
         Route::delete('/presupuesto-categorias/{categoria}', [PresupuestoCategoriaController::class, 'destroy']);
+
+        // CRUD de personas (21/08/2026) — solo super_admin, ver
+        // PersonaController::assertIsSuperAdmin(). Movido acá DENTRO del
+        // grupo `auth:admins` a propósito: antes vivía suelto más abajo
+        // con `->middleware('auth:sanctum')` (el guard de Persona, no de
+        // AdminUser), así que ni siquiera un admin real podía autenticarse
+        // correctamente contra este endpoint con ese guard — y cualquier
+        // Persona común (participante autenticado con su propio token) sí
+        // podía. `persona/me`, `persona/register`, `persona/login` y
+        // `persona/logout` (más abajo) siguen siendo del guard de Persona
+        // a propósito, son la cuenta pública, no tocarlos.
+        Route::apiResource('/persona', PersonaController::class);
     });
 
     Route::post('/admin/login', [AdminAuthController::class, 'login']);
 
-    Route::get('persona/me', [PersonaController::class, 'me'])->middleware('auth:sanctum');
-    Route::apiResource('/persona',PersonaController::class)->middleware('auth:sanctum');
     Route::post('persona/register', [PersonaController::class, 'register']);
     Route::post('persona/login', [PersonaController::class, 'login']);
     Route::post('persona/logout', [PersonaController::class, 'logout']);

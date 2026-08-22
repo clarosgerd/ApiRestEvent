@@ -11,10 +11,15 @@ abstract class TestCase extends BaseTestCase
     /**
      * Autentica al cliente de test como una Persona vía Sanctum, para las
      * rutas protegidas con auth:sanctum (POST/GET /registrations, DELETE
-     * /registrations/{ref}, /persona resource, etc). Mismo patrón que ya
-     * usaba test_logout_with_valid_token_returns_200 en AuthTest — solo que
+     * /registrations/{ref}, persona/me, etc). Mismo patrón que ya usaba
+     * test_logout_with_valid_token_returns_200 en AuthTest — solo que
      * reutilizable, para no repetirlo en cada test. withHeader() queda
      * seteado para todas las requests siguientes dentro del mismo test.
+     *
+     * El CRUD admin de `/persona` (21/08/2026) ya NO es de esta clase de
+     * sesión — se movió a auth:admins (ver PersonaController), justamente
+     * porque antes cualquier Persona autenticada podía listar/ver los
+     * datos de cualquier otra vía este mismo helper.
      */
     protected function actingAsPersona(?Persona $persona = null): Persona
     {
