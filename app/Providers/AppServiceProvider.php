@@ -11,6 +11,9 @@ use OpenWA\Client;
 use Spatie\Backup\Events\BackupHasFailed;
 use Spatie\Backup\Events\BackupWasSuccessful;
 use Spatie\Backup\Events\CleanupWasSuccessful;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -40,5 +43,12 @@ class AppServiceProvider extends ServiceProvider
         Event::listen(BackupWasSuccessful::class, RecordSuccessfulBackup::class);
         Event::listen(BackupHasFailed::class, RecordFailedBackup::class);
         Event::listen(CleanupWasSuccessful::class, RecordSuccessfulCleanup::class);
+        DB::listen(function ($query) {
+        Log::info(
+            $query->sql, 
+            $query->bindings, 
+            $query->time
+        );
+    });
     }
 }
