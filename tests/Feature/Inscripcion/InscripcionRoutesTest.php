@@ -32,6 +32,24 @@ class InscripcionRoutesTest extends TestCase
         $this->get('/')->assertOk()->assertSee('Pass2Go', false);
     }
 
+    /**
+     * Regresión (22/08/2026) — al portar Fase 2 se copiaron las vistas
+     * Blade pero no los assets ESTÁTICOS que referencian (`public/css/
+     * app.css`, `public/js/*`), que en `elascenso-blade` viven sueltos en
+     * su propio `public/` (no pasan por el pipeline de Vite). El resultado
+     * era una página sin estilos ni JS, sin que ningún test lo detectara
+     * porque `$this->get('/')` no sirve `public/` como un servidor web
+     * real — solo un chequeo de archivo en disco lo agarra.
+     */
+    public function test_assets_estaticos_referenciados_por_home_existen_en_disco(): void
+    {
+        $this->assertFileExists(public_path('css/app.css'));
+        $this->assertFileExists(public_path('js/i18n.js'));
+        foreach (['event-list', 'registration', 'review-payment', 'confirmation', 'account', 'results-club'] as $modulo) {
+            $this->assertFileExists(public_path("js/modules/{$modulo}.js"));
+        }
+    }
+
     public function test_home_con_evento_resuelve_meta_tags_in_process(): void
     {
         $evento = Evento::factory()->create(['nombre' => 'Maratón de Prueba']);
