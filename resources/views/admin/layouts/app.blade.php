@@ -5,12 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', 'Admin Eventos')</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            theme: { extend: { colors: { brand: { 600: '#022858', 700: '#011a3d' } } } },
-        };
-    </script>
+    {{-- Compilado local (22/08/2026) — reemplaza <script src="https://
+    cdn.tailwindcss.com">: ese script bloquea el render de toda la página
+    hasta que carga (sin defer/async), así que sin internet o con la
+    conexión lenta la pantalla quedaba en blanco un buen rato. El color
+    "brand" que antes se inyectaba con tailwind.config inline ahora vive
+    en resources/css/app.css (@theme, Tailwind v4 es CSS-first). --}}
+    @vite('resources/css/app.css')
 </head>
 <body class="bg-slate-100 text-slate-900 font-sans min-h-screen">
 {{--
