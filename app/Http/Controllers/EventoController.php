@@ -45,6 +45,42 @@ class EventoController extends Controller
     ) {}
 
     /**
+     * Souvenirs invisibles para el participante (22/08/2026) — cierran acá
+     * la única grieta real del feature: `GET /event` y `GET /event/{id}`
+     * son PÚBLICOS (sin auth) y es el MISMO endpoint que usa tanto el
+     * frontend de inscripción como `admin-eventos` (con su token admin
+     * siempre reenviado, ver `ApiRestEventClient::buildHeaders()`) para la
+     * pantalla de edición — no hay forma de separarlos por ruta, así que
+     * la diferencia se resuelve leyendo el guard `admins` bajo demanda
+     * (`auth('admins')->user()`, funciona sin `auth:admins` en la ruta,
+     * mismo mecanismo que ya usa `AuthorizesEventoScope`). Un souvenir
+     * `visible_participante=false` nunca debe llegar al JSON de un
+     * consumidor público — ni siquiera para que el JS lo reciba y decida
+     * no renderizarlo: "invisible" significa que no viaja, no que el
+     * frontend lo esconda.
+     *
+     * `$eventoId` null (usado en index(), que lista muchos eventos a la
+     * vez) solo deja pasar a `super_admin` — un `admin`/`cajero` scoped a
+     * un único evento no necesita ver souvenirs ocultos de eventos ajenos
+     * en un listado, solo en la pantalla de edición del suyo (`show()`,
+     * con `$eventoId` puntual).
+     */
+    private function souvenirsVisiblesScope(?int $eventoId = null): \Closure
+    {
+        $admin = auth('admins')->user();
+        $puedeVerOcultos = $admin && (
+            $admin->rol === 'super_admin'
+            || ($eventoId !== null && in_array($admin->rol, ['admin', 'cajero'], true) && (int) $admin->evento_id === $eventoId)
+        );
+
+        return function ($query) use ($puedeVerOcultos) {
+            if (! $puedeVerOcultos) {
+                $query->where('visible_participante', true);
+            }
+        };
+    }
+
+    /**
      * Display a listing of the resource.
      */
         public static $wrap = null; // Remove the 'data' wrapper
@@ -112,7 +148,7 @@ class EventoController extends Controller
         // calcular precio_vigente (PrecioVigenteData::paraCategoria())
         // sin N+1 — ver PRD-precios-periodos-fechas.md.
         $eventos = $eventos->with('categories.pricePeriods');
-        $eventos = $eventos->with('formTypes.souvenirs');
+        $eventos = $eventos->with(['formTypes.souvenirs' => $this->souvenirsVisiblesScope()]);
         $eventos = $eventos->with('formTypes.formularioCampos.options');
         $eventos = $eventos->with('organizador.formasPagoSeleccionadas');
         $eventos = $eventos->with('auspiciadores');
@@ -197,7 +233,7 @@ class EventoController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Evento publicado correctamente.',
-            'eventos' => new EventoResource($event->fresh()->loadMissing(['coordinates', 'routes', 'promoCodes', 'categories.pricePeriods', 'formTypes.souvenirs', 'formTypes.formularioCampos.options', 'organizador.formasPagoSeleccionadas', 'auspiciadores', 'agendaItems', 'equipos'])),
+            'eventos' => new EventoResource($event->fresh()->loadMissing(['coordinates', 'routes', 'promoCodes', 'categories.pricePeriods', 'formTypes.souvenirs' => $this->souvenirsVisiblesScope($event->id), 'formTypes.formularioCampos.options', 'organizador.formasPagoSeleccionadas', 'auspiciadores', 'agendaItems', 'equipos'])),
         ]);
     }
 
@@ -227,7 +263,7 @@ class EventoController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Evento despublicado correctamente.',
-            'eventos' => new EventoResource($event->fresh()->loadMissing(['coordinates', 'routes', 'promoCodes', 'categories.pricePeriods', 'formTypes.souvenirs', 'formTypes.formularioCampos.options', 'organizador.formasPagoSeleccionadas', 'auspiciadores', 'agendaItems', 'equipos'])),
+            'eventos' => new EventoResource($event->fresh()->loadMissing(['coordinates', 'routes', 'promoCodes', 'categories.pricePeriods', 'formTypes.souvenirs' => $this->souvenirsVisiblesScope($event->id), 'formTypes.formularioCampos.options', 'organizador.formasPagoSeleccionadas', 'auspiciadores', 'agendaItems', 'equipos'])),
         ]);
     }
 
@@ -280,7 +316,8 @@ return response()->json([
             'eventos' => new EventoResource($event->loadMissing([
                 'coordinates', 'routes', 'promoCodes',
                 'categories.pricePeriods',
-                'formTypes.souvenirs', 'formTypes.formularioCampos.options',
+                'formTypes.souvenirs' => $this->souvenirsVisiblesScope($event->id),
+                'formTypes.formularioCampos.options',
                 'organizador.formasPagoSeleccionadas',
                 'auspiciadores', 'agendaItems', 'equipos',
                 'tipoEvento', 'subtipoEvento',

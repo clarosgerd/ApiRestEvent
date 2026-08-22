@@ -6,6 +6,7 @@ use App\Models\Participante;
 use App\Models\FormType;
 use App\Models\Persona;
 use App\Models\PromoCode;
+use App\Models\Souvenir;
 use App\Models\SouvenirParticipante;
 use App\Models\Registration;
 use App\Models\ContactoEmergenciaParticipante;
@@ -186,6 +187,12 @@ class RegistrationService
             ]);
         }
 
+        $this->injectSouvenirsInvisibles(
+            $participant,
+            $registration->form_types_id,
+            array_map(fn ($s) => (int) $s['id'], $data['souvenirs'] ?? [])
+        );
+
         foreach ($data['answers'] ?? [] as $answer) {
             Answer::create([
                 'form_types_id'   => $answer['form_types_id'],
@@ -235,6 +242,52 @@ class RegistrationService
                     'total'               => $total,
                 ]);
             }
+        }
+    }
+
+    /**
+     * Souvenirs invisibles para el participante (22/08/2026) — un souvenir
+     * de `form_type` con `visible_participante=false` nunca aparece en el
+     * formulario de inscripción (ver `EventoController::show()`, que ya
+     * lo filtra del JSON público), así que el cliente JAMÁS puede
+     * mandarlo en `souvenirs[]` — por diseño, no por bug. Se asigna acá,
+     * server-side, a TODOS los participantes de ese form_type, siempre
+     * sin costo (bundled en el precio del form_type, mismo criterio que
+     * un `incluido=true` visible) — nunca se le cobra a nadie algo que no
+     * eligió ni vio.
+     *
+     * Compartido por `RegistrationService::createParticipantFromData()`
+     * (update/update-paid) y `CrearInscripcionAction::createParticipant()`
+     * (store) — las dos rutas de creación de un `Participante` existentes
+     * hoy, con formas de dato distintas (array crudo vs `ParticipantDTO`),
+     * por eso el caller arma `$idsYaAsignados` a su manera y le pasa la
+     * lista ya resuelta acá, en vez de reimplementar el filtrado dos veces.
+     *
+     * Talla/sexo siempre null: no hay elección posible en un ítem que
+     * nadie ve, así que no aplica stock por combinación — ver
+     * StoreSouvenirRequest::withValidator(), que ya rechaza
+     * requiere_talla/requiere_sexo=true en un souvenir invisible.
+     *
+     * @param int[] $idsYaAsignados IDs de souvenir que el participante ya
+     *   trae en su payload — evita duplicar si en algún momento dejara de
+     *   ser invisible y el cliente lo mandara también.
+     */
+    public function injectSouvenirsInvisibles(Participante $participant, int $formTypeId, array $idsYaAsignados): void
+    {
+        $invisibles = Souvenir::where('form_types_id', $formTypeId)
+            ->where('visible_participante', false)
+            ->whereNotIn('id', $idsYaAsignados)
+            ->get();
+
+        foreach ($invisibles as $souvenir) {
+            SouvenirParticipante::create([
+                'participante_id' => $participant->id,
+                'souvenir_id'     => $souvenir->id,
+                'nombre'          => $souvenir->name,
+                'precio'          => 0,
+                'talla'           => null,
+                'sexo'            => null,
+            ]);
         }
     }
 

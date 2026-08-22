@@ -20,12 +20,16 @@ class Souvenir extends Model
         'foto_url',
         'requiere_talla',
         'requiere_sexo',
+        // Souvenirs invisibles para el participante (22/08/2026) — ver
+        // migración add_visible_participante_to_souvenirs_table.
+        'visible_participante',
     ];
 
     protected $casts = [
-        'incluido'       => 'boolean',
-        'requiere_talla' => 'boolean',
-        'requiere_sexo'  => 'boolean',
+        'incluido'              => 'boolean',
+        'requiere_talla'        => 'boolean',
+        'requiere_sexo'         => 'boolean',
+        'visible_participante'  => 'boolean',
     ];
 
 
