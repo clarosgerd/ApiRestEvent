@@ -148,10 +148,26 @@ return [
             'filename_prefix' => '',
 
             /*
-             * The disk names on which the backups will be stored.
+             * Guardado en el propio servidor (22/08/2026) — decisión
+             * explícita del usuario mientras no se cambie de hosting: no
+             * usar Google Drive por ahora (nunca se terminó de configurar
+             * la cuenta de servicio, ver INFORME-DEVOPS-FASE5-PANEL-OPS-
+             * 02082026.md §8.3). El disco 'local' ya existía en
+             * config/filesystems.php (storage/app/private), sin cambios
+             * de código: OpsBackupController::download() y
+             * RecordSuccessfulBackup ya leen el disco dinámico de cada
+             * corrida, no 'google' hardcodeado. GoogleDriveServiceProvider
+             * queda intacto (no se borra nada) para poder volver a
+             * ['google'] el día que haya credenciales reales.
+             *
+             * Trade-off real, no gratis: el backup queda en el MISMO
+             * servidor que la base de datos — si el servidor se cae del
+             * todo, se pierden los dos juntos. Es exactamente lo que
+             * Google Drive evitaba. Aceptado a propósito como algo
+             * temporal.
              */
             'disks' => [
-                'google',
+                'local',
             ],
         ],
 
@@ -262,7 +278,9 @@ return [
     'monitor_backups' => [
         [
             'name' => env('APP_NAME', 'laravel-backup'),
-            'disks' => ['google'],
+            // Guardado en el propio servidor (22/08/2026) — ver
+            // 'destination.disks' más arriba, mismo motivo.
+            'disks' => ['local'],
             'health_checks' => [
                 \Spatie\Backup\Tasks\Monitor\HealthChecks\MaximumAgeInDays::class => 1,
                 \Spatie\Backup\Tasks\Monitor\HealthChecks\MaximumStorageInMegabytes::class => 5000,
