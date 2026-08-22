@@ -4,11 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Models\BackupRun;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Context;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class OpsBackupController extends Controller
 {
@@ -42,7 +42,16 @@ class OpsBackupController extends Controller
         return back()->with('status', 'Backup ejecutado correctamente.');
     }
 
-    public function download(BackupRun $backupRun): Response
+    /**
+     * response()->streamDownload() devuelve Symfony\...\StreamedResponse,
+     * NO Illuminate\Http\Response (son clases hermanas, ninguna extiende
+     * a la otra) — el type hint viejo tipaba mal el retorno. Nunca se
+     * disparó antes porque nunca hubo un backup exitoso para descargar
+     * (Google Drive jamás llegó a funcionar, ver
+     * DEPLOY-CHECKLIST-BACKUP-LOCAL-22082026.md) — recién con el backup
+     * local (22/08/2026) hubo algo real que descargar y salió a la luz.
+     */
+    public function download(BackupRun $backupRun): StreamedResponse
     {
         abort_if(!$backupRun->filename || !$backupRun->disk, 404);
 
