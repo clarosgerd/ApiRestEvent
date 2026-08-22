@@ -48,6 +48,15 @@ class SouvenirController extends Controller
         $formType = FormType::findOrFail($data['form_types_id']);
         $this->assertCanWriteEvento((int) $formType->event_id);
 
+        // `nullable|boolean` (no `sometimes`) hace que $request->validated()
+        // incluya `visible_participante: null` cuando el cliente no lo
+        // manda — Eloquent no relee el default de la BD después del
+        // INSERT, así que el modelo en memoria (y la respuesta JSON)
+        // quedarían con `null` en vez del default real (`true`). Se
+        // resuelve acá explícito en vez de tocar el patrón de validación
+        // que ya comparten incluido/requiere_talla/requiere_sexo.
+        $data['visible_participante'] ??= true;
+
         $souvenir = Souvenir::create($data);
 
         return response()->json([

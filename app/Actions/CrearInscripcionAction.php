@@ -250,6 +250,16 @@ class CrearInscripcionAction
 
         }
 
+        // Souvenirs invisibles para el participante (22/08/2026) — ver
+        // RegistrationService::injectSouvenirsInvisibles(). $dto->souvenirs
+        // acá viene de lo que mandó el cliente, que nunca puede incluir
+        // uno invisible (nunca lo vio) — se asigna server-side.
+        $this->registrationService->injectSouvenirsInvisibles(
+            $participant,
+            $registration->form_types_id,
+            array_map(fn ($s) => (int) $s->souvenir_id, $dto->souvenirs)
+        );
+
         foreach ($dto->answers as $answer) {
             Answer::create([
                 'form_types_id'   => $answer->formTypeId,

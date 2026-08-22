@@ -33,6 +33,28 @@ class StoreSouvenirRequest extends FormRequest
             'foto_url'        => 'nullable|string|max:2048|url',
             'requiere_talla'  => 'nullable|boolean',
             'requiere_sexo'   => 'nullable|boolean',
+            // Souvenirs invisibles para el participante (22/08/2026) — ver
+            // migración add_visible_participante_to_souvenirs_table.
+            'visible_participante' => 'nullable|boolean',
         ];
+    }
+
+    /**
+     * Un souvenir invisible se asigna automático a todos los participantes
+     * del form_type (ver RegistrationService::injectSouvenirsInvisibles())
+     * — nunca pasa por una tarjeta seleccionable en el formulario, así que
+     * no tiene sentido pedirle talla/sexo a nadie.
+     */
+    public function withValidator($validator): void
+    {
+        $validator->after(function ($validator) {
+            $visible = $this->boolean('visible_participante', true);
+            if (! $visible && ($this->boolean('requiere_talla') || $this->boolean('requiere_sexo'))) {
+                $validator->errors()->add(
+                    'visible_participante',
+                    'Un souvenir invisible para el participante no puede requerir talla/sexo — nunca hay quién los elija.'
+                );
+            }
+        });
     }
 }
