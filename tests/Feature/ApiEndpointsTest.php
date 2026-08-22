@@ -70,6 +70,15 @@ class ApiEndpointsTest extends TestCase
             ->assertJsonPath('success', true)
             ->assertJsonStructure(['success', 'message', 'data' => ['persona', 'token']]);
 
+        // list/show de /persona pasó a ser admin-only (21/08/2026, ver
+        // PersonaController::assertIsSuperAdmin() y PersonaCrudTest) —
+        // antes la misma Persona recién registrada podía listar/ver a
+        // cualquier otra, sin scoping de rol. Se cambia de actor acá
+        // mismo (actingAsAdmin() reemplaza el header Authorization) para
+        // no perder la continuidad del flujo register→login→consulta.
+        $admin = $this->actingAsAdmin();
+        $admin->update(['rol' => 'super_admin']);
+
         $this->getJson('/api/v1/persona')
             ->assertOk()
             ->assertJsonPath('success', true)

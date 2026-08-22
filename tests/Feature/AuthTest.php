@@ -196,11 +196,19 @@ class AuthTest extends TestCase
     // ==========================================
     // 1.4 LISTAR / VER PERSONAS
     // ==========================================
+    // Actualizado 21/08/2026: /persona (index/show/store/update/destroy)
+    // pasó a ser un CRUD solo para admins (ver PersonaController::
+    // assertIsSuperAdmin() y tests/Feature/PersonaCrudTest.php) — antes
+    // cualquier Persona autenticada podía listar/ver los datos de
+    // cualquier otra, sin scoping de rol. Estos 3 tests documentaban ese
+    // comportamiento viejo; ahora usan un AdminUser super_admin, que es
+    // quien de verdad puede usar el endpoint.
 
     public function test_list_personas_returns_paginated_results(): void
     {
         Persona::factory()->count(3)->create();
-        $this->actingAsPersona();
+        $admin = $this->actingAsAdmin();
+        $admin->update(['rol' => 'super_admin']);
 
         $this->getJson('/api/v1/persona')
             ->assertOk()
@@ -211,7 +219,8 @@ class AuthTest extends TestCase
     public function test_show_persona_by_id_returns_data(): void
     {
         $persona = Persona::factory()->create(['nombre' => 'Maria']);
-        $this->actingAsPersona();
+        $admin = $this->actingAsAdmin();
+        $admin->update(['rol' => 'super_admin']);
 
         $this->getJson('/api/v1/persona/' . $persona->id)
             ->assertOk()
@@ -221,7 +230,8 @@ class AuthTest extends TestCase
 
     public function test_show_persona_returns_404_for_nonexistent(): void
     {
-        $this->actingAsPersona();
+        $admin = $this->actingAsAdmin();
+        $admin->update(['rol' => 'super_admin']);
 
         $this->getJson('/api/v1/persona/99999')
             ->assertNotFound();
