@@ -149,6 +149,9 @@ Route::group(['prefix' => 'v1','namespace' => 'App\Http\Controllers'], function 
         // ahora scoped igual que el resto del panel.
         Route::get('/event/{event}/participantes', [ParticipanteController::class, 'porEvento']);
         Route::patch('/registrations/{reference}/participantes/{participante}/numeracion', [RegistrationController::class, 'updateNumeracion']);
+        // Conciliación manual de "Pago pendiente (USD)" (24/08/2026) — ver
+        // RegistrationController::confirmarPagoManual().
+        Route::patch('/registrations/{reference}/confirmar-pago-manual', [RegistrationController::class, 'confirmarPagoManual']);
         Route::post('/event/{event}/participantes/numeracion/bulk', [ParticipanteController::class, 'numeracionBulk']);
 
         // Edición restringida de datos de contacto/identidad de un

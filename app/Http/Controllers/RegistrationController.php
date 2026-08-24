@@ -344,6 +344,52 @@ public function estadoTransaccion(
     }
 
     /**
+     * Conciliación manual de "Pago pendiente (USD)" (24/08/2026) — el
+     * organizador/admin confirma desde admin-eventos ("Detalle de
+     * inscritos") que un participante efectivamente pagó por el link
+     * enviado por correo, dentro de la ventana de 24h antes de que
+     * ExpirarInscripcionesPendientesAction lo cancele solo.
+     *
+     * A propósito NO usa updatePayment() (arriba, sin auth propia, pensado
+     * para callbacks de pasarela/proxy interno) — acá el admin logueado
+     * dispara la acción, así que se exige assertCanWriteEvento() y se
+     * restringe a `tipo_pago='pendiente_usd'` (no sirve para "confirmar a
+     * mano" un pago que en realidad debería llegar por SIP/Multipago).
+     * Reusa RegistrationService::updatePaymentStatus() — mismo camino que
+     * cualquier pasarela real, dispara notificarPagoConfirmado().
+     */
+    public function confirmarPagoManual(string $reference): JsonResponse
+    {
+        $registration = Registration::where('referencia', $reference)->firstOrFail();
+        $this->assertCanWriteEvento($registration->evento_id);
+
+        if ($registration->tipo_pago !== 'pendiente_usd') {
+            return response()->json([
+                'success' => false,
+                'error'   => 'Esta acción solo aplica a inscripciones con "Pago pendiente (USD)".',
+            ], 422);
+        }
+
+        if ($registration->pago_status === 'paid') {
+            return response()->json(['success' => true, 'data' => new RegistrationCollectionResource($registration)]);
+        }
+
+        if ($registration->pago_status !== 'pending') {
+            return response()->json([
+                'success' => false,
+                'error'   => "Esta inscripción está en estado '{$registration->pago_status}', no se puede confirmar el pago.",
+            ], 422);
+        }
+
+        $registration = $this->service->updatePaymentStatus($reference, 'paid');
+
+        return response()->json([
+            'success' => true,
+            'data'    => new RegistrationCollectionResource($registration),
+        ]);
+    }
+
+    /**
      * Buscar una inscripción por referencia para acreditación (check-in) —
      * panel de administración, escaneando el QR que ya se manda en el
      * e-ticket/email (solo codifica la referencia, ver ReferenceQrService).

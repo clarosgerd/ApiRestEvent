@@ -29,9 +29,13 @@
               cobro real de la inscripción.
           --}}
           @php($categoriaActual = $categoriasPorId->get($p->categoria))
-          Categoría: <strong>{{ $categoriaActual->name ?? $p->categoria }}</strong> · Bs{{ number_format((float) $p->precio_categoria, 2) }}
-          @if ($registration->moneda_pago === 'USD' && $categoriaActual && $categoriaActual->price_usd !== null)
-            <span style="color:#607080;">(US${{ number_format((float) $categoriaActual->price_usd, 2) }})</span>
+          {{-- Pedido del usuario 24/08/2026: para inscripciones en USD (precio
+               fijo) no se muestra NADA en Bs, ni siquiera como referencia — es
+               un precio fijo, no una conversión, así que el Bs es ruido. --}}
+          @if ($registration->moneda_pago === 'USD')
+            Categoría: <strong>{{ $categoriaActual->name ?? $p->categoria }}</strong> · US${{ number_format((float) ($categoriaActual->price_usd ?? 0), 2) }}
+          @else
+            Categoría: <strong>{{ $categoriaActual->name ?? $p->categoria }}</strong> · Bs{{ number_format((float) $p->precio_categoria, 2) }}
           @endif
           <br>
           Documento: <strong>{{ $p->tipo_documento }} {{ $p->numero_documento }}</strong><br>
@@ -50,7 +54,17 @@
             Souvenirs: <strong>{{ $p->souvenirParticipante->map(fn ($s) => ($s->nombre ?? '') . ' (Bs' . number_format((float) ($s->precio ?? 0), 2) . ')')->implode(', ') }}</strong><br>
           @endif
           @if ($p->talleresSesiones->isNotEmpty())
-            Taller: <strong>{{ $p->talleresSesiones->map(fn ($ts) => ($ts->taller->nombre ?? 'Taller') . ((float) $ts->total > 0 ? ' (Bs' . number_format((float) $ts->total, 2) . ')' : ''))->implode(', ') }}</strong><br>
+            @if ($registration->moneda_pago === 'USD')
+              {{-- price_usd de la sesión gana sobre el del taller, mismo
+                   fallback que usa el backend al calcular total_pagado (ver
+                   CurrencyResolverData::resolverPrecioFijo()). --}}
+              Taller: <strong>{{ $p->talleresSesiones->map(function ($ts) {
+                  $usd = $ts->sesionCongreso->price_usd ?? $ts->taller->price_usd ?? null;
+                  return ($ts->taller->nombre ?? 'Taller') . ($usd > 0 ? ' (US$' . number_format((float) $usd, 2) . ')' : '');
+              })->implode(', ') }}</strong><br>
+            @else
+              Taller: <strong>{{ $p->talleresSesiones->map(fn ($ts) => ($ts->taller->nombre ?? 'Taller') . ((float) $ts->total > 0 ? ' (Bs' . number_format((float) $ts->total, 2) . ')' : ''))->implode(', ') }}</strong><br>
+            @endif
           @endif
           @if ((float) $p->donacion > 0)
             Donación: <strong>Bs{{ number_format((float) $p->donacion, 2) }}</strong><br>

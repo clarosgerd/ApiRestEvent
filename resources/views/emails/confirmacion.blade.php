@@ -63,8 +63,31 @@
 
   <tr><td style="background:#022858;padding:20px 32px;text-align:center;">
     <p style="color:rgba(255,255,255,.6);font-size:11px;margin:0 0 2px;text-transform:uppercase;">Total general</p>
-    <p style="color:#ffffff;font-size:30px;font-weight:800;margin:0;">Bs{{ number_format((float) $registration->totals->grand_total, 2) }}</p>
+    {{-- Bug real encontrado 24/08/2026: el símbolo ya se corregía a $ para
+         USD, pero el número seguía siendo totals->grand_total (el
+         desglose interno en Bs, "a propósito" según emails/partials/totales.blade.php)
+         — mostraba ej. "$4,250.00" cuando lo cobrado en USD era "$435.00".
+         Mismo criterio que ese partial: en USD se usa total_pagado (el
+         monto real cobrado), no el total en Bs. --}}
+    <p style="color:#ffffff;font-size:30px;font-weight:800;margin:0;">
+      @if ($registration->moneda_pago === 'USD')
+        ${{ number_format((float) $registration->total_pagado, 2) }}
+      @else
+        Bs{{ number_format((float) $registration->totals->grand_total, 2) }}
+      @endif
+    </p>
   </td></tr>
+
+  @if (!empty($linkPago))
+  <tr><td style="padding:0 32px;"><hr style="border:none;border-top:2px dashed #d0dce8;margin:0;"></td></tr>
+  <tr><td style="padding:20px 32px;text-align:center;">
+    <p style="font-size:13px;color:#1a2a3a;margin:0 0 14px;">Para completar tu inscripción, realizá el pago desde el siguiente link:</p>
+    <a href="{{ $linkPago }}" style="display:inline-block;background:#00bad2;color:#ffffff;font-weight:700;font-size:14px;padding:12px 28px;border-radius:8px;text-decoration:none;">Pagar ahora</a>
+    <p style="font-size:12px;color:#b07d00;margin:14px 0 0;font-weight:600;">
+      Este link vence el {{ $expiraEn->locale('es')->translatedFormat('d \d\e F \d\e Y · h:i A') }}
+    </p>
+  </td></tr>
+  @endif
 
   @if (!empty($qrImage))
   <tr><td style="padding:0 32px;"><hr style="border:none;border-top:2px dashed #d0dce8;margin:0;"></td></tr>

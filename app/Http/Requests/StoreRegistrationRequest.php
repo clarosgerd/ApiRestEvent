@@ -36,6 +36,18 @@ class StoreRegistrationRequest extends FormRequest
             '*.tipo_pago' => ['required'],
             '*.pago_status' => ['required'],
             '*.pay_order_number' => ['nullable', 'string'],
+            // Bug real encontrado 24/08/2026 — mismo patrón que el de
+            // `talleres` documentado abajo (19/08/2026): estos 3 campos del
+            // feature "Inscripción en BOB y USD" (18/08/2026) nunca se
+            // declararon acá, así que $request->validated() los descartaba
+            // en silencio antes de llegar al DTO — toda inscripción en USD
+            // (moneda_pago='USD' mandado por el proxy) caía a 'BOB' en
+            // CrearInscripcionAction::validateMonedaPago() sin que nadie lo
+            // notara, hasta que un chequeo nuevo (pago pendiente USD) empezó
+            // a rechazar explícitamente en vez de aceptar en silencio.
+            '*.moneda_pago' => ['nullable', 'string'],
+            '*.tipo_cambio_aplicado' => ['nullable', 'numeric'],
+            '*.total_pagado' => ['nullable', 'numeric'],
             '*.totales' => ['required','array'],
             // Caja para eventos tipo congreso (20/08/2026) — obligatoriedad
             // condicional por form_type, ver withValidator() más abajo.

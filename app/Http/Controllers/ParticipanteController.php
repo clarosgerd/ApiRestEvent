@@ -212,7 +212,10 @@ class ParticipanteController extends Controller
             // organizador no podía conciliar contra el banco con lo que ya
             // mostraba este reporte. Eager-load para no hacer N+1 al sumar
             // `total` por participante en el map() de abajo.
-            ->with(['registration:id,referencia,pago_status,fecha', 'talleresSesiones'])
+            // sesionCongreso/taller anidados (24/08/2026) — necesarios para
+            // resolver price_usd por taller en inscripciones usdPrecioFijo,
+            // ver más abajo.
+            ->with(['registration:id,referencia,pago_status,fecha,tipo_pago,moneda_pago', 'talleresSesiones.sesionCongreso', 'talleresSesiones.taller'])
             ->when($data['categoria'] ?? null, fn ($q, $categoria) => $q->where('categoria', $categoria))
             ->orderBy('categoria')
             ->orderBy('apellido');
@@ -223,7 +226,31 @@ class ParticipanteController extends Controller
             'ciudad', 'genero', 'fecha_nacimiento', 'polera', 'checked_in_at', 'subtotal',
         ];
 
-        $mapear = fn (Participante $p) => [
+        // Precio USD fijo (24/08/2026) — "Detalle de inscritos" mostraba el
+        // subtotal en Bs (bookkeeping interno, ver
+        // emails/partials/totales.blade.php) también para inscripciones
+        // usdPrecioFijo, dando cifras que no coinciden con lo que el
+        // participante realmente pagó en USD. Se resuelve por categoría acá
+        // mismo, no por evento — un evento con `aceptaUsd` normal (tipo de
+        // cambio) puede mezclar registros en BOB y en USD.
+        $categoriasPorId = $event->categories->keyBy(fn ($c) => (string) $c->id);
+
+        $mapear = function (Participante $p) use ($categoriasPorId) {
+            $esUsdFijo = $p->registration->moneda_pago === 'USD';
+            $importe = (float) $p->subtotal;
+            $importeTaller = round((float) $p->talleresSesiones->sum('total'), 2);
+            if ($esUsdFijo) {
+                $categoria = $categoriasPorId->get((string) $p->categoria);
+                $importe = (float) ($categoria->price_usd ?? 0);
+                $importeTaller = round(
+                    (float) $p->talleresSesiones->sum(
+                        fn ($ts) => (float) ($ts->sesionCongreso->price_usd ?? $ts->taller->price_usd ?? 0)
+                    ),
+                    2
+                );
+            }
+
+            return [
             'id'              => $p->id,
             'referencia'      => $p->registration->referencia,
             'nombre'          => $p->nombre,
@@ -244,21 +271,26 @@ class ParticipanteController extends Controller
             // de la pantalla de Acreditación (admin-eventos) — "Y" es el
             // total de pagados, "X" cuántos de esos ya tienen checkedInAt.
             'pagoStatus'      => $p->registration->pago_status,
+            // tipoPago (24/08/2026) — pantalla "Detalle de inscritos" lo usa
+            // para mostrar "Confirmar pago" solo en filas pendientes con
+            // tipo_pago='pendiente_usd' (ver RegistrationController::confirmarPagoManual()).
+            'tipoPago'        => $p->registration->tipo_pago,
             'checkedInAt'     => optional($p->checked_in_at)->toIso8601String(),
             // importe/fechaInscripcion: reporte detallado de inscritos
             // (15/08/2026), pantalla nueva "Detalle de inscritos" en
             // admin-eventos.
-            'importe'         => (float) $p->subtotal,
+            'importe'         => $importe,
             // importeTaller/importeTotal (19/08/2026) — `importe` (subtotal)
             // no incluye talleres, así que no alcanzaba para conciliar
             // contra el banco lo que el participante realmente pagó.
             // `importeTotal` es lo comparable contra el depósito real
             // (no incluye el cargo de servicio, que se cobra por
             // inscripción/registro completo, no por participante).
-            'importeTaller'   => round((float) $p->talleresSesiones->sum('total'), 2),
-            'importeTotal'    => round((float) $p->subtotal + (float) $p->talleresSesiones->sum('total'), 2),
+            'importeTaller'   => $importeTaller,
+            'importeTotal'    => round($importe + $importeTaller, 2),
             'fechaInscripcion' => optional($p->registration->fecha)->toIso8601String(),
-        ];
+            ];
+        };
 
         if ($data['per_page'] ?? null) {
             $paginador = $query->paginate($data['per_page'], $columnas, 'page', $data['page'] ?? 1);

@@ -16,11 +16,21 @@ class InscripcionPendienteMail extends Mailable
     {
     }
 
-    private const PAY_LABELS = ['sip' => 'QR (SIP)', 'multipago' => 'Multipago', 'pendiente' => 'Pago pendiente'];
+    private const PAY_LABELS = ['sip' => 'QR (SIP)', 'multipago' => 'Multipago', 'pendiente' => 'Pago pendiente', 'pendiente_usd' => 'Pago pendiente (USD)'];
 
     public function build(): self
     {
-        $evento = $this->registration->evento;
+        $evento = $this->registration->evento?->loadMissing('organizador');
+
+        // Pago pendiente USD (24/08/2026) — el link sale del organizador del
+        // evento (Organizador::linkPagoPendienteUsd(), config por
+        // organizador, no por evento), no de una columna del evento. Para
+        // cualquier otro método (sip/multipago/pendiente) queda null y el
+        // bloque del link no se renderiza — ver
+        // resources/views/emails/confirmacion.blade.php.
+        $esPendienteUsd = $this->registration->tipo_pago === 'pendiente_usd';
+        $linkPago = $esPendienteUsd ? $evento?->organizador?->linkPagoPendienteUsd() : null;
+        $expiraEn = $linkPago ? $this->registration->created_at->copy()->addHours(24) : null;
 
         return $this->subject("Registro recibido — Pago pendiente — {$this->registration->evento_nombre} [{$this->registration->referencia}]")
             ->view('emails.confirmacion')
@@ -33,6 +43,8 @@ class InscripcionPendienteMail extends Mailable
                 'footerMsg'    => 'Guarda este correo como referencia de tu registro',
                 'payLabel'     => self::PAY_LABELS[$this->registration->tipo_pago] ?? $this->registration->tipo_pago,
                 'qrImage'      => ReferenceQrService::toBase64Png($this->registration->referencia),
+                'linkPago'     => $linkPago,
+                'expiraEn'     => $expiraEn,
             ]);
     }
 }

@@ -435,6 +435,18 @@ class CrearInscripcionAction
             );
         }
 
+        // Pago pendiente USD (24/08/2026) — defensa en profundidad, mismo
+        // criterio que el chequeo equivalente en elascenso/event/api/registro.php:
+        // "pendiente_usd" es exclusivamente USD; sin esto, un
+        // moneda_pago=BOB desincronizado (ej. bug de estado en el
+        // frontend) terminaba cobrando el precio_base normal en Bs para
+        // un evento usdPrecioFijo en vez de rechazar el intento.
+        if ($dto->paymentType === 'pendiente_usd' && $moneda !== 'USD') {
+            throw new \DomainException(
+                'Este método de pago solo acepta USD. Recargá la página e intentá de nuevo.'
+            );
+        }
+
         // Precio USD fijo (19/08/2026) — ver
         // brain/PLAN-PRECIO-USD-FIJO-19082026.md. Camino alternativo a
         // resolver() (tasa de cambio), sin tocarlo — solo aplica si el

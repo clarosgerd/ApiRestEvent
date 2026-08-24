@@ -124,7 +124,7 @@ class OrganizadorController extends Controller
             ->orderBy('nombre')
             ->get();
 
-        $seleccionadasIds = $organizador->formasPagoSeleccionadas()->pluck('formas_pagos.id')->all();
+        $seleccionadas = $organizador->formasPagoSeleccionadas()->get()->keyBy('id');
 
         return response()->json([
             'success' => true,
@@ -134,12 +134,16 @@ class OrganizadorController extends Controller
                 'nombre' => $fp->nombre,
                 'tipo' => $fp->tipo,
                 'esDelSistema' => $fp->organizador_id === null,
-                'seleccionada' => in_array($fp->id, $seleccionadasIds, true),
+                'seleccionada' => $seleccionadas->has($fp->id),
+                // Pago pendiente USD (24/08/2026) — solo tiene valor real para
+                // la fila "pendiente_usd", null para el resto (ver
+                // Organizador::linkPagoPendienteUsd()).
+                'linkPago' => $seleccionadas->get($fp->id)?->pivot?->link_pago,
             ]),
             // Si el pivote está vacío, formasPagoEfectivas() usa por
             // default los métodos del sistema activos — informativo para
             // el panel (ver Organizador::formasPagoEfectivas()).
-            'usandoDefaultDelSistema' => empty($seleccionadasIds),
+            'usandoDefaultDelSistema' => $seleccionadas->isEmpty(),
         ]);
     }
 
@@ -166,7 +170,17 @@ class OrganizadorController extends Controller
             ->pluck('id')
             ->all();
 
-        $sync = collect($validasIds)->mapWithKeys(fn ($id) => [$id => ['activo' => true]])->all();
+        // Pago pendiente USD (24/08/2026) — el link solo aplica a la fila
+        // "pendiente_usd"; para el resto de métodos el pivote queda sin
+        // link_pago (columna genérica, valor null por default).
+        $formaPagoPendienteUsdId = FormasPago::whereIn('id', $validasIds)->where('slug', 'pendiente_usd')->value('id');
+        $sync = collect($validasIds)->mapWithKeys(function ($id) use ($formaPagoPendienteUsdId, $request) {
+            $pivot = ['activo' => true];
+            if ($id === $formaPagoPendienteUsdId) {
+                $pivot['link_pago'] = $request->input('link_pago_pendiente_usd');
+            }
+            return [$id => $pivot];
+        })->all();
         $organizador->formasPagoSeleccionadas()->sync($sync);
 
         AdminAuditLogger::log('update', 'Organizador.formasPago', $organizador->id, null, null, ['forma_pago_ids' => $validasIds]);

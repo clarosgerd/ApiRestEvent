@@ -53,6 +53,14 @@ class FormTypeResource extends JsonResource
             'requiereContactoEmergencia' => (bool) $this->requiere_contacto_emergencia,
             'max_integrantes_grupo'      => (int) $this->max_integrantes_grupo,
             'descuento_registrante_pct'  => (float) $this->descuento_registrante_pct,
+            // Bug real encontrado 24/08/2026: este resource nunca expuso
+            // tiempo_expiracion_min desde que existe — admin-eventos no
+            // podía mostrar/editar el valor real de la BD, así que la
+            // vista lo hardcodeaba a 30 en vez de leerlo. El ciclo de
+            // expiración (ExpirarInscripcionesPendientesAction) lo lee
+            // directo del modelo, ajeno a este resource, por eso siempre
+            // funcionó bien aunque el panel nunca pudiera mostrarlo.
+            'tiempo_expiracion_min'      => (int) $this->tiempo_expiracion_min,
             // Deprecación hasshirt/costo_polera (12/08) — sin este cast,
             // en hostings donde PDO devuelve tinyint como string ("0"),
             // `!selectedFormType.hasshirt` en index.php nunca ocultaba la
