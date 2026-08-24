@@ -43,6 +43,19 @@ class FormasPagoSeeder extends Seeder
                 'organizador_id' => null,
                 'activo' => true,
             ],
+            [
+                // Pago pendiente USD (24/08/2026) — ver plan "Pago pendiente USD (link por
+                // correo, expira 24h)". Solo se ofrece en eventos con usdPrecioFijo=true (ver
+                // EventoResource::formasPago()) y solo si el organizador cargó un link de pago
+                // en su pantalla "Formas de pago" (organizador_formas_pago.link_pago).
+                'slug' => 'pendiente_usd',
+                'nombre' => 'Pago pendiente (USD)',
+                'descripcion' => 'Pago diferido para eventos con precio USD fijo — se envía un link de pago por correo, válido 24 horas.',
+                'pasarela' => 'manual_usd',
+                'tipo' => 'manual',
+                'organizador_id' => null,
+                'activo' => true,
+            ],
         ];
 
         foreach ($metodos as $metodo) {

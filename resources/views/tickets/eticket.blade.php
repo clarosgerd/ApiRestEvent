@@ -57,7 +57,14 @@
 
   <tr><td style="background:#022858;padding:16px 24px;text-align:center;">
     <span style="color:#ffffff;font-size:11px;text-transform:uppercase;">Total general</span><br>
-    <span style="color:#ffffff;font-size:24px;font-weight:bold;">Bs{{ number_format((float) $registration->totals->grand_total, 2) }}</span>
+    {{-- Precio USD fijo (24/08/2026) — mismo criterio que emails/confirmacion.blade.php. --}}
+    <span style="color:#ffffff;font-size:24px;font-weight:bold;">
+      @if ($registration->moneda_pago === 'USD')
+        ${{ number_format((float) $registration->total_pagado, 2) }}
+      @else
+        Bs{{ number_format((float) $registration->totals->grand_total, 2) }}
+      @endif
+    </span>
   </td></tr>
 
   @if (!empty($qrImage))

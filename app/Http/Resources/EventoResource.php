@@ -71,8 +71,17 @@ class EventoResource extends JsonResource
             'formTypes'                 =>FormTypeResource::collection($this->whenLoaded('formTypes')),  // Tipos de formulario del evento
             // Métodos de pago habilitados para este evento (los del sistema
             // y/o los propios del organizador — ver Organizador::formasPagoEfectivas()).
+            // Pago pendiente USD (24/08/2026) — "pendiente_usd" se excluye salvo
+            // que el evento sea usdPrecioFijo Y el organizador tenga un link
+            // cargado (ver Organizador::linkPagoPendienteUsd()); si no, un
+            // participante podría elegirlo sin que exista link para enviarle.
             'formasPago'                =>$this->relationLoaded('organizador') && $this->organizador
-                                                ? FormasPagoResource::collection($this->organizador->formasPagoEfectivas())
+                                                ? FormasPagoResource::collection(
+                                                    $this->organizador->formasPagoEfectivas()->reject(
+                                                        fn ($fp) => $fp->slug === 'pendiente_usd'
+                                                            && (!$this->usd_precio_fijo || !filled($this->organizador->linkPagoPendienteUsd()))
+                                                    )
+                                                )
                                                 : [],
                  //     'reglamento'                =>$this->reglamento,
             'deslinde'                  =>$this->deslinde,

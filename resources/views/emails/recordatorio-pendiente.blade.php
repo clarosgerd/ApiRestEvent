@@ -56,7 +56,14 @@
 
   <tr><td style="background:#022858;padding:20px 32px;text-align:center;">
     <p style="color:rgba(255,255,255,.6);font-size:11px;margin:0 0 2px;text-transform:uppercase;">Monto pendiente</p>
-    <p style="color:#ffffff;font-size:30px;font-weight:800;margin:0;">Bs{{ number_format((float) $registration->totals->grand_total, 2) }}</p>
+    {{-- Precio USD fijo (24/08/2026) — mismo criterio que emails/confirmacion.blade.php. --}}
+    <p style="color:#ffffff;font-size:30px;font-weight:800;margin:0;">
+      @if ($registration->moneda_pago === 'USD')
+        ${{ number_format((float) $registration->total_pagado, 2) }}
+      @else
+        Bs{{ number_format((float) $registration->totals->grand_total, 2) }}
+      @endif
+    </p>
   </td></tr>
 
   <tr><td style="padding:16px 32px;text-align:center;background:#f4f8fb;">

@@ -76,8 +76,22 @@ class Organizador extends Model
     {
         return $this->belongsToMany(FormasPago::class, 'organizador_formas_pago', 'organizador_id', 'forma_pago_id')
             ->wherePivot('activo', true)
-            ->withPivot('activo')
+            ->withPivot('activo', 'link_pago')
             ->withTimestamps();
+    }
+
+    /**
+     * Link configurado para el método "Pago pendiente (USD)" — null si el
+     * organizador no lo activó o no cargó un link todavía (ver
+     * EventoResource::formasPago(), que usa esto para decidir si el
+     * método se ofrece en un evento usdPrecioFijo, y
+     * InscripcionPendienteMail, que lo usa para el correo).
+     */
+    public function linkPagoPendienteUsd(): ?string
+    {
+        return $this->formasPagoSeleccionadas()
+            ->where('slug', 'pendiente_usd')
+            ->first()?->pivot?->link_pago;
     }
 
     /**
