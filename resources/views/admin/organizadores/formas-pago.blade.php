@@ -36,7 +36,7 @@
             <label class="flex items-start gap-2 border border-slate-200 rounded-md px-3 py-2 hover:bg-slate-50">
                 <input type="checkbox" name="forma_pago_ids[]" value="{{ $fp['id'] }}"
                        {{ $fp['seleccionada'] ? 'checked' : '' }} class="mt-0.5">
-                <span>
+                <span class="flex-1">
                     <span class="font-medium">{{ $fp['nombre'] }}</span>
                     <span class="text-xs text-slate-400 font-mono">({{ $fp['slug'] }})</span>
                     <span class="text-xs px-1.5 py-0.5 rounded {{ $fp['tipo'] === 'integrado' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600' }}">
@@ -45,6 +45,12 @@
                     @unless ($fp['esDelSistema'])
                         <span class="text-xs px-1.5 py-0.5 rounded bg-amber-50 text-amber-700">Propia del organizador</span>
                     @endunless
+                    @if ($fp['slug'] === 'pendiente_usd')
+                        <input type="url" name="link_pago_pendiente_usd"
+                               value="{{ old('link_pago_pendiente_usd', $fp['linkPago'] ?? '') }}"
+                               placeholder="https://... (link de pago que se envía por correo, vence a las 24h)"
+                               class="mt-1 block w-full text-sm border border-slate-300 rounded px-2 py-1">
+                    @endif
                 </span>
             </label>
         @empty

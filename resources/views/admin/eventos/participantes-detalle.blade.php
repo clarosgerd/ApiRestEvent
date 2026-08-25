@@ -5,6 +5,13 @@
 @section('content')
 @php($categoriasPorId = collect($evento['categories'] ?? [])->keyBy(fn ($c) => (string) $c['id']))
 @php($estadoLabels = ['paid' => 'Pagado', 'pending' => 'Pendiente', 'cancelled' => 'Cancelado', 'failed' => 'Fallido'])
+
+@if (session('status'))
+    <div class="bg-green-50 border border-green-200 text-green-800 px-4 py-2 rounded-md mb-4 text-sm">{{ session('status') }}</div>
+@endif
+@if ($errors->any())
+    <div class="bg-red-50 border border-red-200 text-red-800 px-4 py-2 rounded-md mb-4 text-sm">{{ $errors->first() }}</div>
+@endif
 <div class="flex justify-between items-start mb-4 flex-wrap gap-2">
     <div>
         <h1 class="text-lg font-bold">Detalle de inscritos</h1>
@@ -63,6 +70,7 @@
                 <th class="px-3 py-2 font-semibold">Ref</th>
                 <th class="px-3 py-2 font-semibold">Nacimiento</th>
                 <th class="px-3 py-2 font-semibold">Distancia</th>
+                <th class="px-3 py-2 font-semibold">Acción</th>
             </tr>
         </thead>
         <tbody>
@@ -82,9 +90,20 @@
                     <td class="px-3 py-2 font-mono">{{ $p['referencia'] }}</td>
                     <td class="px-3 py-2">{{ $p['fechaNacimiento'] }}</td>
                     <td class="px-3 py-2">{{ $categoriasPorId[$p['categoria']]['name'] ?? $p['categoria'] }}</td>
+                    <td class="px-3 py-2">
+                        @if ($p['pagoStatus'] === 'pending' && ($p['tipoPago'] ?? null) === 'pendiente_usd')
+                            <form method="POST" action="{{ route('admin.participantes.detalle.confirmar-pago-manual', ['event' => $evento['id'], 'referencia' => $p['referencia']]) }}"
+                                  onsubmit="return confirm('¿Confirmar que {{ $p['nombre'] }} {{ $p['apellido'] }} (ref. {{ $p['referencia'] }}) ya pagó?');">
+                                @csrf
+                                <button type="submit" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-2.5 py-1.5 rounded-md whitespace-nowrap">
+                                    Confirmar pago
+                                </button>
+                            </form>
+                        @endif
+                    </td>
                 </tr>
             @empty
-                <tr><td class="px-3 py-2 text-slate-500" colspan="14">No hay inscritos con estos filtros.</td></tr>
+                <tr><td class="px-3 py-2 text-slate-500" colspan="15">No hay inscritos con estos filtros.</td></tr>
             @endforelse
         </tbody>
     </table>

@@ -503,7 +503,7 @@
                         </div>
                         <div>
                             <label class="block text-xs font-semibold mb-1">Expira (min)</label>
-                            <input type="number" min="0" name="tiempo_expiracion_min" value="30" class="w-full border border-slate-300 rounded px-2 py-1 text-sm">
+                            <input type="number" min="0" name="tiempo_expiracion_min" value="{{ $formType['tiempo_expiracion_min'] ?? 30 }}" class="w-full border border-slate-300 rounded px-2 py-1 text-sm">
                         </div>
                         <div>
                             <label class="block text-xs font-semibold mb-1">Color <span class="font-normal text-slate-500">(gafetes)</span></label>

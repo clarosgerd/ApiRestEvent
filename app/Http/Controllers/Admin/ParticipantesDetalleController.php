@@ -2,10 +2,13 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Http\Controllers\Admin\Concerns\DelegatesToApiJson;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\EventoController as ApiEventoController;
 use App\Http\Controllers\ParticipanteController as ApiParticipanteController;
+use App\Http\Controllers\RegistrationController as ApiRegistrationController;
 use App\Models\Evento;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\View\View;
@@ -20,6 +23,8 @@ use Illuminate\View\View;
  */
 class ParticipantesDetalleController extends Controller
 {
+    use DelegatesToApiJson;
+
     private const PER_PAGE_DEFAULT = 50;
     private const PER_PAGE_MAX = 200;
 
@@ -49,6 +54,27 @@ class ParticipantesDetalleController extends Controller
             'participantes' => $payload['participantes'] ?? [],
             'meta' => $payload['meta'] ?? null,
         ]);
+    }
+
+    /**
+     * Consolidación monolito (25/08/2026) — conciliación manual de "Pago
+     * pendiente (USD)", portado 1:1 de admin-eventos
+     * (ParticipantesDetalleController::confirmarPagoManual()). Delega en
+     * App\Http\Controllers\RegistrationController::confirmarPagoManual(),
+     * que ya revalida tipo_pago/pago_status/assertCanWriteEvento() —
+     * mismo criterio de siempre, no reimplementar nada acá.
+     */
+    public function confirmarPagoManual(Request $request, Evento $event, string $referencia, ApiRegistrationController $apiRegistration): RedirectResponse
+    {
+        $this->assertCanViewEvento($event->id);
+
+        $payload = $apiRegistration->confirmarPagoManual($referencia)->getData(true);
+
+        if (!($payload['success'] ?? false)) {
+            return back()->withErrors($this->extractErrors($payload));
+        }
+
+        return back()->with('status', "Pago confirmado — referencia {$referencia}.");
     }
 
     public function csvDownload(Request $request, Evento $event, ApiEventoController $apiEvento, ApiParticipanteController $apiParticipante): Response

@@ -97,6 +97,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::patch('/eventos/{event}/participantes/{participante}', [ParticipantesController::class, 'update'])->name('participantes.update');
         Route::get('/eventos/{event}/participantes/detalle', [ParticipantesDetalleController::class, 'index'])->name('participantes.detalle');
         Route::get('/eventos/{event}/participantes/detalle/csv', [ParticipantesDetalleController::class, 'csvDownload'])->name('participantes.detalle.csv');
+        Route::post('/eventos/{event}/participantes/detalle/{referencia}/confirmar-pago-manual', [ParticipantesDetalleController::class, 'confirmarPagoManual'])->name('participantes.detalle.confirmar-pago-manual');
 
         // Fase 1e-ii — Numeración, Acreditación, ChronoTrack, Sesiones/
         // Asistencia/Talleres de congreso (operación del día del evento).
