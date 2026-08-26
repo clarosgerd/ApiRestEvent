@@ -133,6 +133,10 @@ class EventoResource extends JsonResource
             // `aceptaUsd` con tasa: cuando está prendido, el frontend usa
             // `category.priceUsd` directo en vez de tipo_cambio.php.
             'usdPrecioFijo'              =>(bool) $this->usd_precio_fijo,
+            // Orden configurable de secciones en #screen-form-types
+            // (25/08/2026) — null si el organizador no lo configuró, el
+            // frontend cae al orden por defecto en ese caso.
+            'seccionesOrden'             =>$this->secciones_orden,
             'equipos'                    =>EquipoResource::collection($this->whenLoaded('equipos')),  // Catálogo de equipos (precargado por el organizador) para form_types con hasTeam
     //        'contador_visitas'          =>$this->contador_visitas
     ];

@@ -2,6 +2,112 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/).
 
+## 2026-08-25 — Feature: orden configurable de secciones del evento (columna `secciones_orden`)
+
+Columna nueva `eventos.secciones_orden` (JSON nullable, cast `array`) — array de hasta 9 claves
+fijas (`description|calendar|countdown|media|sponsors|kitGallery|routeMap|agenda|formTypes`) en el
+orden que el organizador eligió desde `admin-eventos` para los bloques de la pantalla de tipos de
+formulario en `elascenso/event`. `null` = el frontend usa su orden por defecto (aditivo, cero
+cambio para eventos existentes). Ver `elascenso/event/CHANGELOG.md` mismo día para el detalle
+completo (admin-eventos + frontend).
+
+### Added
+- Migración `2026_08_25_180000_add_secciones_orden_to_eventos_table`.
+- `Evento::$fillable`/`$casts` ('array'), `StoreEventosRequest`/`UpdateEventosRequest`
+  (`seccionesOrden` nullable array, `in:` con las 9 claves válidas), `EventoService::update()` (map
+  camelCase→snake_case), `EventoResource` (`seccionesOrden`) — mismo patrón end-to-end ya usado para
+  `usd_precio_fijo` (19/08/2026).
+
+### Verified
+- `php -l` en los 6 archivos tocados.
+- Migración corrida contra `event_prod` (dev). De paso se encontraron y reconciliaron 5 migraciones
+  previas marcadas "Pending" cuyas columnas ya existían físicamente en esa BD (desincronización
+  entre la tabla `migrations` y el esquema real, típico de una BD restaurada desde un dump de UAT
+  sin pasar por `artisan migrate`) — se insertaron sus filas de tracking sin reejecutar su DDL,
+  confirmando antes que cada columna objetivo ya existiera, y recién después se corrió la migración
+  nueva sola.
+- Round-trip del cast `array` verificado por tinker contra un evento real (`event_prod`): array de
+  9 claves guardado y leído idéntico; revertido a `null` al terminar la prueba.
+- **Pendiente**: prueba HTTP end-to-end (`GET /event/{id}` con el campo poblado) — el servidor local
+  (`php artisan serve`) no estaba levantado al momento de este cambio.
+
+## 2026-08-24 — Feature: "Pago pendiente (USD)" para eventos con precio fijo (link por correo, expira 24h)
+
+Pedido del usuario: los eventos con `usdPrecioFijo=true` (ver
+`brain/api_rest_event/Plan_pago_pendiente_USD` en `elascenso/event`) solo podían cobrarse vía SIP
+o Multipago; se agregó una tercera opción manual — el participante queda `pending`, recibe un
+correo con un link de pago **configurado por organizador** (no por evento, para no repetirlo
+evento por evento) y si no paga en 24h la inscripción se cancela sola. Requisito explícito y
+verificado en cada paso: cero impacto en el flujo de pago en Bs. Alcance: `ApiRestEvent`,
+`admin-eventos`, `elascenso/event` — ver `elascenso/event/CHANGELOG.md` mismo día para el detalle
+del frontend.
+
+### Added
+- `formas_pagos`: fila nueva `pendiente_usd` (`pasarela=manual_usd`, `tipo=manual`,
+  `organizador_id=null`, catálogo de sistema) en `FormasPagoSeeder`.
+- Columna nueva `organizador_formas_pago.link_pago` (nullable) — en la práctica solo se usa para
+  la fila `pendiente_usd`. `Organizador::linkPagoPendienteUsd()` nuevo; `formasPagoSeleccionadas()`
+  extendido con `withPivot('link_pago')`.
+- `OrganizadorController::formasPago()`/`updateFormasPago()` exponen/guardan `linkPago`/
+  `link_pago_pendiente_usd` por fila.
+- `EventoResource::formasPago()` solo ofrece `pendiente_usd` si el evento es `usdPrecioFijo` **y**
+  el organizador tiene un link cargado — evita ofrecer el método a medio configurar.
+- `InscripcionPendienteMail` agrega `linkPago`/`expiraEn` (created_at + 24h) cuando
+  `tipo_pago === 'pendiente_usd'`, sourced de `evento.organizador.linkPagoPendienteUsd()`; queda
+  `null` para cualquier otro método (el correo en Bs no cambia). Bloque nuevo "Pagar ahora" +
+  vencimiento en `emails/confirmacion.blade.php`.
+- `RegistrationController::confirmarPagoManual()` — `PATCH /registrations/{referencia}/confirmar-pago-manual`,
+  confirma manualmente un `pendiente_usd` en `pending` (idempotente si ya está `paid`, 422 si es
+  otro método o ya no está pendiente). Consumido por el botón "Confirmar pago" nuevo en
+  `admin-eventos` (ver abajo) — cualquier admin del organizador puede usarlo, no solo super_admin.
+- `ParticipanteController::porEvento()` expone `tipoPago` y calcula `importe`/`importeTaller`/
+  `importeTotal` en USD real (vía precio de categoría/taller) cuando `moneda_pago === 'USD'`, en
+  vez del `subtotal` en Bs de siempre.
+- Expiración a las 24h: **sin código nuevo** — reusa `form_types.tiempo_expiracion_min` y el ciclo
+  existente `notificaciones:expirar-pendientes`; el organizador simplemente pone `1440` en el
+  form_type. Trade-off aceptado: si ese form_type también ofrece SIP/Multipago, esos también
+  esperan 24h en vez de su ventana corta actual.
+- `admin-eventos`: input de link en la pantalla "Formas de pago" del organizador; botón "Confirmar
+  pago" (con `confirm()`) en "Detalle de inscritos", visible solo para filas
+  `pending`+`pendiente_usd`.
+
+### Fixed
+- **Bug real de fondo, preexistente, no de este feature**: `StoreRegistrationRequest` nunca
+  declaraba `moneda_pago`/`tipo_cambio_aplicado`/`total_pagado` en `rules()`, así que
+  `$request->validated()` los descartaba en silencio — **toda** inscripción en USD terminaba
+  guardada como `moneda_pago='BOB'`, no solo las de este feature nuevo. Encontrado tras varias
+  horas de descarte (JS, OPcache) hasta loguear el payload real dentro de `registro.php`. Fix: las
+  3 reglas agregadas (`nullable`).
+- **`FormTypeResource` nunca exponía `tiempo_expiracion_min`**: explica por qué el campo "Expira
+  (min)" en `admin-eventos` estaba hardcodeado a 30 en la edición — no había forma de leer el
+  valor real desde la API. Agregado al `toArray()`.
+- **Auditoría "nada en Bs para `usdPrecioFijo`" (pedida explícitamente como revisión de todo el
+  sistema)**: `confirmacion.blade.php` (total general), `emails/partials/participantes.blade.php`
+  (categoría/taller por participante), `emails/partials/totales.blade.php` (desglose completo),
+  `tickets/eticket.blade.php` (total general), `emails/recordatorio-pendiente.blade.php` (monto
+  pendiente) — todos con rama `if (moneda_pago === 'USD') { ... } else { /* original intacto */ }`
+  para no tocar un solo carácter del camino en Bs.
+- `CrearInscripcionAction::validateMonedaPago()` rechaza `pendiente_usd` si la moneda declarada no
+  es USD (defensa en profundidad, el frontend ya lo bloquea).
+
+### Verified
+- Migración/seeder corridos contra la BD de desarrollo (`event`), confirmado con el usuario antes
+  de correr contra la real.
+- `GET /event/{id}` (curl directo): `pendiente_usd` ausente sin link configurado, presente solo en
+  eventos `usdPrecioFijo` del organizador correcto una vez cargado.
+- Flujo completo en navegador contra `event_prod` (mirror local de la BD real de UAT): registro →
+  correo con link real y vencimiento 24h → reporte/e-ticket en USD puro.
+- Regresión explícita en Bs: SIP/Multipago/pendiente de un evento en Bs sin cambios de
+  comportamiento; edición de `tiempo_expiracion_min` en un form_type en Bs ahora persiste el valor
+  real (antes se reseteaba a 30) sin afectar nada más de ese formulario.
+
+### Docs
+- `ApiRestEvent-monolito` (worktree `consolidacion-monolito`) sincronizada el 25/08: 5 commits
+  cherry-pickeados desde `questions` (incluye este feature completo) + porteo manual del lado
+  admin-eventos a `App\Http\Controllers\Admin\*` (mismo botón/input, delegando en
+  `RegistrationController::confirmarPagoManual()` vía `DelegatesToApiJson`, sin reimplementar
+  lógica). 515/515 tests en verde antes y después. Sigue local, no desplegada.
+
 ## 2026-08-15 — Feature: CRUD de catálogos globales (País, Ciudad, Sexo, Tipo/Subtipo de evento, Relación de contacto)
 
 El usuario pidió "crear tablas de catálogo país/ciudad/sexo/tipoevento/subtipoevento". Antes de
