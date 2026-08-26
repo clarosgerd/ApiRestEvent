@@ -81,7 +81,14 @@ class Evento extends Model
         'destacado',
         'es_historico', // ETL de datos históricos 2014-hoy, ver elascenso/event/brain/
         'contador_visitas',
-        'longDescription'
+        'longDescription',
+        // Orden configurable de secciones en la pantalla de tipos de
+        // formulario (25/08/2026) — array de las 9 claves fijas
+        // (description/calendar/countdown/media/sponsors/kitGallery/
+        // routeMap/agenda/formTypes) en el orden elegido por el
+        // organizador. null = usa el orden por defecto del frontend, sin
+        // cambio de aspecto para eventos que no lo configuraron.
+        'secciones_orden',
     ];
 
 protected $casts = [
@@ -94,6 +101,7 @@ protected $casts = [
     'fee_incluye_talleres' => 'boolean',
     'acepta_usd'        => 'boolean',
     'usd_precio_fijo'   => 'boolean',
+    'secciones_orden'   => 'array',
 ];
     /**
      * Permite que las rutas `{event}` (GET/PUT/DELETE /event/{event}, y

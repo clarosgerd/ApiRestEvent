@@ -54,6 +54,9 @@ class EventoService
             'feeIncluyeTalleres' => 'fee_incluye_talleres',
             // Precio USD fijo (19/08/2026) — ver brain/PLAN-PRECIO-USD-FIJO-19082026.md.
             'usdPrecioFijo'    => 'usd_precio_fijo',
+            // Orden de secciones en #screen-form-types (25/08/2026) — ver
+            // admin-eventos/EventoController::update() y elascenso/event/index.php.
+            'seccionesOrden'   => 'secciones_orden',
         ];
 
         // Columnas NOT NULL sin default en la migración original de `eventos`
