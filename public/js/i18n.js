@@ -167,6 +167,8 @@ const translations = {
       paidConfirmCheckboxLabel: 'I confirm this change and its additional cost.',
       deslindeDownloadPdf: '⬇ Download waiver PDF',
       deslindeCheckboxLabel: 'I have read and accept the liability waiver above.',
+      previewBannerMsg: '🔍 Preview mode — this event is not published yet. You can browse the form, but no real registration can be confirmed.',
+      previewBlockedMsg: 'This event is not published yet — registration is disabled in preview mode.',
     },
     confirmation: {
       pendingTitle: 'Waiting for Payment',
@@ -368,6 +370,8 @@ const translations = {
       paidConfirmCheckboxLabel: 'Confirmo este cambio y su costo adicional.',
       deslindeDownloadPdf: '⬇ Descargar PDF del deslinde',
       deslindeCheckboxLabel: 'He leído y acepto el deslinde de responsabilidad anterior.',
+      previewBannerMsg: '🔍 Vista previa — este evento todavía no está publicado. Podés navegar el formulario, pero no se puede confirmar ninguna inscripción real.',
+      previewBlockedMsg: 'Este evento todavía no está publicado — la inscripción está deshabilitada en modo vista previa.',
     },
     confirmation: {
       pendingTitle: 'Esperando pago',
@@ -569,6 +573,8 @@ const translations = {
       paidConfirmCheckboxLabel: 'Confirmo esta alteração e seu custo adicional.',
       deslindeDownloadPdf: '⬇ Baixar PDF do termo de responsabilidade',
       deslindeCheckboxLabel: 'Li e aceito o termo de responsabilidade acima.',
+      previewBannerMsg: '🔍 Modo de pré-visualização — este evento ainda não foi publicado. Você pode navegar pelo formulário, mas nenhuma inscrição real pode ser confirmada.',
+      previewBlockedMsg: 'Este evento ainda não foi publicado — a inscrição está desabilitada no modo de pré-visualização.',
     },
     confirmation: {
       pendingTitle: 'Aguardando pagamento',

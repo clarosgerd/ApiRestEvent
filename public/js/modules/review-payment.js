@@ -179,6 +179,11 @@ function updateConfirmButtonState(){
     disabled = disabled || !document.getElementById('deslindeCheckbox').checked;
   }
 
+  // Vista previa de borrador (25/08/2026, portado de elascenso/event) — nunca
+  // se puede confirmar un pago real contra un evento que todavía no está
+  // publicado.
+  disabled = disabled || currentEvent?.publicado === false;
+
   btnConfirm.disabled = disabled;
 }
 
@@ -341,6 +346,15 @@ async function autoRegisterPersona(p){
 //  CONFIRMAR PAGO  →  API PHP
 // ════════════════════════════════════════════════════════════
 async function confirmPayment(){
+  // Vista previa de borrador (25/08/2026, portado de elascenso/event) —
+  // defensa en profundidad: el botón ya queda deshabilitado por
+  // updateConfirmButtonState(), pero esto corta igual si se llegara a
+  // habilitar por cualquier otro camino no previsto.
+  if (currentEvent?.publicado === false) {
+    alert('⚠ ' + t('registration.previewBlockedMsg'));
+    return;
+  }
+
   const errEl   = document.getElementById('paymentApiError');
   const btn     = document.getElementById('btnConfirmPayment');
   const btnLabelAfter = btn.textContent;

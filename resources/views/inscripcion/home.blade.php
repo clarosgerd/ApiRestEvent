@@ -121,6 +121,12 @@
   <div class="screen" id="screen-registration">
     <div class="card">
 
+      <!-- Banner de vista previa (25/08/2026, portado de elascenso/event) — mismo
+           criterio que previewBannerFormTypes, se mantiene visible en todos los
+           sub-pasos (form/revisión/pago) porque vive afuera de los includes de
+           abajo, dentro del mismo .card. -->
+      <div id="previewBannerRegistration" style="display:none;background:#fff8e6;border:1px solid #f0c040;border-radius:12px;padding:14px 20px;margin:16px 16px 0;font-size:14px;color:#7a5400;font-weight:600;" data-i18n="registration.previewBannerMsg"></div>
+
       <!-- Stepper -->
       <div class="stepper" id="stepper">
         <div class="step active" id="step-1" onclick="stepperNavigate(1)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();stepperNavigate(1);}">
@@ -706,6 +712,7 @@ async function selectEvent(eventId){
   currentEvent     = ev;
   selectedFormType = null;
   applyEventBackground(ev);
+  renderPreviewBanner(ev);
 
   // Poblar cabecera de tipos de formulario
   document.getElementById('ftEventName').textContent =
@@ -739,7 +746,62 @@ async function selectEvent(eventId){
   // Renderizar tipos de formulario
   renderFormTypes(ev.formTypes || []);
 
+  // Orden configurable de secciones (25/08/2026, portado de elascenso/event) —
+  // después de todos los render* de arriba, para que la visibilidad de cada
+  // bloque ya esté decidida antes de reordenarlos.
+  applySeccionesOrder(ev);
+
   showScreen('screen-form-types');
+}
+
+// Vista previa de borrador (25/08/2026, portado de elascenso/event) — muestra
+// el aviso de solo-lectura en ambos banners (selección de tipo de formulario +
+// flujo de inscripción) cuando el evento no está publicado todavía.
+// updateConfirmButtonState() y confirmPayment() son quienes efectivamente
+// bloquean el submit; esta función solo se encarga del aviso visual.
+function renderPreviewBanner(ev){
+  const isPreview = ev?.publicado === false;
+  document.querySelectorAll('#previewBannerFormTypes, #previewBannerRegistration').forEach(el => {
+    el.style.display = isPreview ? 'block' : 'none';
+  });
+}
+
+// Claves fijas de los 9 bloques reordenables de #screen-form-types y su id de
+// contenedor (25/08/2026, portado de elascenso/event). `form-types-header`
+// (cabecera nombre/fecha/ubicación) y el banner de preview quedan siempre
+// primero, no participan de este orden.
+const SECTION_BLOCK_IDS = {
+  description: 'ftEventDescription',
+  calendar:    'ftCalendarContainer',
+  countdown:   'ftEventCountdown',
+  media:       'ftMediaContainer',
+  sponsors:    'ftSponsorsContainer',
+  kitGallery:  'ftKitGalleryContainer',
+  routeMap:    'ftRouteMapContainer',
+  agenda:      'ftAgendaContainer',
+  formTypes:   'ftFormTypesSection',
+};
+const DEFAULT_SECTIONS_ORDER = Object.keys(SECTION_BLOCK_IDS);
+
+// Aplica el orden configurado por el organizador (ev.seccionesOrden, ver
+// admin-eventos/Admin\EventoController → pestaña Datos) a los bloques de
+// #screen-form-types. No toca qué bloques están visibles/ocultos (eso ya lo
+// decidió cada render* de arriba según si el evento tiene datos), solo su
+// posición relativa. Sin config (caso de todo evento existente hoy) usa
+// DEFAULT_SECTIONS_ORDER — mismo orden que siempre tuvo el HTML, cero cambio
+// visual.
+function applySeccionesOrder(ev){
+  const configurado = Array.isArray(ev?.seccionesOrden) && ev.seccionesOrden.length
+    ? ev.seccionesOrden.filter(k => SECTION_BLOCK_IDS[k])
+    : [];
+  const orden = [...configurado];
+  DEFAULT_SECTIONS_ORDER.forEach(k => { if (!orden.includes(k)) orden.push(k); });
+
+  const screen = document.getElementById('screen-form-types');
+  orden.forEach(key => {
+    const el = document.getElementById(SECTION_BLOCK_IDS[key]);
+    if (el) screen.appendChild(el);
+  });
 }
 
 // (funciones movidas a public/js/modules/registration.js y a

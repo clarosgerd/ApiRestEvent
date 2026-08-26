@@ -14,6 +14,12 @@
       </div>
     </div>
 
+    <!-- Banner de vista previa (25/08/2026, portado de elascenso/event) — visible
+         cuando currentEvent.publicado es false, ej. admin previsualizando un evento
+         en borrador. Solo lectura, sin checkbox (a diferencia de #deslindeBlock).
+         Ver renderPreviewBanner() en home.blade.php. -->
+    <div id="previewBannerFormTypes" style="display:none;background:#fff8e6;border:1px solid #f0c040;border-radius:12px;padding:14px 20px;margin-bottom:12px;font-size:14px;color:#7a5400;font-weight:600;" data-i18n="registration.previewBannerMsg"></div>
+
     <!-- Descripción del evento -->
     <div id="ftEventDescription" style="background:var(--white);border-radius:12px;padding:20px 24px;margin-bottom:12px;box-shadow:var(--shadow);">
       <p style="font-size:14px;color:var(--text);line-height:1.7;margin:0;" id="ftEventDescText"></p>
@@ -106,13 +112,19 @@
       </div>
     </div>
 
-    <div class="form-types-title">
-      <span data-i18n="formTypes.title">Choose your registration type</span>
-      <span data-i18n="formTypes.subtitle">— Select the form that best fits your participation</span>
+    <!-- Envuelve título + tarjetas de tipo de formulario en un solo bloque
+         (25/08/2026, portado de elascenso/event) para que participen como unidad
+         del orden configurable de secciones — ver applySeccionesOrder(). Ningún
+         otro código referencia el contenedor padre de estos dos, así que el
+         wrapper no afecta nada más. -->
+    <div id="ftFormTypesSection">
+      <div class="form-types-title">
+        <span data-i18n="formTypes.title">Choose your registration type</span>
+        <span data-i18n="formTypes.subtitle">— Select the form that best fits your participation</span>
+      </div>
+
+      <!-- Tarjetas de tipos de formulario -->
+      <div class="form-types-grid" id="formTypesGrid"></div>
     </div>
-
-    <!-- Tarjetas de tipos de formulario -->
-       <div class="form-types-grid" id="formTypesGrid"></div>
-
 
   </div><!-- /screen-form-types -->
