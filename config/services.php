@@ -61,4 +61,12 @@ return [
         'provider' => env('QR_PROVIDER', 'none'),
     ],
 
+    // Frontend público (elascenso/event) — usado solo para armar el link
+    // "Ver como participante" / "Vista previa (borrador)" en
+    // admin/eventos/edit.blade.php (25/08/2026, portado de admin-eventos
+    // config/services.php). No es la API (esto ES la API), es el sitio SPA.
+    'event_frontend' => [
+        'base_url' => env('EVENT_FRONTEND_URL', 'http://localhost/elascenso/event/'),
+    ],
+
 ];

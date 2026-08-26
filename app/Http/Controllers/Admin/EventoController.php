@@ -237,6 +237,17 @@ class EventoController extends Controller
             $merge['feeIncluyeTalleres'] = $request->boolean('feeIncluyeTalleres');
         }
 
+        // Orden de secciones en la página del evento (25/08/2026, portado
+        // de admin-eventos EventoController::update()) — 9 inputs
+        // numéricos (orden[description], orden[calendar], ...) se ordenan
+        // acá por su valor y se convierten a la lista de claves ordenada
+        // que espera UpdateEventosRequest/EventoService::update().
+        $ordenSecciones = $request->input('orden', []);
+        if (is_array($ordenSecciones) && count($ordenSecciones)) {
+            asort($ordenSecciones);
+            $merge['seccionesOrden'] = array_keys($ordenSecciones);
+        }
+
         $validated = $this->mergeAndValidate(UpdateEventosRequest::class, $request, $merge);
 
         $payload = $api->update($validated, $event)->getData(true);
