@@ -11,6 +11,18 @@ use App\Models\SouvenirParticipante;
 use App\Models\Registration;
 use App\Models\ContactoEmergenciaParticipante;
 use App\Models\Answer;
+// Congresos con talleres (25/08/2026) — bug real preexistente: estos 3
+// imports nunca existieron, así que el bloque `if (!empty($data['talleres']))`
+// de createParticipantFromData() de abajo (usado por los flujos de EDICIÓN,
+// ActualizarInscripcionAction/ActualizarInscripcionPagadaAction) nunca
+// pudo haber funcionado — tiraba "Class App\Services\Evento not found" en
+// cuanto alguien intentaba agregar un taller al editar una inscripción
+// existente. La creación de una inscripción NUEVA con talleres usa otra
+// ruta de código (CrearInscripcionAction), por eso nunca se notó. Hallado
+// al escribir tests para agregar talleres a una inscripción pagada.
+use App\Models\Evento;
+use App\Models\SesionCongreso;
+use App\Models\ParticipanteTallerSesion;
 use App\Support\DisponibilidadItemData;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\Hash;
@@ -424,6 +436,17 @@ class RegistrationService
            'participants.contactoEmergenciaParticipante',
            'participants.souvenirParticipante',
            'participants.answers',
+           // Cobro real por SIP del monto adicional (26/08/2026) —
+           // agregado acá (colaborador compartido) para que
+           // PagoAdicionalController::show()/ConfirmarPagoAdicionalAction
+           // devuelvan el taller recién agregado sin otra llamada aparte;
+           // ParticipanteResource::talleres usa whenLoaded(), así que sin
+           // esto el campo queda ausente en la respuesta. Puramente
+           // aditivo para los demás llamadores (CrearInscripcionAction,
+           // ActualizarInscripcionAction, ActualizarInscripcionPagadaAction)
+           // — mismo criterio que ya usan mine()/lookupRegistration().
+           'participants.talleresSesiones.sesionCongreso',
+           'participants.talleresSesiones.taller',
         ]);
     }
 
@@ -493,6 +516,11 @@ class RegistrationService
                 'participants.contactoEmergenciaParticipante',
                 'participants.souvenirParticipante',
                 'participants.answers',
+                // Mismo bug/fix que RegistrationController::mine() (26/08/2026)
+                // — sin esto, el participante nunca ve marcado el taller que
+                // ya tenía al reingresar por el login embebido del formulario.
+                'participants.talleresSesiones.sesionCongreso',
+                'participants.talleresSesiones.taller',
             ])
             ->where('evento_id', $eventoId)
             ->where('form_types_id', $formTypeId)

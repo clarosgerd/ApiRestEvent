@@ -16,8 +16,11 @@ use App\Http\Resources\PaginatedRegistrationCollectionResource;
 use App\Http\Resources\RegistrationCollectionResource;
 use App\Http\Resources\PersonaResource;
 use App\Http\Resources\ParticipanteResource;
+use App\Http\Resources\ParticipanteTallerSesionResource;
+use App\Http\Resources\TotalsResource;
 use App\Models\Registration;
 use App\Models\Participante;
+use App\Models\PagoAdicionalInscripcion;
 use App\Models\Evento;
 use App\Models\Category;
 use App\Models\FormType;
@@ -87,6 +90,14 @@ class RegistrationController extends Controller
             'participants.contactoEmergenciaParticipante',
             'participants.souvenirParticipante',
             'participants.answers',
+            // Bug real 26/08/2026 (reportado por el usuario: "también
+            // debería prepopular el taller escogido") — sin esto,
+            // ParticipanteResource::talleres (que usa whenLoaded()) queda
+            // ausente del JSON, así que el frontend nunca sabía qué
+            // talleres ya tenía el participante al editar una inscripción
+            // pagada/pendiente encontrada vía "Mis inscripciones".
+            'participants.talleresSesiones.sesionCongreso',
+            'participants.talleresSesiones.taller',
         ])
             ->whereHas('participants', function ($q) use ($persona) {
                 $q->where('numero_documento', $persona->numero_documento)
@@ -303,7 +314,12 @@ public function estadoTransaccion(
         $validated['_usuario'] = $request->user()?->email ?? $request->ip();
 
         try {
-            $result = $action->handle($reference, $validated);
+            // requierePagoEnSitio: true — este endpoint es el que llama
+            // registro_actualizar_pagada.php (elascenso/event) cuando el
+            // participante elige "pagar en el evento" en vez de QR (ver
+            // PLAN-COBRO-SIP-ADICIONAL-26082026.md); el cobro con QR pasa
+            // por ConfirmarPagoAdicionalAction, no por acá.
+            $result = $action->handle($reference, $validated, requierePagoEnSitio: true);
         } catch (\DomainException $e) {
             return response()->json(['success' => false, 'error' => $e->getMessage()], 422);
         }
@@ -403,17 +419,58 @@ public function estadoTransaccion(
     {
         $this->assertCanWriteEvento($event->id);
 
-        $registration = Registration::with('participants')
+        // Talleres y pagos en acreditación (26/08/2026) — pedido del
+        // usuario: el staff que acredita necesita ver qué talleres tiene
+        // cada participante y qué pagos hizo (incluyendo el cobro
+        // adicional por SIP de agregar un taller a una inscripción
+        // pagada), "todo tiene que ser confiable" — por eso se recarga
+        // todo fresco acá (nunca se confía en nada que no salga de la
+        // propia BD/relaciones en este mismo request) en vez de exponer
+        // solo lo mínimo que había hasta ahora.
+        $registration = Registration::with([
+                'participants.talleresSesiones.sesionCongreso',
+                'participants.talleresSesiones.taller',
+                'totals',
+            ])
             ->where('referencia', $reference)
             ->where('evento_id', $event->id)
             ->firstOrFail();
 
         $categoriasPorId = Category::where('event_id', $event->id)->get()->keyBy(fn ($c) => (string) $c->id);
 
+        // Pagos adicionales (cobro SIP de agregar taller a inscripción
+        // pagada, ver PagoAdicionalInscripcion) — se listan TODOS los
+        // estados (no solo 'paid'): un 'pending'/'error' visible acá es
+        // justamente la señal que el staff necesita ("ojo, hay un cobro
+        // sin resolver") en vez de que quede escondido.
+        $pagosAdicionales = PagoAdicionalInscripcion::where('registration_id', $registration->id)
+            ->orderBy('created_at')
+            ->get()
+            ->map(fn (PagoAdicionalInscripcion $pago) => [
+                'referencia'  => $pago->referencia,
+                'monto'       => (float) $pago->monto,
+                'monedaPago'  => $pago->moneda_pago,
+                'pagoStatus'  => $pago->pago_status,
+                'createdAt'   => optional($pago->created_at)->toIso8601String(),
+                'paidAt'      => optional($pago->paid_at)->toIso8601String(),
+            ]);
+
         return response()->json([
             'success'     => true,
             'referencia'  => $registration->referencia,
             'pagoStatus'  => $registration->pago_status,
+            'tipoPago'    => $registration->tipo_pago,
+            // Snapshot real de lo cobrado por la inscripción base — mismo
+            // shape que RegistrationResource, para no inventar un formato
+            // nuevo que el frontend tenga que aprender aparte.
+            'monedaPago'         => $registration->moneda_pago ?? 'BOB',
+            'tipoCambioAplicado' => $registration->tipo_cambio_aplicado !== null ? (float) $registration->tipo_cambio_aplicado : null,
+            'totalPagado'        => $registration->total_pagado !== null ? (float) $registration->total_pagado : null,
+            // Defensivo: una inscripción real siempre debería tener su fila
+            // de totals, pero no vale la pena que todo el lookup de
+            // acreditación explote si alguna vieja/de prueba no la tiene.
+            'totales'            => $registration->totals ? new TotalsResource($registration->totals) : null,
+            'pagosAdicionales'   => $pagosAdicionales,
             'participantes' => $registration->participants->map(fn (Participante $p) => [
                 'id'           => $p->id,
                 'nombre'       => $p->nombre,
@@ -422,6 +479,7 @@ public function estadoTransaccion(
                 'numeroCorredor' => $p->numero_corredor,
                 'chip'         => $p->chip,
                 'checkedInAt'  => optional($p->checked_in_at)->toIso8601String(),
+                'talleres'     => ParticipanteTallerSesionResource::collection($p->talleresSesiones),
             ]),
         ]);
     }

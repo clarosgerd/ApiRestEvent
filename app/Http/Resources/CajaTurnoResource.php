@@ -23,6 +23,10 @@ class CajaTurnoResource extends JsonResource
             'notas'          => $this->notas,
             'abiertoAt'      => optional($this->abierto_at)->toIso8601String(),
             'cerradoAt'      => optional($this->cerrado_at)->toIso8601String(),
+            // Detalle de cierre de caja (27/08/2026) — solo presente cuando
+            // el caller pide explícitamente el detalle (CajaTurnoController::show()),
+            // ausente en index() para no inflar la respuesta de la lista.
+            'movimientos'    => CajaMovimientoResource::collection($this->whenLoaded('movimientos')),
         ];
     }
 }

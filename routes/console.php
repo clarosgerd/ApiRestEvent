@@ -47,6 +47,12 @@ Schedule::command('lista-espera:promover')->daily()->appendOutputTo($schedulerLo
 // Cada 5 min, no diario — el plazo típico se mide en minutos.
 Schedule::command('notificaciones:expirar-pendientes')->everyFiveMinutes()->appendOutputTo($schedulerLog);
 
+// Cobro real por SIP del monto adicional (26/08/2026) — ver
+// PLAN-COBRO-SIP-ADICIONAL-26082026.md. Mismo criterio de cadencia que el
+// de arriba (el plazo se mide en minutos, no en días); acá nunca hay cupo
+// que liberar (ver ExpirarPagosAdicionalesAction), solo limpia el estado.
+Schedule::command('notificaciones:expirar-pagos-adicionales')->everyFiveMinutes()->appendOutputTo($schedulerLog);
+
 // ── Recordatorio de KIT para pagados (§4 fase 5) ────────────────────────
 Schedule::command('notificaciones:recordatorio-kit')->daily()->appendOutputTo($schedulerLog);
 

@@ -138,6 +138,25 @@ class RegistrationTest extends TestCase
         ]);
     }
 
+    /**
+     * Bug real 25/08/2026 (reportado por el usuario: "muchas personas de
+     * sexo femenino registraron masculino") — StoreRegistrationRequest
+     * nunca declaró una regla para 'genero', así que $request->validated()
+     * lo descartaba en silencio y ParticipantDTO/RegistrationService
+     * caían siempre al default 'Masculino', sin importar lo que el
+     * participante hubiera elegido. validPayload() ya manda 'Femenino' —
+     * antes del fix, este test fallaba (quedaba guardado 'Masculino').
+     */
+    public function test_create_registration_respeta_el_genero_elegido_no_siempre_masculino(): void
+    {
+        $this->postJson('/api/v1/registrations', $this->validPayload())->assertCreated();
+
+        $this->assertDatabaseHas('participantes', [
+            'numero_documento' => '87654321',
+            'genero' => 'Femenino',
+        ]);
+    }
+
     public function test_create_registration_stores_emergency_contact(): void
     {
         $this->postJson('/api/v1/registrations', $this->validPayload());

@@ -241,6 +241,52 @@ class ReporteInscritosTest extends TestCase
         $this->assertEquals(800.0, $detalle[0]['precio']);
     }
 
+    /**
+     * Reporte de talleres confiable (27/08/2026) — un taller agregado
+     * después con "pagar en el evento" (pago_pendiente=true) no debe
+     * mezclarse bajo "recaudación" con lo ya cobrado. Ver
+     * ParticipanteTallerSesion::pago_pendiente.
+     */
+    public function test_reporte_de_taller_separa_lo_cobrado_de_lo_pendiente(): void
+    {
+        $formType = FormType::factory()->create(['event_id' => $this->evento->id]);
+        $categoria = Category::factory()->create(['event_id' => $this->evento->id, 'price' => 100]);
+
+        $taller = Taller::factory()->create(['evento_id' => $this->evento->id, 'nombre' => 'Sutura Avanzada']);
+        $sesion = SesionCongreso::factory()->create([
+            'evento_id' => $this->evento->id, 'taller_id' => $taller->id, 'cupo' => 20,
+        ]);
+
+        $p1 = $this->crearInscripcion($formType, $categoria, ['subtotal' => 900]);
+        ParticipanteTallerSesion::create([
+            'participante_id' => $p1->id, 'sesion_congreso_id' => $sesion->id, 'taller_id' => $taller->id,
+            'unit_price' => 800, 'discount' => 0, 'total' => 800, 'pago_pendiente' => false,
+        ]);
+        $p2 = $this->crearInscripcion($formType, $categoria, ['subtotal' => 900]);
+        ParticipanteTallerSesion::create([
+            'participante_id' => $p2->id, 'sesion_congreso_id' => $sesion->id, 'taller_id' => $taller->id,
+            'unit_price' => 800, 'discount' => 0, 'total' => 800, 'pago_pendiente' => true,
+        ]);
+
+        $admin = $this->actingAsAdmin();
+        $admin->update(['rol' => 'admin', 'evento_id' => $this->evento->id]);
+
+        $response = $this->getJson("/api/v1/event/{$this->evento->id}/dashboard-inscripciones")
+            ->assertStatus(200);
+
+        $fila = $response->json('reporteInscritos.porTaller.filas.0');
+        $this->assertSame(2, $fila['cantidad']);
+        $this->assertEquals(1600.0, $fila['recaudacion']);
+        $this->assertSame(1, $fila['cantidadPendiente']);
+        $this->assertEquals(800.0, $fila['recaudacionPendiente']);
+        $this->assertEquals(800.0, $fila['recaudacionCobrada']);
+
+        $detalle = collect($response->json('reporteInscritos.porTaller.detalle'));
+        $this->assertSame(1, $detalle->where('pagoPendiente', true)->count());
+        $this->assertSame('Pendiente (efectivo en el evento)', $detalle->firstWhere('pagoPendiente', true)['estadoPago']);
+        $this->assertSame('Pagado', $detalle->firstWhere('pagoPendiente', false)['estadoPago']);
+    }
+
     public function test_admin_de_otro_evento_no_ve_el_reporte(): void
     {
         $otroEvento = Evento::factory()->create([

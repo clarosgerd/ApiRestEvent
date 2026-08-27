@@ -8,9 +8,13 @@ use App\Models\Evento;
 use App\Models\FormType;
 use App\Models\Organizador;
 use App\Models\Pais;
+use App\Models\PagoAdicionalInscripcion;
 use App\Models\Participante;
+use App\Models\ParticipanteTallerSesion;
 use App\Models\Registration;
+use App\Models\SesionCongreso;
 use App\Models\SubtipoEvento;
+use App\Models\Taller;
 use App\Models\TipoEvento;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -93,6 +97,63 @@ class CheckinTest extends TestCase
         ]);
         $this->assertSame('10K', $response->json('participantes.0.categoria'));
         $this->assertNull($response->json('participantes.0.checkedInAt'));
+    }
+
+    /**
+     * Talleres y pagos en acreditación (26/08/2026) — el staff necesita ver
+     * qué talleres tiene cada participante y qué pagos hizo (incluyendo un
+     * cobro adicional por SIP), ver
+     * PLAN-COBRO-SIP-ADICIONAL-26082026.md.
+     */
+    public function test_lookup_incluye_talleres_del_participante_y_pagos_adicionales(): void
+    {
+        $participante = $this->crearParticipante();
+
+        $taller = Taller::factory()->create(['evento_id' => $this->evento->id, 'modalidad' => 'OPTIONAL', 'precio' => 30]);
+        $sesion = SesionCongreso::factory()->create(['evento_id' => $this->evento->id, 'taller_id' => $taller->id, 'cupo' => 10]);
+        ParticipanteTallerSesion::create([
+            'participante_id' => $participante->id,
+            'sesion_congreso_id' => $sesion->id,
+            'taller_id' => $taller->id,
+            'unit_price' => 30,
+            'discount' => 0,
+            'total' => 30,
+        ]);
+
+        $pagoPagado = PagoAdicionalInscripcion::create([
+            'registration_id' => $this->registration->id,
+            'referencia' => 'AD-PAGADOTEST',
+            'monto' => 45,
+            'moneda_pago' => 'BOB',
+            'participantes_payload' => [],
+            'totales_payload' => [],
+            'pago_status' => 'paid',
+            'paid_at' => now(),
+        ]);
+        $pagoError = PagoAdicionalInscripcion::create([
+            'registration_id' => $this->registration->id,
+            'referencia' => 'AD-ERRORTEST',
+            'monto' => 15,
+            'moneda_pago' => 'BOB',
+            'participantes_payload' => [],
+            'totales_payload' => [],
+            'pago_status' => 'error',
+        ]);
+
+        $admin = $this->actingAsAdmin();
+        $admin->update(['rol' => 'super_admin']);
+
+        $response = $this->getJson("/api/v1/event/{$this->evento->id}/checkin/{$this->registration->referencia}");
+
+        $response->assertStatus(200);
+        $this->assertSame($taller->id, $response->json('participantes.0.talleres.0.tallerId'));
+        $this->assertEquals(30.0, $response->json('participantes.0.talleres.0.total'));
+
+        $referencias = collect($response->json('pagosAdicionales'))->pluck('referencia')->all();
+        $this->assertContains('AD-PAGADOTEST', $referencias);
+        $this->assertContains('AD-ERRORTEST', $referencias);
+        $estadoError = collect($response->json('pagosAdicionales'))->firstWhere('referencia', 'AD-ERRORTEST');
+        $this->assertSame('error', $estadoError['pagoStatus']);
     }
 
     public function test_lookup_404_si_la_referencia_es_de_otro_evento(): void

@@ -2,6 +2,332 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/).
 
+## 2026-08-27 — Detalle de cierre de caja (drill-down por turno) + filtro por cajero
+
+Pedido del usuario, diseñado en plan mode (`ExitPlanMode` aprobado) antes de implementar. La
+pantalla "Cierres de caja" (`admin-eventos`) ya mostraba una fila por turno con los totales
+agregados y ya soportaba filtrar por fecha; el filtro por cajero existía en el backend
+(`CajaTurnoController::index()`) pero nunca se expuso en el formulario, y no había forma de ver
+QUÉ movimientos individuales componen el total de un turno.
+
+### Added
+- `GET /event/{event}/caja/turnos/{turno}` (`CajaTurnoController::show()`) — detalle de un turno
+  con sus movimientos completos. Mismo scoping que `index()` (solo admin/super_admin).
+- `app/Http/Resources/CajaMovimientoResource.php` (nuevo) — expone `tipo`, `monto`, `metodoPago`,
+  `registrationReferencia` (para poder ir del movimiento a la inscripción real) por movimiento.
+- `CajaTurnoResource` — campo `movimientos` nuevo, condicionado a `whenLoaded()` (ausente en
+  `index()`, presente en `show()` — no infla la respuesta de la lista existente).
+
+### Verified
+- 2 tests nuevos en `CajaTest.php`: el detalle devuelve los movimientos completos con la
+  referencia correcta; un admin de otro evento no puede ver el detalle de un turno ajeno (404).
+  432/432 suite completa, sin regresiones.
+- Gotcha real encontrado escribiendo los tests: mezclar `actingAsCajero()`/`actingAsAdmin()`
+  dentro del MISMO test no cambia la identidad autenticada entre llamadas HTTP (el guard
+  `admins` cachea el usuario resuelto la primera vez, no por header) — ningún otro test de este
+  archivo lo hacía. Resuelto usando un solo actor por test (o creando el `CajaTurno` directo por
+  modelo cuando hacía falta un segundo evento).
+
+## 2026-08-27 — Verificado: Caja edita inscripción pendiente + agrega taller + cobra completo
+
+Pedido del usuario: "revisamos caja con el escenario de pago pendiente adicionando un taller?".
+Investigado end-to-end (`CajaController::editarPendiente()` → `ActualizarInscripcionAction` →
+`CajaController::cobrarPendiente()`) — a diferencia del flujo de inscripción ya PAGADA (que cobra
+solo el delta vía `ActualizarInscripcionPagadaAction`), acá no había ningún test que cubriera
+"agregar un taller a una pendiente y después cobrarla completa".
+
+### Verified (sin cambios de código — el flujo ya funcionaba bien)
+- Test nuevo `test_editar_pendiente_agrega_taller_y_luego_se_cobra_completo` en `CajaTest.php`:
+  edita una inscripción pendiente agregando un taller → `registration_totals.grand_total` queda
+  actualizado (incluye el taller) → `cobrar-pendiente` cobra el monto COMPLETO actualizado (no el
+  original desactualizado) → el taller queda `pago_pendiente=false` (correcto: se cobra todo de
+  una, no queda ninguna deuda suelta). 430/430 suite completa.
+
+## 2026-08-27 — Cobro SIP del adicional: rechazado para eventos USD fijo
+
+El usuario preguntó si el cobro por SIP del monto adicional soporta eventos con precio fijo en
+USD — investigado y confirmado que NO: ni `costo_edicion` (FormType) ni el cálculo de talleres de
+`CalcularCostoAdicionalAction` tienen variante en USD, y `pago_adicional.php` (elascenso/event)
+generaría el QR en Bs para un evento que, por regla del proyecto, cobra EXCLUSIVAMENTE en USD.
+Decisión explícita del usuario: por ahora solo permitir modificar y pagar en efectivo en el
+evento — arreglar esto de verdad (threadear la moneda por todo el flujo) queda para más adelante.
+
+### Fixed
+- `CalcularCostoAdicionalAction::handle()` rechaza con `DomainException` si el evento tiene
+  `usd_precio_fijo` — el pago adicional nunca llega a crearse.
+
+### Verified
+- 1 test nuevo (`test_evento_usd_fijo_rechaza_el_pago_adicional_por_sip`), 429/429 suite completa
+  sin regresiones.
+
+## 2026-08-27 — Reporte de talleres confiable: separa lo cobrado de lo pendiente
+
+Pedido del usuario: el reporte de talleres (CSV detalle + sección "Reporte de talleres" del
+Dashboard) tiene que reflejar la nueva realidad de la feature de SIP — un taller agregado a una
+inscripción pagada puede estar ya cobrado (inscripción original, Caja, o SIP confirmado) o
+todavía pendiente de cobrarse en efectivo el día del evento (autoservicio, opción "pagar en el
+evento") — y "recaudación" no debe mezclar las dos cosas.
+
+**El obstáculo real**: `ActualizarInscripcionPagadaAction` borra y vuelve a crear TODOS los
+`participante_taller_sesion` en cada edición (incluso los que no cambiaron) — no hay ningún
+timestamp ni marca que sobreviva para distinguir "de la inscripción original" de "agregado
+después". Sin una señal persistida en el momento en que se agrega el taller, era imposible
+reconstruir esto después.
+
+### Added
+- Migración — columna `pago_pendiente` (boolean, default false) en `participante_taller_sesion`.
+- `ActualizarInscripcionPagadaAction::handle()` — nuevo parámetro `bool $requierePagoEnSitio`:
+  marca los talleres NUEVOS que agrega esa llamada. `true` solo desde
+  `RegistrationController::updatePaid()` (autoservicio eligiendo "pagar en el evento" en vez de
+  QR); `false` desde `CajaController::editarPagada()` (cobra en efectivo ahí mismo) y desde
+  `ConfirmarPagoAdicionalAction` (SIP ya cobró online). Los talleres que YA existían antes de la
+  edición conservan su valor anterior (snapshot antes del delete, restaurado después de recrear)
+  — sin esto, cualquier edición posterior resetearía el flag a `false` sin que nadie haya cobrado
+  nada.
+- `ReporteInscritosData::agruparPorTaller()` — `cantidadPendiente`/`recaudacionPendiente`/
+  `recaudacionCobrada` por fila y a nivel total.
+- `ReporteInscritosData::detalleTalleres()` — `pagoPendiente` (bool) + `estadoPago` (texto
+  "Pagado" / "Pendiente (efectivo en el evento)") por fila.
+
+### Verified
+- 3 tests nuevos en `EditarInscripcionPagadaTallerCategoriaTest.php` (autoservicio marca
+  pendiente, Caja no, y el flag sobrevive a una edición posterior que no toca ese taller) + 1 en
+  `ReporteInscritosTest.php`. 428/428 suite completa, sin regresiones.
+
+## 2026-08-26 — Acreditación: reporta talleres y pagos (incluye adicionales por SIP)
+
+Pedido del usuario: al no existir un correo de confirmación para el flujo de editar una
+inscripción pagada (ver entrada anterior), pidió que al menos la acreditación (check-in) sea
+"confiable" y muestre los talleres y pagos que hizo la persona — para que el staff en el evento
+pueda ver el estado real en vez de depender de un correo que no existe.
+
+### Changed
+- `RegistrationController::checkinLookup()` (`GET /event/{event}/checkin/{reference}`) — ahora
+  eager-carga `participants.talleresSesiones` y `totals`, y expone:
+  - `participantes[].talleres` — mismo shape que `ParticipanteResource.talleres`
+    (`ParticipanteTallerSesionResource`).
+  - `tipoPago`, `monedaPago`, `tipoCambioAplicado`, `totalPagado`, `totales` — snapshot de lo
+    cobrado por la inscripción base.
+  - `pagosAdicionales[]` — TODOS los pagos adicionales de `pagos_adicionales_inscripcion` para
+    esa inscripción (no solo los `paid`): un `pending`/`error` visible ahí es justo la señal que
+    el staff necesita para resolverlo en el momento, en vez de que quede escondido.
+
+### Verified
+- 1 test nuevo (`test_lookup_incluye_talleres_del_participante_y_pagos_adicionales`) — crea un
+  taller real + 2 pagos adicionales (`paid` y `error`) y confirma que ambos aparecen con su
+  estado correcto. 7/7 `CheckinTest`, 424/424 suite completa, sin regresiones.
+- Guardado defensivo: si una inscripción (vieja o de prueba) no tiene fila de `totals`, `totales`
+  devuelve `null` en vez de romper el endpoint entero.
+
+## 2026-08-26 — `PagoAdicionalController::show()` expone `created_at`
+
+Necesario para el fallback simulado de 90s que se agregó en `elascenso/event/api/pago_status_adicional.php`
+(ver `elascenso/event/CHANGELOG.md`, mismo día) — sin la fecha de creación del intento de pago, el
+frontend no podía calcular cuánto tiempo pasó para decidir cuándo simular la confirmación en
+entornos sin SIP configurado.
+
+### Changed
+- `PagoAdicionalController::show()` — agrega `created_at` (formateado) a la respuesta, siempre
+  (no solo cuando `paid`).
+
+## 2026-08-26 — Cobro real por SIP del monto adicional (agregar taller a inscripción pagada)
+
+Pedido del usuario: "deberiamos habilitar el pago mediante sip, solo debe asegurarte que solo le
+cobremos la adicion de taller + el costo de edicion". Hasta ahora el monto adicional (costo de
+edición + taller nuevo) quedaba solo registrado, a pagar en efectivo el día del evento — ahora se
+puede pagar online. Decisiones acordadas con el usuario en el chat: (1) **tabla nueva** dedicada,
+no un campo padre/hijo en `registrations` (evita que reportes/dashboards que cuentan filas de
+`registrations` tengan que aprender a excluir "hijas"); (2) el taller **no se agrega hasta que SIP
+confirme el pago** — responde directamente a su preocupación ("¿y si pierde la conexión o se
+desanima?"): si nunca paga, no hay nada que revertir, el cupo nunca se tocó. Alcance: solo
+autoservicio (`elascenso/event`) — Caja ya resuelve esto en efectivo en el mostrador.
+
+### Added
+- Tabla `pagos_adicionales_inscripcion` (migración `2026_08_26_150000_...`) — `referencia` propia
+  con prefijo `AD-` (nunca colisiona con `LA-` de una inscripción), `monto`, `participantes_payload`/
+  `totales_payload` (snapshot exacto a aplicar), `qr_id`, `pago_status` (pending/paid/expired/error).
+- `GenerarPagoAdicionalAction` — crea la fila `pending`, no toca la inscripción.
+- `CalcularCostoAdicionalAction` — recalcula el monto server-side (costo_edicion + delta de
+  talleres agregados vía `ResolverPrecioTallerData`); rechaza cambio de categoría o remoción de
+  talleres ya pagados; nunca confía en el monto que manda el cliente.
+- `ConfirmarPagoAdicionalAction` — idempotente; recién acá se aplica el cambio real, reusando
+  `ActualizarInscripcionPagadaAction::handle(..., permiteCambioCategoria: false)` tal cual, sin
+  duplicar lógica de negocio; si falla (ej. cupo lleno mientras tanto), marca `error` para revisión
+  manual — el dinero ya lo cobró SIP en ese punto, no hay reembolso automático (fuera de alcance).
+- `ExpirarPagosAdicionalesAction` + comando `notificaciones:expirar-pagos-adicionales` (cron cada 5
+  min, mismo patrón que `ExpirarInscripcionesPendientesAction`) — ventana fija de 60 min; como
+  nunca se aplicó nada, expirar es un no-op sobre la inscripción real.
+- `PagoAdicionalController` + rutas `POST /registrations/{reference}/pagos-adicionales`,
+  `PATCH /pagos-adicionales/{ref}/qr`, `GET /pagos-adicionales/{ref}`,
+  `PATCH /pagos-adicionales/{ref}/confirmar`.
+- `tests/Feature/PagoAdicionalSipTest.php` — 7 tests nuevos.
+
+### Fixed
+- **Bug real, preexistente, encontrado escribiendo estos tests** —
+  `ValidarSeleccionesTallerAction::runCapacidad()` usaba `whereHas` en vez de `whereDoesntHave`
+  para excluir la inscripción propia del conteo de cupo: al editar, el chequeo de capacidad solo
+  contaba las filas de ESA MISMA inscripción (normalmente 0) e ignoraba por completo el consumo de
+  todas las demás — el cupo/capacidad quedaba sin aplicar en CUALQUIER flujo de edición
+  (`ActualizarInscripcionAction`/`ActualizarInscripcionPagadaAction`), no solo esta feature nueva.
+  Ningún test existente lo detectaba porque el único que llamaba `runCapacidad()` pasaba `null`
+  (camino de alta nueva). Corregido a `whereDoesntHave`; 422/422 tests en verde después del fix
+  (cero regresiones).
+- `RegistrationService::loadRelations()` (colaborador compartido) no eager-cargaba
+  `participants.talleresSesiones.taller`/`.sesionCongreso` — el taller recién agregado no aparecía
+  en la respuesta de `PagoAdicionalController::show()`/`confirmar()` (mismo bug de `whenLoaded()`
+  ya encontrado y arreglado el mismo día para `mine()`/`lookupRegistration()`). Corregido acá una
+  sola vez, compartido por las 3 Actions de inscripción que ya usan este helper.
+- `ConfirmarPagoAdicionalAction`: la rama idempotente (pago ya `paid`, ej. SIP reintentando el
+  callback) devolvía `$pago->registration` sin las mismas relaciones cargadas.
+
+### Verified
+- 7/7 tests nuevos en verde; suite completa 423/423 sin regresiones.
+- El test de idempotencia confirma que un segundo `confirmar()` sobre un pago ya `paid` no vuelve a
+  aplicar el taller ni a cobrar de nuevo.
+- El test de cupo lleno confirma que si `ActualizarInscripcionPagadaAction` falla al confirmar, la
+  fila queda `error` (no `pending` para siempre — bug real encontrado y arreglado en el propio
+  desarrollo: envolver la Action en un `DB::transaction()` propio hacía rollback también del
+  `$pago->update(['pago_status' => 'error'])` del `catch`, dejándola atascada en `pending`).
+
+## 2026-08-26 — Bug: taller ya elegido no se prepoblaba al editar una inscripción
+
+Reportado por el usuario probando la feature de agregar talleres a inscripción pagada: "también
+debería prepopular el taller escogido". Causa raíz real (el fix de frontend del mismo día —
+`editParticipant()` llamando a `renderTalleresSelector()` — era necesario pero no suficiente,
+porque el dato en sí nunca llegaba): ni `RegistrationController::mine()` ni
+`RegistrationService::lookupRegistration()` eager-cargaban `participants.talleresSesiones` —
+`ParticipanteResource::talleres` (que usa `whenLoaded()`) quedaba directamente ausente del JSON.
+Mismo bug ya se había encontrado y arreglado el 20/08 para `RegistrationController::show()`
+(usado por Caja) — nunca se propagó a estos otros 2 endpoints, usados por el autoservicio.
+
+### Fixed
+- `RegistrationController::mine()` y `RegistrationService::lookupRegistration()` — agregado
+  `participants.talleresSesiones.sesionCongreso`/`.taller` al eager-load.
+
+### Verified
+- 2 tests nuevos en `tests/Feature/EditarInscripcionPagadaTallerCategoriaTest.php`:
+  `test_registrations_mine_incluye_talleres_del_participante`,
+  `test_lookup_registration_incluye_talleres_del_participante` — ambos fallaban antes del fix
+  (`talleres` vacío/ausente), pasan después. 10/10 tests del archivo, suite completa en verde.
+
+## 2026-08-26 — Bug crítico: toda inscripción nueva se guardaba con `genero='Masculino'`
+## 2026-08-26 — Bug crítico: toda inscripción nueva se guardaba con `genero='Masculino'`
+
+Reportado por el usuario: "muchas personas de sexo femenino registraron masculino". Investigado
+antes de tocar nada — la causa raíz **no** estaba en el formulario (que sí funciona bien, exige
+elegir género y manda el valor correcto), sino en el backend: mismo patrón de bug ya documentado
+para `moneda_pago`/`talleres` (24/08 y 19/08) — `StoreRegistrationRequest::rules()` nunca declaró
+una regla para `participantes.*.genero`, así que `$request->validated()` lo descartaba en silencio
+antes de llegar al DTO. `ParticipantDTO::fromArray()` y
+`RegistrationService::createParticipantFromData()` caen a `?? 'Masculino'` cuando la clave no
+llega — **toda inscripción nueva online, sin importar lo que la persona eligiera, terminaba
+guardada como Masculino**. Los flujos de EDICIÓN (`UpdateRegistrationRequest`/
+`UpdatePaidRegistrationRequest`) y Caja (`StoreInscripcionCajaRequest`) sí declaraban la regla —
+el bug era exclusivo del alta nueva pública.
+
+### Fixed
+- `app/Http/Requests/StoreRegistrationRequest.php` — agregada `'*.participantes.*.genero' =>
+  ['required','string']`.
+- Bug secundario e independiente en Caja (`admin-eventos`): el `<select>` de género no tenía
+  opción vacía ni `required`, y "Masculino" era la primera opción — si el cajero no lo tocaba,
+  quedaba Masculino por default del navegador. Ver `admin-eventos` (sin CHANGELOG propio, este
+  cambio queda documentado ahí en el código).
+
+### Verified
+- Test nuevo `RegistrationTest::test_create_registration_respeta_el_genero_elegido_no_siempre_masculino`
+  — fallaba antes del fix (quedaba guardado 'Masculino' pese a mandar 'Femenino'), pasa después.
+- 414/414 tests del suite completo en verde.
+
+### Pendiente (no es un cambio de código — a confirmar con el usuario)
+- **Datos ya corrompidos en producción/UAT**: toda inscripción online creada antes de este fix
+  pudo haber guardado `genero='Masculino'` incorrectamente. No se tocó ningún dato existente — el
+  fix solo previene nuevos casos. Corregir el histórico requeriría identificar qué inscripciones
+  realmente son de mujeres (no hay forma automática de saberlo desde el sistema — el dato real se
+  perdió al guardarse mal) y corregirlas a mano o pedirle a cada persona que confirme, decisión que
+  le corresponde al usuario.
+
+## 2026-08-25 — Feature: agregar talleres a una inscripción pagada + cambio de categoría en Caja
+## 2026-08-25 — Feature: agregar talleres a una inscripción pagada + cambio de categoría en Caja
+
+Caso real: personas inscritas al congreso sin haber elegido taller, que necesitan agregarlo
+después de haber pagado. Antes de este cambio, `ActualizarInscripcionPagadaAction` (usada tanto
+por el autoservicio del participante como por Caja) siempre cobraba un monto **fijo**
+(`form_types.costo_edicion`), sin relación con lo que realmente cambió, y no bloqueaba ni cambio de
+categoría ni remoción de un taller ya pagado en ningún lado.
+
+Dos reglas de negocio distintas, confirmadas con el usuario: el **autoservicio** solo puede
+AGREGAR talleres nuevos (nunca cambiar de categoría — el sistema no reembolsa diferencias, se
+resuelve en caja el día del evento); **Caja** además puede cambiar de categoría, porque puede
+cobrar/desembolsar la diferencia en efectivo ahí mismo. Ningún flujo permite quitar un taller ya
+pagado.
+
+### Added
+- `ActualizarInscripcionPagadaAction::handle()` — nuevo parámetro `bool $permiteCambioCategoria`
+  (default `false`). Snapshot del estado anterior (categoría/talleres por participante) tomado
+  antes del `delete()`, correlacionado por posición contra `$data['participantes']`. Rechaza
+  (`DomainException` → 422) si cambia el número de participantes, si cambia la categoría sin
+  `permiteCambioCategoria`, o si falta algún `sesion_congreso_id` que el participante ya tenía. El
+  `costo_adicion` devuelto ahora es real: `costo_edicion` (flat, como siempre) + precio real de los
+  talleres agregados (leído de `ParticipanteTallerSesion.total`, ya resuelto server-side, nunca del
+  precio que manda el cliente) + diferencia real de categoría (resuelta vía
+  `PrecioVigenteData::paraCategoria()`, tampoco se confía en `precioCategoria` del cliente — puede
+  generar un desembolso real de dinero). Puede quedar negativo.
+- `CajaController::editarPagada()` — pasa `permiteCambioCategoria: true`; la condición para crear el
+  `CajaMovimiento` pasó de `> 0` a `!= 0` para que también se registre una devolución (monto
+  negativo) — `caja_movimientos.monto` ya es `decimal` con signo y `CajaTurno::sum('monto')` ya
+  resta un negativo correctamente, sin cambios de esquema.
+
+### Fixed
+- **Bug real preexistente encontrado al escribir los tests de esta feature**:
+  `RegistrationService::createParticipantFromData()` nunca tuvo los imports de
+  `Evento`/`SesionCongreso`/`ParticipanteTallerSesion` — el bloque que persiste talleres tiraba
+  `Class "App\Services\Evento" not found` en cuanto alguien intentaba agregar un taller al **editar**
+  una inscripción existente (pending o paid). Nunca se notó porque el alta de una inscripción
+  **nueva** con talleres usa otra ruta de código (`CrearInscripcionAction`), que sí tenía los
+  imports correctos.
+
+### Verified
+- 413/413 tests en verde (405 preexistentes + 8 nuevos en
+  `tests/Feature/EditarInscripcionPagadaTallerCategoriaTest.php`): autoservicio agrega taller y
+  cobra flat+real, autoservicio rechaza cambio de categoría, ningún flujo puede quitar un taller
+  pagado, edición sin cambios solo cobra el flat, Caja cambia a categoría más cara/más barata
+  (positivo/negativo), Caja registra el `CajaMovimiento` negativo (antes no se creaba con el `> 0`
+  viejo), taller nuevo que choca de horario con uno ya pagado se rechaza (reusa
+  `ValidarSeleccionesTallerAction` tal cual, sin cambios).
+- 1 falla intermitente preexistente en `RegistrationTest` (orden de ejecución, no relacionada a
+  este cambio) confirmada al re-correr el suite completo dos veces — pasa en aislado y en la
+  segunda corrida completa.
+
+## 2026-08-25 — Feature: título de la persona en el CSV de talleres del Dashboard
+
+Pedido del usuario: en `admin-eventos` → Dashboard → "Reporte de talleres" → "Descargar CSV
+(detalle sin agrupar)", agregar el título académico de la persona (ej. "PhD.", "Dr.", "Lic.") como
+columna, junto a nombre/apellido.
+
+No hace falta columna nueva en BD: el título ya se captura hoy reusando el campo `alias` de
+`participantes` — `elascenso/event/index.php` (`toggleAliasTituloMode()`) muestra ese campo como
+"Título" con un `<select>` (Dr./Dra./Lic./Ing./Msc./Mgr./Est./PhD./Otro) en vez de texto libre
+cuando el `form_type` es de tipo `congreso`, pero sigue escribiendo en la misma columna `alias`
+(mismo patrón replicado en `admin-eventos/caja/_formulario.blade.php`). Este CSV es justamente el
+de talleres (feature exclusiva de congresos), así que el reuso es coherente.
+
+### Added
+- `app/Support/ReporteInscritosData.php` (`detalleTalleres()`): nueva clave `participanteAlias` en
+  cada fila (`$p->alias`), junto a `participanteNombre`/`participanteApellido`.
+
+### Verified
+- `php -l`; 405/405 tests de la suite completa en verde (incluye
+  `ReporteInscritosTest::detalle_de_talleres_sin_agrupar_ordenado_por_fecha`, sin cambios
+  necesarios — la clave nueva es aditiva).
+- Verificado contra datos reales (`event_prod`, evento 1) vía tinker: la clave viaja correctamente
+  en la estructura (vacía para los participantes reales de esa muestra, que no cargaron título —
+  comportamiento esperado, no hay ningún participante con `alias` cargado en esa BD todavía).
+- Ver `admin-eventos/CHANGELOG.md`... **nota**: `admin-eventos` no tiene `CHANGELOG.md` propio en
+  este repo — el cambio del lado del CSV (headers + columna nueva en
+  `DashboardInscripcionesController::csvTalleres()`) queda documentado acá mismo por ese motivo.
+  Simulación exacta de `fputcsv()` con datos de prueba confirmó la salida
+  `titulo,nombre,apellido` → `PhD.,Carlos Gerd,Claros`, igual al ejemplo pedido por el usuario.
+
 ## 2026-08-25 — Feature: orden configurable de secciones del evento (columna `secciones_orden`)
 
 Columna nueva `eventos.secciones_orden` (JSON nullable, cast `array`) — array de hasta 9 claves
