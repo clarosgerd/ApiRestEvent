@@ -390,6 +390,79 @@ class CajaTest extends TestCase
         ]);
     }
 
+    /**
+     * Escenario pedido por el usuario (27/08/2026): Caja edita una
+     * inscripción PENDIENTE (no pagada todavía) agregando un taller, y
+     * después la cobra — a diferencia del flujo de inscripción ya PAGADA
+     * (ActualizarInscripcionPagadaAction, cobra solo el delta), acá se
+     * cobra el grand_total completo de una — inscripción + taller nuevo —
+     * en un solo movimiento, porque nada se había pagado todavía.
+     */
+    public function test_editar_pendiente_agrega_taller_y_luego_se_cobra_completo(): void
+    {
+        $taller = \App\Models\Taller::factory()->create([
+            'evento_id' => $this->evento->id,
+            'modalidad' => 'OPTIONAL',
+            'precio'    => 30,
+        ]);
+        $sesion = \App\Models\SesionCongreso::factory()->create([
+            'evento_id' => $this->evento->id,
+            'taller_id' => $taller->id,
+            'cupo'      => 10,
+        ]);
+
+        $cajero = $this->actingAsCajero();
+
+        $registration = app(CrearInscripcionAction::class)->handle(RegistrationDTO::fromArray([
+            'referencia' => 'LA-TEST-' . uniqid(),
+            'fecha' => now()->toDateTimeString(),
+            'evento_id' => $this->evento->id,
+            'evento_nombre' => $this->evento->nombre,
+            'form_types_id' => $this->formType->id,
+            'tipo_pago' => 'pendiente',
+            'pago_status' => 'pending',
+            'pay_order_number' => null,
+            'totales' => $this->totalesData(),
+            'participantes' => [$this->participanteData('50000001')],
+        ]));
+
+        // Edita sin turno abierto (mismo criterio que el test de arriba) —
+        // agrega el taller que no tenía.
+        $this->patchJson("/api/v1/registrations/{$registration->referencia}/caja/editar-pendiente", [
+            'participantes' => [$this->participanteData('50000001', [
+                'talleres' => [['taller_id' => $taller->id, 'sesion_congreso_id' => $sesion->id]],
+            ])],
+            'totales' => $this->totalesData(['talleres' => 30, 'fee' => 4, 'grand_total' => 84]),
+        ])->assertStatus(200)->assertJson(['success' => true]);
+
+        $this->assertDatabaseHas('registration_totals', [
+            'registration_id' => $registration->id,
+            'grand_total' => 84,
+        ]);
+        $participante = \App\Models\Participante::where('numero_documento', '50000001')->first();
+        // El taller recién agregado no debe quedar "pago_pendiente" — se
+        // va a cobrar completo ahora mismo con cobrar-pendiente(), no
+        // queda ninguna deuda suelta como en el flujo de pagada+efectivo.
+        $this->assertDatabaseHas('participante_taller_sesion', [
+            'participante_id'    => $participante->id,
+            'sesion_congreso_id' => $sesion->id,
+            'pago_pendiente'     => false,
+        ]);
+
+        // Ahora sí se abre turno y se cobra — el monto tiene que incluir
+        // el taller agregado recién (84), no el original (52.5).
+        $this->postJson("/api/v1/event/{$this->evento->id}/caja/turno/abrir", ['fondo_inicial' => 0]);
+        $this->postJson("/api/v1/registrations/{$registration->referencia}/caja/cobrar-pendiente")
+            ->assertStatus(200)->assertJson(['success' => true]);
+
+        $this->assertDatabaseHas('registrations', ['id' => $registration->id, 'pago_status' => 'paid']);
+        $this->assertDatabaseHas('caja_movimientos', [
+            'registration_id' => $registration->id,
+            'tipo' => 'cobro_pendiente',
+            'monto' => 84,
+        ]);
+    }
+
     public function test_editar_pagada_cobra_el_costo_edicion_configurado(): void
     {
         $cajero = $this->actingAsCajero();
@@ -480,6 +553,64 @@ class CajaTest extends TestCase
 
         $this->getJson("/api/v1/event/{$this->evento->id}/caja/turnos")
             ->assertStatus(403);
+    }
+
+    /**
+     * Detalle de cierre de caja (27/08/2026) — drill-down pedido por el
+     * usuario: el reporte de cierres ya mostraba el total agregado por
+     * turno, faltaba poder ver qué movimientos individuales lo componen.
+     */
+    public function test_detalle_de_turno_devuelve_los_movimientos_completos(): void
+    {
+        // Un solo actor (super_admin) para toda la prueba — mezclar
+        // actingAsCajero()/actingAsAdmin() en el mismo test no cambia la
+        // identidad autenticada entre llamadas (el guard 'admins' cachea
+        // el usuario resuelto por request de test, no por header) — mismo
+        // motivo por el que ningún otro test de este archivo lo hace.
+        $this->actingAsAdmin()->update(['rol' => 'super_admin']);
+        $turnoId = $this->postJson("/api/v1/event/{$this->evento->id}/caja/turno/abrir", ['fondo_inicial' => 100])
+            ->json('turno.id');
+
+        $registration = $this->postJson("/api/v1/event/{$this->evento->id}/caja/inscripcion", [
+            'form_types_id' => $this->formType->id,
+            'participante'  => $this->participanteData('88888888'),
+            'totales'       => $this->totalesData(),
+        ])->assertStatus(201)->json('data.referencia');
+
+        $response = $this->getJson("/api/v1/event/{$this->evento->id}/caja/turnos/{$turnoId}")
+            ->assertStatus(200);
+
+        $this->assertSame(1, count($response->json('turno.movimientos')));
+        $movimiento = $response->json('turno.movimientos.0');
+        $this->assertSame('inscripcion_nueva', $movimiento['tipo']);
+        $this->assertEquals(52.5, $movimiento['monto']);
+        $this->assertSame($registration, $movimiento['registrationReferencia']);
+    }
+
+    public function test_admin_de_otro_evento_no_puede_ver_el_detalle_de_un_turno_ajeno(): void
+    {
+        // Turno creado directo por el modelo (no vía HTTP) para no
+        // necesitar un segundo actor — ver nota del test de arriba.
+        $turno = \App\Models\CajaTurno::create([
+            'evento_id'     => $this->evento->id,
+            'admin_user_id' => AdminUser::factory()->create(['rol' => 'cajero', 'evento_id' => $this->evento->id])->id,
+            'fondo_inicial' => 0,
+            'estado'        => 'abierto',
+            'abierto_at'    => now(),
+        ]);
+
+        $otroEvento = Evento::factory()->create([
+            'organizador_id' => $this->evento->organizador_id,
+            'tipo_evento_id' => $this->evento->tipo_evento_id,
+            'subtipo_evento_id' => $this->evento->subtipo_evento_id,
+            'pais_id' => $this->evento->pais_id,
+            'ciudad_id' => $this->evento->ciudad_id,
+        ]);
+        $admin = $this->actingAsAdmin();
+        $admin->update(['rol' => 'admin', 'evento_id' => $otroEvento->id]);
+
+        $this->getJson("/api/v1/event/{$otroEvento->id}/caja/turnos/{$turno->id}")
+            ->assertStatus(404);
     }
 
     /**

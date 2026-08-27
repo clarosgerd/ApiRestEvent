@@ -4,11 +4,13 @@ namespace App\Actions;
 
 use App\DTOs\RegistrationDTO;
 use App\Models\AuditLog;
+use App\Models\Category;
 use App\Models\Evento;
 use App\Models\Registration;
 use App\Models\RegistrationTotal;
 use App\Services\RegistrationService;
 use App\Support\CurrencyResolverData;
+use App\Support\PrecioVigenteData;
 use App\Support\Taller\ValidarSeleccionesTallerAction;
 use Illuminate\Support\Facades\DB;
 
@@ -22,11 +24,30 @@ class ActualizarInscripcionPagadaAction
     /**
      * Actualizar inscripción pagada con costo adicional.
      *
+     * $permiteCambioCategoria distingue los 2 flujos que llaman a esta
+     * Action (25/08/2026, ver PLAN-EDICION-PAGADA-TALLERES-CATEGORIA-25082026.md):
+     * - Autoservicio (RegistrationController::updatePaid(), default false):
+     *   el participante solo puede AGREGAR talleres nuevos, nunca cambiar
+     *   de categoría — el sistema no reembolsa diferencias, se resuelve
+     *   en caja el día del evento.
+     * - Caja (CajaController::editarPagada(), true): el cajero además
+     *   puede cambiar de categoría, porque puede cobrar/desembolsar la
+     *   diferencia en efectivo ahí mismo. En ningún caso se permite QUITAR
+     *   un taller que ya estaba pagado.
+     *
+     * $requierePagoEnSitio marca, en los talleres NUEVOS que agregue esta
+     * llamada, si todavía falta cobrarlos en efectivo (autoservicio con
+     * "pagar en el evento" — true) o si ya están cobrados (Caja cobra en el
+     * momento; SIP ya cobró online — ambos false). Ver
+     * PLAN-COBRO-SIP-ADICIONAL-26082026.md — el reporte de talleres
+     * necesita esta señal por fila para no mezclar plata ya cobrada con
+     * plata pendiente de cobrar bajo "recaudación".
+     *
      * @return array{registration: Registration, costo_adicion: float}
      */
-    public function handle(string $reference, array $data): array
+    public function handle(string $reference, array $data, bool $permiteCambioCategoria = false, bool $requierePagoEnSitio = false): array
     {
-        return DB::transaction(function () use ($reference, $data) {
+        return DB::transaction(function () use ($reference, $data, $permiteCambioCategoria, $requierePagoEnSitio) {
 
             $registration = Registration::with('formType')
                 ->where('referencia', $reference)
@@ -62,6 +83,70 @@ class ActualizarInscripcionPagadaAction
             ValidarSeleccionesTallerAction::run($registrationDto);
             ValidarSeleccionesTallerAction::runCapacidad($registrationDto, $registration->id);
 
+            // Agregar talleres a una inscripción pagada (25/08/2026) — ver
+            // PLAN-EDICION-PAGADA-TALLERES-CATEGORIA-25082026.md. Snapshot
+            // del estado ANTERIOR (categoría/talleres), tomado antes del
+            // delete de abajo — se correlaciona con $data['participantes']
+            // por POSICIÓN (mismo criterio que ya asume el resto de esta
+            // Action: no se agregan ni quitan personas en esta operación,
+            // solo se modifican las que ya existen).
+            $participantesAnteriores = $registration->participants()
+                ->with('talleresSesiones')
+                ->orderBy('id')
+                ->get();
+
+            if ($participantesAnteriores->count() !== count($data['participantes'])) {
+                throw new \DomainException(
+                    'Esta operación no permite agregar ni quitar participantes, solo modificar los existentes.'
+                );
+            }
+
+            $tallerIdsNuevosPorIndice = [];
+            $pagoPendientePorIndiceYSesion = [];
+            $deltaCategoria = 0.0;
+
+            foreach ($data['participantes'] as $i => $participantData) {
+                $anterior = $participantesAnteriores[$i];
+
+                // Snapshot de pago_pendiente ANTES del delete de más abajo —
+                // se restaura tal cual para los talleres que NO son nuevos
+                // en esta llamada (createParticipantFromData() los recrea
+                // sin el flag; sin este snapshot, un taller que ya estaba
+                // marcado "pendiente de cobro" perdería esa marca en la
+                // siguiente edición aunque nadie lo haya cobrado todavía).
+                $pagoPendientePorIndiceYSesion[$i] = $anterior->talleresSesiones
+                    ->pluck('pago_pendiente', 'sesion_congreso_id')
+                    ->all();
+
+                $categoriaNueva = (string) ($participantData['categoria'] ?? '');
+                if ($categoriaNueva !== (string) $anterior->categoria) {
+                    if (! $permiteCambioCategoria) {
+                        throw new \DomainException(
+                            'No se puede cambiar de categoría desde tu cuenta — esa diferencia se resuelve en caja el día del evento.'
+                        );
+                    }
+
+                    // No se confía en el precio que manda el cliente para
+                    // este cálculo (a diferencia del alta nueva, acá el
+                    // resultado puede ser un desembolso real de dinero) —
+                    // se resuelve el precio vigente real de la categoría
+                    // nueva server-side, mismo helper que ya usa el resto
+                    // del sistema para "Precios por período".
+                    $categoriaModel = Category::findOrFail((int) $categoriaNueva);
+                    $precioNuevo = PrecioVigenteData::paraCategoria($categoriaModel)['precio'];
+                    $deltaCategoria += $precioNuevo - (float) $anterior->precio_categoria;
+                }
+
+                $idsAnteriores = $anterior->talleresSesiones->pluck('sesion_congreso_id')->map(fn ($id) => (int) $id)->all();
+                $idsNuevos = collect($participantData['talleres'] ?? [])->pluck('sesion_congreso_id')->map(fn ($id) => (int) $id)->all();
+
+                if (! empty(array_diff($idsAnteriores, $idsNuevos))) {
+                    throw new \DomainException('No se pueden quitar talleres que ya fueron pagados.');
+                }
+
+                $tallerIdsNuevosPorIndice[$i] = array_diff($idsNuevos, $idsAnteriores);
+            }
+
             $registration->participants()->delete();
             $registration->totals()->delete();
 
@@ -74,6 +159,45 @@ class ActualizarInscripcionPagadaAction
 
             foreach ($data['participantes'] as $participantData) {
                 $this->registrationService->createParticipantFromData($registration, $participantData);
+            }
+
+            // Costo real de los talleres agregados (25/08/2026) — a
+            // diferencia de la categoría, acá sí se confía en el precio ya
+            // persistido (`total` de ParticipanteTallerSesion), porque
+            // createParticipantFromData() ya lo resolvió server-side contra
+            // el taller/sesión real, no contra un valor mandado por el
+            // cliente. Se correlaciona por posición contra
+            // $tallerIdsNuevosPorIndice armado antes del delete.
+            $deltaTalleres = 0.0;
+            $participantesNuevos = $registration->participants()
+                ->with('talleresSesiones')
+                ->orderBy('id')
+                ->get();
+            foreach ($participantesNuevos as $i => $participanteNuevo) {
+                $idsAgregados = $tallerIdsNuevosPorIndice[$i] ?? [];
+                if (! empty($idsAgregados)) {
+                    $deltaTalleres += (float) $participanteNuevo->talleresSesiones
+                        ->whereIn('sesion_congreso_id', $idsAgregados)
+                        ->sum('total');
+                }
+
+                // Reporte de talleres confiable (27/08/2026) — restaura el
+                // pago_pendiente que tenía cada taller ya existente (el
+                // delete de arriba lo perdió) y marca los recién agregados
+                // según $requierePagoEnSitio (ver doc del método). Update
+                // puntual fila por fila — la cantidad de talleres por
+                // participante es siempre chica, no vale la pena un query
+                // masivo.
+                $pagoPendienteAnterior = $pagoPendientePorIndiceYSesion[$i] ?? [];
+                foreach ($participanteNuevo->talleresSesiones as $pts) {
+                    $esNuevo = in_array((int) $pts->sesion_congreso_id, $idsAgregados, true);
+                    $pendiente = $esNuevo
+                        ? $requierePagoEnSitio
+                        : (bool) ($pagoPendienteAnterior[$pts->sesion_congreso_id] ?? false);
+                    if ($pendiente !== (bool) $pts->pago_pendiente) {
+                        $pts->update(['pago_pendiente' => $pendiente]);
+                    }
+                }
             }
 
             ValidarSeleccionesTallerAction::runRequeridos($registrationDto);
@@ -125,15 +249,24 @@ class ActualizarInscripcionPagadaAction
 
             $this->registrationService->syncPersonas($registration);
 
+            // Monto real a cobrar/desembolsar (25/08/2026) — el cargo fijo
+            // de siempre (costo_edicion) más la diferencia real de
+            // categoría (0 si no cambió, o si el autoservicio la bloqueó
+            // arriba) y el precio real de los talleres agregados. Puede
+            // quedar negativo si el cambio de categoría es una devolución
+            // mayor que el resto — ver CajaController::editarPagada(), que
+            // ahora también registra un CajaMovimiento cuando es negativo.
+            $costoAdicion = (float) $costoEdicion + $deltaTalleres + $deltaCategoria;
+
             AuditLog::create([
                 'registration_id' => $registration->id,
                 'usuario'         => $data['_usuario'] ?? null,
-                'costo_adicion'   => $costoEdicion,
+                'costo_adicion'   => $costoAdicion,
             ]);
 
             return [
                 'registration'  => $this->registrationService->loadRelations($registration),
-                'costo_adicion' => $costoEdicion,
+                'costo_adicion' => $costoAdicion,
             ];
         });
     }

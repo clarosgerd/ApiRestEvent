@@ -73,6 +73,18 @@ class StoreRegistrationRequest extends FormRequest
             '*.participantes' => ['required','array','min:1'],
             '*.participantes.*.nombre' => ['required'],
             '*.participantes.*.apellido' => ['required'],
+            // Bug real encontrado 25/08/2026 (reportado por el usuario:
+            // "muchas personas de sexo femenino registraron masculino") —
+            // mismo patrón que moneda_pago/talleres arriba: esta regla nunca
+            // existió, así que $request->validated() descartaba `genero` en
+            // silencio en TODA inscripción nueva, sin importar lo que el
+            // participante eligiera en el formulario — ParticipantDTO::fromArray()
+            // y RegistrationService::createParticipantFromData() caen a
+            // `?? 'Masculino'` cuando la clave no llega. Los flujos de EDICIÓN
+            // (UpdateRegistrationRequest/UpdatePaidRegistrationRequest) y Caja
+            // (StoreInscripcionCajaRequest) sí declaraban esta regla — el bug
+            // era exclusivo del alta nueva pública.
+            '*.participantes.*.genero' => ['required','string'],
             '*.participantes.*.correo' => ['required','email'],
             '*.participantes.*.numeroDocumento' => ['required'],
             '*.participantes.*.categoria' => ['required'],

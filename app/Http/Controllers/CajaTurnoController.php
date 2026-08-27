@@ -141,4 +141,26 @@ class CajaTurnoController extends Controller
             'turnos'  => CajaTurnoResource::collection($query->get()),
         ]);
     }
+
+    /**
+     * Detalle de un turno (27/08/2026) — drill-down pedido por el usuario
+     * desde el reporte de cierres: la lista de movimientos que componen el
+     * total, no solo el agregado que ya devuelve index(). Mismo scoping
+     * que index() (solo admin/super_admin, no cajero).
+     */
+    public function show(Evento $event, CajaTurno $turno): JsonResponse
+    {
+        $this->assertCanWriteEvento((int) $event->id);
+
+        if ((int) $turno->evento_id !== (int) $event->id) {
+            abort(404);
+        }
+
+        $turno->load(['cajero', 'movimientos.registration']);
+
+        return response()->json([
+            'success' => true,
+            'turno'   => new CajaTurnoResource($turno),
+        ]);
+    }
 }

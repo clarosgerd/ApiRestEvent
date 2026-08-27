@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\PersonaController;
 
 use App\Http\Controllers\RegistrationController;
+use App\Http\Controllers\PagoAdicionalController;
 use App\Http\Controllers\EventoController;
 use App\Http\Controllers\PromoCodeController;
 use App\Http\Controllers\ParticipanteController;
@@ -236,6 +237,7 @@ Route::group(['prefix' => 'v1','namespace' => 'App\Http\Controllers'], function 
         Route::post('/event/{event}/caja/turno/abrir', [CajaTurnoController::class, 'abrir']);
         Route::post('/caja/turno/{turno}/cerrar', [CajaTurnoController::class, 'cerrar']);
         Route::get('/event/{event}/caja/turnos', [CajaTurnoController::class, 'index']);
+        Route::get('/event/{event}/caja/turnos/{turno}', [CajaTurnoController::class, 'show']);
 
         Route::get('/event/{event}/caja/buscar', [CajaController::class, 'buscar']);
         // Prellenado desde `personas` (20/08/2026) — `Persona` es global
@@ -378,6 +380,16 @@ Route::group(['prefix' => 'v1','namespace' => 'App\Http\Controllers'], function 
     Route::delete('/registrations/{reference}',[RegistrationController::class, 'destroy'])->middleware('auth:sanctum');
     Route::put('/registrations/{reference}',[RegistrationController::class, 'update']);
     Route::patch('/registrations/{reference}/update-paid',[RegistrationController::class, 'updatePaid']);
+
+    // Cobro real por SIP del monto adicional (26/08/2026) — ver
+    // PLAN-COBRO-SIP-ADICIONAL-26082026.md. {reference} = referencia de la
+    // inscripción pagada; {referenciaAdicional} = alias propio del pago
+    // adicional ('AD-XXXXXXXX'), nunca la misma referencia de la
+    // inscripción.
+    Route::post('/registrations/{reference}/pagos-adicionales', [PagoAdicionalController::class, 'store']);
+    Route::patch('/pagos-adicionales/{referenciaAdicional}/qr', [PagoAdicionalController::class, 'guardarQrId']);
+    Route::get('/pagos-adicionales/{referenciaAdicional}', [PagoAdicionalController::class, 'show']);
+    Route::patch('/pagos-adicionales/{referenciaAdicional}/confirmar', [PagoAdicionalController::class, 'confirmar']);
 
     Route::get('/registrations/{reference}/generarToken',[RegistrationController::class, 'generarToken']);
     Route::get('/registrations/{reference}/estadoTransaccion',[RegistrationController::class, 'estadoTransaccion']);

@@ -158,14 +158,28 @@ class ReporteInscritosData
                     'cupo'         => $sesion?->cupo,
                     'cantidad'     => 0,
                     'recaudacion'  => 0.0,
+                    // Reporte de talleres confiable (27/08/2026) — separa lo
+                    // ya cobrado (inscripción original, Caja, o SIP
+                    // confirmado) de lo que el participante eligió "pagar
+                    // en el evento" y todavía no se cobró, para que
+                    // "recaudación" no mezcle las dos cosas. Ver
+                    // ParticipanteTallerSesion::pago_pendiente.
+                    'cantidadPendiente'    => 0,
+                    'recaudacionPendiente' => 0.0,
                 ];
                 $grupos[$id]['cantidad']++;
                 $grupos[$id]['recaudacion'] += (float) $pts->total;
+                if ($pts->pago_pendiente) {
+                    $grupos[$id]['cantidadPendiente']++;
+                    $grupos[$id]['recaudacionPendiente'] += (float) $pts->total;
+                }
             }
         }
 
         foreach ($grupos as &$grupo) {
             $grupo['recaudacion'] = round($grupo['recaudacion'], 2);
+            $grupo['recaudacionPendiente'] = round($grupo['recaudacionPendiente'], 2);
+            $grupo['recaudacionCobrada']   = round($grupo['recaudacion'] - $grupo['recaudacionPendiente'], 2);
             $grupo['disponible']  = $grupo['cupo'] !== null ? max(0, $grupo['cupo'] - $grupo['cantidad']) : null;
         }
         unset($grupo);
@@ -177,6 +191,10 @@ class ReporteInscritosData
             'filas' => $filas,
             'totalCantidad' => array_sum(array_column($filas, 'cantidad')),
             'totalRecaudacion' => round(array_sum(array_column($filas, 'recaudacion')), 2),
+            // Reporte de talleres confiable (27/08/2026).
+            'totalCantidadPendiente'    => array_sum(array_column($filas, 'cantidadPendiente')),
+            'totalRecaudacionPendiente' => round(array_sum(array_column($filas, 'recaudacionPendiente')), 2),
+            'totalRecaudacionCobrada'   => round(array_sum(array_column($filas, 'recaudacionCobrada')), 2),
         ];
     }
 
@@ -207,6 +225,16 @@ class ReporteInscritosData
                     'sala'                 => $sesion->sala ?? null,
                     'tallerNombre'         => $taller->nombre ?? 'Sin especificar',
                     'sesionTitulo'         => $sesion->titulo ?? null,
+                    // Título académico de la persona (25/08/2026) — reusa el
+                    // campo `alias` (mismo mecanismo que index.php
+                    // toggleAliasTituloMode(): para form_types tipo
+                    // 'congreso' el participante elige Dr./Lic./PhD./etc. en
+                    // vez de un alias libre, pero se guarda en esta misma
+                    // columna). Se expone tal cual, sin filtrar por tipo de
+                    // form_type — para eventos no-congreso puede venir un
+                    // alias real en vez de un título, es el mismo dato que
+                    // ya vive ahí hoy.
+                    'participanteAlias'    => $p->alias,
                     'participanteNombre'   => $p->nombre,
                     'participanteApellido' => $p->apellido,
                     'numeroDocumento'      => $p->numero_documento,
@@ -214,6 +242,13 @@ class ReporteInscritosData
                     'telefono'             => $p->telefono,
                     'referencia'           => $p->registration->referencia ?? null,
                     'precio'               => round((float) $pts->total, 2),
+                    // Reporte de talleres confiable (27/08/2026) — ver
+                    // ParticipanteTallerSesion::pago_pendiente. Texto ya
+                    // resuelto acá (no solo el booleano) para que tanto el
+                    // CSV como cualquier otra vista lo muestren igual sin
+                    // reinventar el texto en cada lugar.
+                    'pagoPendiente'        => (bool) $pts->pago_pendiente,
+                    'estadoPago'           => $pts->pago_pendiente ? 'Pendiente (efectivo en el evento)' : 'Pagado',
                 ];
             }
         }

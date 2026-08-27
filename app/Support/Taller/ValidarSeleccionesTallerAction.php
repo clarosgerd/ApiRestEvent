@@ -181,9 +181,21 @@ class ValidarSeleccionesTallerAction
                 continue; // sin cupo = sin límite
             }
 
+            // Bug real preexistente encontrado el 26/08/2026 (al escribir
+            // tests para el cobro SIP del monto adicional) — esto era
+            // `whereHas(...)`, que en vez de EXCLUIR las filas propias de
+            // $excludeInscripcionId del conteo, lo restringía a CONTAR
+            // SOLO esas filas. En la práctica esto significaba que editar
+            // una inscripción para agregar un taller nunca veía la
+            // ocupación de ninguna OTRA inscripción — el chequeo de cupo
+            // cruzado quedaba completamente roto en cualquier edición
+            // (ActualizarInscripcionAction/ActualizarInscripcionPagadaAction),
+            // solo funcionaba de verdad en el alta nueva (que llama esto
+            // sin $excludeInscripcionId). Ningún test existente lo cubría
+            // porque todos pasaban null acá.
             $query = ParticipanteTallerSesion::where('sesion_congreso_id', $sesion->id);
             if ($excludeInscripcionId !== null) {
-                $query->whereHas('participante', function ($q) use ($excludeInscripcionId) {
+                $query->whereDoesntHave('participante', function ($q) use ($excludeInscripcionId) {
                     $q->where('registration_id', $excludeInscripcionId);
                 });
             }

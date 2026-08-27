@@ -259,10 +259,13 @@ class CajaController extends Controller
     }
 
     /**
-     * Edita cualquier campo de una inscripción `paid` y cobra el
-     * adicional configurado (form_types.costo_edicion) — reusa
-     * ActualizarInscripcionPagadaAction tal cual, que ya calcula ese
-     * monto.
+     * Edita una inscripción `paid` y cobra/desembolsa el adicional real —
+     * reusa ActualizarInscripcionPagadaAction tal cual, que ya calcula ese
+     * monto (costo_edicion fijo + diferencia real de talleres/categoría).
+     * A diferencia del autoservicio (RegistrationController::updatePaid()),
+     * la caja SÍ puede cambiar de categoría (permiteCambioCategoria=true)
+     * porque puede desembolsar la diferencia en efectivo ahí mismo —
+     * 25/08/2026, ver PLAN-EDICION-PAGADA-TALLERES-CATEGORIA-25082026.md.
      */
     public function editarPagada(UpdatePaidRegistrationRequest $request, string $reference, ActualizarInscripcionPagadaAction $action): JsonResponse
     {
@@ -276,12 +279,21 @@ class CajaController extends Controller
         }
 
         try {
-            $result = $action->handle($reference, $request->validated() + ['_usuario' => $admin->email]);
+            // requierePagoEnSitio se deja en su default (false): el
+            // cajero cobra/desembolsa en efectivo en el momento, así que
+            // cualquier taller nuevo agregado acá ya está cobrado (ver
+            // ActualizarInscripcionPagadaAction::handle()).
+            $result = $action->handle($reference, $request->validated() + ['_usuario' => $admin->email], permiteCambioCategoria: true);
         } catch (\DomainException $e) {
             return response()->json(['success' => false, 'error' => $e->getMessage()], 422);
         }
 
-        if ($result['costo_adicion'] > 0) {
+        // != 0 en vez de > 0 (25/08/2026) — un cambio a categoría más
+        // barata da un costo_adicion negativo (desembolso real al
+        // participante) que también debe quedar registrado. `monto` ya es
+        // decimal con signo y CajaTurno::sum('monto') ya resta un negativo
+        // correctamente al calcular monto_esperado, sin cambios ahí.
+        if (abs((float) $result['costo_adicion']) > 0.001) {
             CajaMovimiento::create([
                 'caja_turno_id'    => $turno->id,
                 'evento_id'        => $event->id,
