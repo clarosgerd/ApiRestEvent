@@ -132,7 +132,26 @@ class ActualizarInscripcionPagadaAction
                     // se resuelve el precio vigente real de la categoría
                     // nueva server-side, mismo helper que ya usa el resto
                     // del sistema para "Precios por período".
-                    $categoriaModel = Category::findOrFail((int) $categoriaNueva);
+                    //
+                    // Categorías por form_type (27/08/2026) — ver
+                    // PLAN-CATEGORIAS-POR-FORM-TYPE-27082026.md. Antes acá
+                    // se hacía `Category::findOrFail()` sin filtrar NI
+                    // SIQUIERA por evento — aceptaba la categoría de
+                    // cualquier evento del sistema. Ahora exige mismo
+                    // evento y, si la categoría tiene `formulario_id`,
+                    // mismo form_type que esta inscripción (null =
+                    // compartida, sin cambios).
+                    $categoriaModel = Category::where('id', (int) $categoriaNueva)
+                        ->where('event_id', $registration->evento_id)
+                        ->where(fn ($q) => $q->whereNull('formulario_id')->orWhere('formulario_id', $registration->form_types_id))
+                        ->first();
+
+                    if (!$categoriaModel) {
+                        throw new \DomainException(
+                            "La categoría '{$categoriaNueva}' no es válida para este evento/tipo de formulario."
+                        );
+                    }
+
                     $precioNuevo = PrecioVigenteData::paraCategoria($categoriaModel)['precio'];
                     $deltaCategoria += $precioNuevo - (float) $anterior->precio_categoria;
                 }

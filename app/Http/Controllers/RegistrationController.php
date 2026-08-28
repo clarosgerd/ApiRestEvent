@@ -586,11 +586,19 @@ public function estadoTransaccion(
             return response()->json(['success' => false, 'error' => 'Este tipo de formulario no requiere categoría — la carga masiva por categoría no aplica.'], 422);
         }
 
+        // Categorías por form_type (27/08/2026) — ver
+        // PLAN-CATEGORIAS-POR-FORM-TYPE-27082026.md. `formulario_id` null
+        // = compartida por todos los form_types del evento (comportamiento
+        // previo); con un valor, solo es válida para ESE form_type. Se
+        // valida acá, antes de procesar el archivo, para dar un único
+        // error claro en vez de que cada fila lo rechace por separado en
+        // CrearInscripcionAction::validatePrecioCategoria().
         $category = Category::where('event_id', $event->id)
             ->whereRaw('LOWER(name) = ?', [mb_strtolower(trim($data['categoria']))])
+            ->where(fn ($q) => $q->whereNull('formulario_id')->orWhere('formulario_id', $formType->id))
             ->first();
         if (!$category) {
-            return response()->json(['success' => false, 'error' => "La categoría \"{$data['categoria']}\" no existe en este evento."], 422);
+            return response()->json(['success' => false, 'error' => "La categoría \"{$data['categoria']}\" no existe en este evento para el tipo de formulario elegido."], 422);
         }
 
         // Precio vigente (períodos), no el `price` crudo — mismo criterio

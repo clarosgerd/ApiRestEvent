@@ -525,8 +525,17 @@ class CrearInscripcionAction
         }
 
         if ($formType->requiere_categoria) {
+            // Categorías por form_type (27/08/2026) — ver
+            // PLAN-CATEGORIAS-POR-FORM-TYPE-27082026.md. `formulario_id`
+            // null = categoría compartida por todos los form_types del
+            // evento (comportamiento previo, sin cambios); si tiene un
+            // valor, solo es válida para ESE form_type. Antes de este
+            // cambio, el server solo chequeaba `event_id` — una categoría
+            // pensada para el form_type "10K" se aceptaba igual al
+            // inscribirse por "5K" del mismo evento.
             $category = Category::where('id', $participantDTO->category)
                 ->where('event_id', $registrationDTO->eventId)
+                ->where(fn ($q) => $q->whereNull('formulario_id')->orWhere('formulario_id', $registrationDTO->formId))
                 ->first();
 
             if (!$category) {

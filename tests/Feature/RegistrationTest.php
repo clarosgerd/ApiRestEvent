@@ -249,6 +249,49 @@ class RegistrationTest extends TestCase
         $this->assertDatabaseHas('promo_codes', ['promo_code' => 'SIELEGIBLE', 'usado' => true]);
     }
 
+    /**
+     * Categorías por form_type (27/08/2026) — ver
+     * PLAN-CATEGORIAS-POR-FORM-TYPE-27082026.md. Antes de este cambio,
+     * `CrearInscripcionAction::validatePrecioCategoria()` solo chequeaba
+     * `event_id` — una categoría con `formulario_id` cargado para OTRO
+     * form_type del mismo evento se aceptaba igual.
+     */
+    public function test_create_registration_rejects_category_scoped_to_a_different_form_type(): void
+    {
+        $otroFormType = FormType::factory()->create([
+            'event_id' => $this->event->id,
+            'requiere_categoria' => true,
+        ]);
+        $categoriaDeOtroFormType = Category::factory()->create([
+            'event_id' => $this->event->id,
+            'formulario_id' => $otroFormType->id,
+            'price' => 100,
+        ]);
+
+        $payload = $this->validPayload([
+            'categoria' => $categoriaDeOtroFormType->id,
+            'precioCategoria' => 100,
+        ]);
+
+        $this->postJson('/api/v1/registrations', $payload)
+            ->assertUnprocessable()
+            ->assertJsonPath('error', "La categoría '{$categoriaDeOtroFormType->id}' no es válida para este evento.");
+
+        $this->assertDatabaseCount('registrations', 0);
+    }
+
+    /**
+     * Sin regresión: una categoría con `formulario_id = null` (default,
+     * compartida por todos los form_types del evento) sigue aceptándose
+     * igual que antes de este cambio.
+     */
+    public function test_create_registration_accepts_category_shared_across_form_types(): void
+    {
+        $this->postJson('/api/v1/registrations', $this->validPayload())
+            ->assertCreated()
+            ->assertJsonPath('success', true);
+    }
+
     public function test_create_registration_rejects_empty_participants(): void
     {
         $payload = $this->validPayload();

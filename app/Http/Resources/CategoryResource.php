@@ -31,6 +31,13 @@ class CategoryResource extends JsonResource
         return [
             'id'                          => $this->id,
             'name'                        => $this->name,
+            // Categorías por form_type (27/08/2026) — ver
+            // PLAN-CATEGORIAS-POR-FORM-TYPE-27082026.md. Se mantiene el
+            // nombre de columna (snake_case), igual que `form_types_id` en
+            // SouvenirResource/RegistrationResource/etc. Null = categoría
+            // compartida por todos los form_types del evento
+            // (comportamiento actual, sin cambios para quien no la use).
+            'formulario_id'               => $this->formulario_id,
             'price'                       => $this->price,
             // Precio USD fijo, sin tipo de cambio (19/08/2026) — ver
             // brain/PLAN-PRECIO-USD-FIJO-19082026.md. Null si el

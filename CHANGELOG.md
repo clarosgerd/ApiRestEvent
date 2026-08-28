@@ -2,6 +2,42 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/).
 
+## 2026-08-27 — Categorías por form_type
+
+Pedido del usuario ("las categorías deberían estar dentro de form_type"), analizado (impacto +
+costo de migración) y luego diseñado en plan mode (`ExitPlanMode` aprobado) antes de implementar.
+Ver `brain/api_rest_event/PLAN-CATEGORIAS-POR-FORM-TYPE-27082026.md`. Antes de este cambio, las
+categorías eran 100% del evento — cualquier categoría se aceptaba para cualquier form_type del
+mismo evento, sin chequeo alguno.
+
+### Added
+- FK real `categories.formulario_id → form_types.id` (la columna ya existía, nullable, desde la
+  migración original, pero nunca se usó). `null` = categoría compartida por todos los
+  form_types del evento (comportamiento previo, sin romper nada); con un valor, la categoría
+  solo es válida para ESE form_type.
+- `CategoryController` valida que el `formulario_id` recibido pertenezca al mismo evento de la
+  categoría (store/update) — antes nada lo garantizaba.
+- `CategoryFilter` con filtros `event_id`/`formulario_id`; `CategoryResource` expone
+  `formulario_id`.
+
+### Fixed
+- `CrearInscripcionAction::validatePrecioCategoria()` y `RegistrationController::importarBulk()`
+  (carga masiva CSV) ahora exigen que la categoría sea compartida o del form_type de la
+  inscripción — antes solo chequeaban el evento.
+- **Bug real más serio**: `ActualizarInscripcionPagadaAction` (cambio de categoría en una
+  inscripción ya pagada) resolvía la categoría nueva con `Category::findOrFail()` sin filtrar NI
+  SIQUIERA por evento — aceptaba la categoría de cualquier evento del sistema. Ahora exige mismo
+  evento y form_type compatible.
+
+### Verified
+- `CategoryTest.php` (nuevo, 5 tests) + tests nuevos en `RegistrationTest.php` (2),
+  `EditarInscripcionPagadaTallerCategoriaTest.php` (2) y `RegistroManualBulkTest.php` (1). Suite
+  completa sin regresiones (1 falla preexistente y no relacionada — `TallerSeleccionInscripcionTest
+  > cupo lleno rechaza nueva seleccion` — confirmada flaky, pasa sola en aislamiento).
+- Vistas de `admin-eventos` (`eventos.edit`, `caja.nueva`, `registro-manual`) renderizadas con
+  datos de un evento real vía `artisan tinker` + ejecución real del JS con jsdom, confirmando el
+  filtro por form_type en los 3 selects de categoría (público, Caja, carga masiva).
+
 ## 2026-08-27 — Detalle de cierre de caja (drill-down por turno) + filtro por cajero
 
 Pedido del usuario, diseñado en plan mode (`ExitPlanMode` aprobado) antes de implementar. La

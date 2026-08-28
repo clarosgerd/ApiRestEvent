@@ -344,6 +344,62 @@ class EditarInscripcionPagadaTallerCategoriaTest extends TestCase
         $this->assertEquals(-60.0, $result['costo_adicion']);
     }
 
+    /**
+     * Categorías por form_type (27/08/2026) — ver
+     * PLAN-CATEGORIAS-POR-FORM-TYPE-27082026.md. Antes de este cambio,
+     * `ActualizarInscripcionPagadaAction` resolvía la categoría nueva con
+     * `Category::findOrFail()` sin filtrar por evento — aceptaba la
+     * categoría de CUALQUIER evento del sistema.
+     */
+    public function test_caja_no_puede_cambiar_a_una_categoria_de_otro_evento(): void
+    {
+        $otroEvento = Evento::factory()->create();
+        $categoriaAjena = Category::factory()->create(['event_id' => $otroEvento->id, 'price' => 999]);
+
+        $registration = $this->crearInscripcionPagadaSinTaller('20000007');
+
+        $this->expectException(\DomainException::class);
+        $this->expectExceptionMessage("La categoría '{$categoriaAjena->id}' no es válida para este evento/tipo de formulario.");
+
+        app(ActualizarInscripcionPagadaAction::class)->handle($registration->referencia, [
+            'participantes' => [$this->participanteData('20000007', [
+                'categoria' => (string) $categoriaAjena->id,
+                'precioCategoria' => 999,
+            ])],
+            'totales' => $this->totalesData(),
+            '_usuario' => 'cajero@test.net',
+        ], permiteCambioCategoria: true);
+    }
+
+    /**
+     * Categorías por form_type (27/08/2026) — una categoría con
+     * `formulario_id` cargado solo es válida para ESE form_type; con
+     * `formulario_id = null` (default, categoría compartida) el cambio
+     * sigue funcionando exactamente igual, sin regresión.
+     */
+    public function test_caja_no_puede_cambiar_a_una_categoria_de_otro_form_type_del_mismo_evento(): void
+    {
+        $otroFormType = FormType::factory()->create(['event_id' => $this->evento->id]);
+        $categoriaDeOtroFormType = Category::factory()->create([
+            'event_id' => $this->evento->id,
+            'formulario_id' => $otroFormType->id,
+            'price' => 999,
+        ]);
+
+        $registration = $this->crearInscripcionPagadaSinTaller('20000008');
+
+        $this->expectException(\DomainException::class);
+
+        app(ActualizarInscripcionPagadaAction::class)->handle($registration->referencia, [
+            'participantes' => [$this->participanteData('20000008', [
+                'categoria' => (string) $categoriaDeOtroFormType->id,
+                'precioCategoria' => 999,
+            ])],
+            'totales' => $this->totalesData(),
+            '_usuario' => 'cajero@test.net',
+        ], permiteCambioCategoria: true);
+    }
+
     public function test_caja_registra_movimiento_negativo_al_editar_pagada_con_desembolso(): void
     {
         $cajero = $this->actingAsAdmin();
