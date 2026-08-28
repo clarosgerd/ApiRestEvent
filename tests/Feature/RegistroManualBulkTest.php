@@ -127,6 +127,26 @@ class RegistroManualBulkTest extends TestCase
         $response->assertStatus(422)->assertJson(['success' => false]);
     }
 
+    /**
+     * Categorías por form_type (27/08/2026) — ver
+     * PLAN-CATEGORIAS-POR-FORM-TYPE-27082026.md. Una categoría con
+     * `formulario_id` cargado para OTRO form_type no debe resolverse acá
+     * aunque el nombre coincida.
+     */
+    public function test_categoria_de_otro_form_type_devuelve_422(): void
+    {
+        $admin = $this->actingAsAdmin();
+        $admin->update(['rol' => 'super_admin']);
+
+        $otroFormType = FormType::factory()->create(['event_id' => $this->evento->id]);
+        $this->categoria->update(['formulario_id' => $otroFormType->id]);
+
+        $response = $this->postJson("/api/v1/event/{$this->evento->id}/registro-manual/bulk", $this->payload());
+
+        $response->assertStatus(422)->assertJson(['success' => false]);
+        $this->assertSame(0, Participante::count());
+    }
+
     public function test_requiere_rol_super_admin(): void
     {
         $admin = $this->actingAsAdmin();

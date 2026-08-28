@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Category;
+use App\Models\FormType;
 use App\Models\Participante;
 use App\Http\Requests\StoreCategoryRequest;
 use App\Http\Requests\UpdateCategoryRequest;
@@ -47,6 +48,12 @@ class CategoryController extends Controller
         $data = $request->validated();
         $this->assertCanWriteEvento((int) $data['event_id']);
 
+        try {
+            $this->assertFormularioPerteneceAlEvento($data['formulario_id'] ?? null, (int) $data['event_id']);
+        } catch (\DomainException $e) {
+            return response()->json(['success' => false, 'error' => $e->getMessage()], 422);
+        }
+
         $category = Category::create($data);
 
         AdminAuditLogger::log('create', 'categoria', $category->id, (int) $category->event_id, null, $category->toArray());
@@ -83,8 +90,17 @@ class CategoryController extends Controller
     {
         $this->assertCanWriteEvento((int) $category->event_id);
 
+        $data = $request->validated();
+        if (array_key_exists('formulario_id', $data)) {
+            try {
+                $this->assertFormularioPerteneceAlEvento($data['formulario_id'], (int) $category->event_id);
+            } catch (\DomainException $e) {
+                return response()->json(['success' => false, 'error' => $e->getMessage()], 422);
+            }
+        }
+
         $before = $category->toArray();
-        $category->update($request->validated());
+        $category->update($data);
 
         AdminAuditLogger::log('update', 'categoria', $category->id, (int) $category->event_id, $before, $category->toArray());
 
@@ -128,5 +144,28 @@ class CategoryController extends Controller
             'success' => true,
             'message' => 'Categoría eliminada correctamente.',
         ]);
+    }
+
+    /**
+     * Categorías por form_type (27/08/2026) — ver
+     * PLAN-CATEGORIAS-POR-FORM-TYPE-27082026.md. `formulario_id = null`
+     * sigue significando "categoría compartida por todos los form_types
+     * del evento" (comportamiento actual, no rompe nada). Cuando SÍ se
+     * manda un valor, nada garantizaba antes que ese form_type fuera del
+     * mismo evento que la categoría — se cierra acá.
+     */
+    private function assertFormularioPerteneceAlEvento(?int $formularioId, int $eventId): void
+    {
+        if ($formularioId === null) {
+            return;
+        }
+
+        $perteneceAlEvento = FormType::where('id', $formularioId)
+            ->where('event_id', $eventId)
+            ->exists();
+
+        if (!$perteneceAlEvento) {
+            throw new \DomainException('El tipo de formulario indicado no pertenece a este evento.');
+        }
     }
 }
