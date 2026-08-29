@@ -67,10 +67,13 @@ class EventoController extends Controller
      */
     private function souvenirsVisiblesScope(?int $eventoId = null): \Closure
     {
+        // Admin de evento asignado a varios eventos (28/08/2026) —
+        // tieneAccesoAEvento() ya contempla evento_id (principal) +
+        // eventosAdicionales para rol admin; cajero sigue igual.
         $admin = auth('admins')->user();
         $puedeVerOcultos = $admin && (
             $admin->rol === 'super_admin'
-            || ($eventoId !== null && in_array($admin->rol, ['admin', 'cajero'], true) && (int) $admin->evento_id === $eventoId)
+            || ($eventoId !== null && in_array($admin->rol, ['admin', 'cajero'], true) && $admin->tieneAccesoAEvento($eventoId))
         );
 
         return function ($query) use ($puedeVerOcultos) {

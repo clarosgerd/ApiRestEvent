@@ -33,7 +33,10 @@ trait AuthorizesEventoScope
             throw new HttpException(403, 'No tiene acceso a este evento.');
         }
 
-        if ($admin->rol === 'admin' && (int) $admin->evento_id !== $eventoId) {
+        // Admin de evento asignado a varios eventos (28/08/2026) — ver
+        // PLAN-ADMIN-MULTI-EVENTO-28082026.md. tieneAccesoAEvento() ya
+        // contempla evento_id (principal, sin cambios) + eventosAdicionales.
+        if ($admin->rol === 'admin' && !$admin->tieneAccesoAEvento($eventoId)) {
             throw new HttpException(403, 'No tiene acceso a este evento.');
         }
     }
@@ -62,7 +65,11 @@ trait AuthorizesEventoScope
             throw new HttpException(403, 'No tiene acceso a la caja de este evento.');
         }
 
-        if (in_array($admin->rol, ['admin', 'cajero'], true) && (int) $admin->evento_id !== $eventoId) {
+        // Admin de evento asignado a varios eventos (28/08/2026) — `cajero`
+        // sigue comparando solo evento_id (sin cambios, decisión explícita
+        // del usuario); `admin` ya contempla eventosAdicionales vía
+        // tieneAccesoAEvento().
+        if (in_array($admin->rol, ['admin', 'cajero'], true) && !$admin->tieneAccesoAEvento($eventoId)) {
             throw new HttpException(403, 'No tiene acceso a la caja de este evento.');
         }
 
