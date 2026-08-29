@@ -20,7 +20,10 @@ class AdminAuditLogController extends Controller
         $query = AdminAuditLog::with('adminUser:id,nombre,email')->latest('id');
 
         if ($admin->rol === 'admin') {
-            $query->where('evento_id', $admin->evento_id);
+            // Admin de evento asignado a varios eventos (28/08/2026) —
+            // whereIn con evento_id (principal) + eventosAdicionales, ver
+            // AdminUser::eventoIds().
+            $query->whereIn('evento_id', $admin->eventoIds());
         } elseif ($request->filled('evento_id')) {
             $query->where('evento_id', (int) $request->query('evento_id'));
         }

@@ -678,6 +678,33 @@ class CajaTest extends TestCase
     }
 
     /**
+     * Admin de evento asignado a varios eventos (28/08/2026) — ver
+     * PLAN-ADMIN-MULTI-EVENTO-28082026.md. Cobertura end-to-end (vía HTTP
+     * real, no solo el método del modelo) de que
+     * AuthorizesEventoScope::assertCanOperarCaja() ya contempla
+     * eventosAdicionales para rol admin.
+     */
+    public function test_admin_con_evento_adicional_ve_el_listado_de_turnos_de_ese_evento(): void
+    {
+        $eventoAdicional = Evento::factory()->create();
+        CajaTurno::create([
+            'evento_id' => $eventoAdicional->id,
+            'admin_user_id' => AdminUser::factory()->create(['rol' => 'cajero', 'evento_id' => $eventoAdicional->id])->id,
+            'fondo_inicial' => 20,
+            'estado' => 'abierto',
+            'abierto_at' => now(),
+        ]);
+
+        $admin = $this->actingAsAdmin();
+        $admin->update(['rol' => 'admin', 'evento_id' => $this->evento->id]);
+        $admin->eventosAdicionales()->sync([$eventoAdicional->id]);
+
+        $this->getJson("/api/v1/event/{$eventoAdicional->id}/caja/turnos")
+            ->assertStatus(200)
+            ->assertJsonCount(1, 'turnos');
+    }
+
+    /**
      * Bug real reportado en UAT (no reproducible en local): "No tiene
      * acceso a la caja de este evento." al abrir turno con un cajero
      * correctamente scoped. Causa: `AdminUser::evento_id` no tenía cast,

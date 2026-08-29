@@ -37,6 +37,11 @@ class AdminAuthController extends Controller
                     'email'     => $admin->email,
                     'rol'       => $admin->rol,
                     'evento_id' => $admin->evento_id,
+                    // Admin de evento asignado a varios eventos (28/08/2026)
+                    // — evento_id (principal) + eventosAdicionales,
+                    // deduplicado. `evento_id` NO se toca — admin-eventos
+                    // lo sigue usando tal cual para el flujo de cajero.
+                    'eventoIds' => $admin->eventoIds(),
                 ],
                 'token' => $token,
             ],
@@ -68,6 +73,7 @@ class AdminAuthController extends Controller
                 'email'     => $admin->email,
                 'rol'       => $admin->rol,
                 'evento_id' => $admin->evento_id,
+                'eventoIds' => $admin->eventoIds(),
             ],
         ]);
     }

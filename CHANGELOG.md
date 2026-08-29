@@ -2,6 +2,29 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/).
 
+## 2026-08-28 — Admin de evento asignado a varios eventos
+
+Pedido del usuario, diseñado en plan mode antes de implementar. Ver
+`brain/api_rest_event/PLAN-ADMIN-MULTI-EVENTO-28082026.md`. `admin_users.evento_id` seguía
+siendo el "evento principal" del admin (sin cambios); se agregó una tabla pivote
+(`admin_user_evento`) para eventos ADICIONALES, 100% opt-in — solo para rol `admin` (`cajero`
+sigue con un único evento, decisión explícita del usuario).
+
+### Added
+- `AdminUser::eventosAdicionales()`/`eventoIds()`/`tieneAccesoAEvento()` — centraliza la regla de
+  acceso que antes estaba repetida a mano en varios controllers.
+- `evento_ids_adicionales` en `Store`/`UpdateAdminUserRequest`; `AdminUserController` sincroniza
+  la pivote al crear/editar un admin.
+- `AdminAuthController` expone `eventoIds` (evento principal + adicionales) en login/me.
+
+### Fixed
+- `AuthorizesEventoScope` y otros 2 puntos sueltos (`EventoController::souvenirsVisiblesScope()`,
+  `AdminAuditLogController`) que comparaban `evento_id` a mano ahora usan la regla centralizada.
+
+### Verified
+- `AdminUserTest.php` (nuevo, 7 tests) + 1 caso end-to-end en `CajaTest.php`. Suite completa:
+  448/450 (2 fallas = mismo flake preexistente y no relacionado, confirmado que pasa solo).
+
 ## 2026-08-27 — Categorías por form_type
 
 Pedido del usuario ("las categorías deberían estar dentro de form_type"), analizado (impacto +
@@ -37,6 +60,32 @@ mismo evento, sin chequeo alguno.
 - Vistas de `admin-eventos` (`eventos.edit`, `caja.nueva`, `registro-manual`) renderizadas con
   datos de un evento real vía `artisan tinker` + ejecución real del JS con jsdom, confirmando el
   filtro por form_type en los 3 selects de categoría (público, Caja, carga masiva).
+
+### Fixed (28/08/2026, dato real, no código)
+- Encontrado mientras se investigaba el reporte de abajo (no era la causa, pero era real): 6
+  categorías (eventos 1 y 4) ya tenían `formulario_id` con un valor de ANTES de que esta feature
+  existiera — la columna quedó de un intento abandonado en julio, nunca escrita por ningún código
+  (confirmado con grep), pero poblada a mano/por import en algún momento sin representar ninguna
+  asignación real (evento 4: "5K"→form_type "Individual", "10K"→form_type "Grupal", sin relación
+  real entre nombre de categoría y tipo de formulario). Corregido con
+  `UPDATE categories SET formulario_id = NULL` en esas 6 filas. Este hallazgo agregó el Paso 4
+  (obligatorio) al checklist de deploy: chequear y limpiar el mismo tipo de dato huérfano en UAT
+  antes de activar el filtro ahí.
+
+### Fixed (28/08/2026) — bug real, no relacionado a esta feature
+- Reportado por el usuario con una captura: la pantalla "Períodos de precio — Categoría" de
+  `admin-eventos` mostraba siempre "Sin períodos cargados" y "Bs 0.00", sin importar si la
+  categoría tenía períodos reales cargados — incluso el título caía al fallback genérico
+  "Categoría" en vez del nombre real. Causa: `CategoryController::show()` devolvía el
+  `CategoryResource` "pelado" (`return new CategoryResource($category)`), así que Laravel lo
+  envolvía en su wrapper default (`{"data": {...}}`) en vez del wrapper explícito
+  (`'category' => ...`) que ya usan `store()`/`update()` en este mismo controller. El único
+  consumidor de este endpoint (`CategoryPricePeriodController::index()`, `admin-eventos`) leía los
+  campos en la raíz de la respuesta — nunca los encontraba, sin importar los datos reales. Bug
+  preexistente desde que la feature "Precios por período" se lanzó (12/08/2026), sin relación con
+  `formulario_id`; se lo encontró recién ahora porque el usuario probó esa pantalla puntual al
+  validar el trabajo de hoy. Corregido en ambos lados (`CategoryController::show()` +
+  `CategoryPricePeriodController::index()`).
 
 ## 2026-08-27 — Detalle de cierre de caja (drill-down por turno) + filtro por cajero
 
