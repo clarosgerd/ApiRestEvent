@@ -70,9 +70,20 @@ class CategoryController extends Controller
      */
     public function show(Category $category)
     {
-        //
-
-         return new CategoryResource($category);
+        // Bug real (28/08/2026, reportado por el usuario: "Períodos de
+        // precio — Categoría no se muestra") — devolvía el Resource
+        // "pelado", así que Laravel lo envolvía en el wrapper default de
+        // JsonResource ({"data": {...}}) en vez del wrapper explícito
+        // ('category' => ...) que usan store()/update() en este mismo
+        // controller. El único consumidor de este endpoint
+        // (CategoryPricePeriodController::index() en admin-eventos) leía
+        // los campos en la raíz de la respuesta — nunca encontraba nada
+        // (ni el nombre, ni el precio vigente, ni los períodos), sin
+        // importar si la categoría tenía períodos reales cargados o no.
+        return response()->json([
+            'success'  => true,
+            'category' => new CategoryResource($category),
+        ]);
     }
 
     /**
