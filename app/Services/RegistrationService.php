@@ -21,6 +21,7 @@ use App\Models\Answer;
 // ruta de código (CrearInscripcionAction), por eso nunca se notó. Hallado
 // al escribir tests para agregar talleres a una inscripción pagada.
 use App\Models\Evento;
+use App\Actions\PurgarDatosPersonaCanceladaAction;
 use App\Models\SesionCongreso;
 use App\Models\ParticipanteTallerSesion;
 use App\Support\DisponibilidadItemData;
@@ -106,6 +107,11 @@ class RegistrationService
             // notificaciones:revertir-cupo) como una cancelación manual vía
             // este mismo endpoint — cualquier transición a cancelled avisa.
             $this->notificaciones->notificarReversionCupo($registration);
+            // Purgar datos de Persona/Participante (01/09/2026) — DESPUÉS
+            // del aviso de arriba, que todavía necesita el correo del
+            // participante. Ver PurgarDatosPersonaCanceladaAction — solo
+            // borra algo si eventos.mantener_datos_persona está apagado.
+            app(PurgarDatosPersonaCanceladaAction::class)->handle($registration);
         }
 
         return $this->loadRelations(

@@ -77,6 +77,11 @@ class Evento extends Model
         // `categories.price_usd` directo, sin tipo_cambio.php. Default
         // false: no cambia nada de lo que ya existe.
         'usd_precio_fijo',
+        // Purgar datos de Persona/Participante en inscripciones canceladas
+        // (01/09/2026) — ver PLAN-PURGAR-DATOS-PERSONA-CANCELADA-01092026.md.
+        // Default true: comportamiento actual (nunca se borra nada) sin
+        // cambios para los eventos existentes.
+        'mantener_datos_persona',
         'publicado',
         'destacado',
         'es_historico', // ETL de datos históricos 2014-hoy, ver elascenso/event/brain/
@@ -101,6 +106,7 @@ protected $casts = [
     'fee_incluye_talleres' => 'boolean',
     'acepta_usd'        => 'boolean',
     'usd_precio_fijo'   => 'boolean',
+    'mantener_datos_persona' => 'boolean',
     'secciones_orden'   => 'array',
 ];
     /**

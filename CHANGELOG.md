@@ -2,6 +2,49 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/).
 
+## 2026-09-01 — Purgar datos de Persona/Participante en inscripciones canceladas
+
+Pedido del usuario: "necesitamos que cada vez que un participante se registra y su pago está
+pendiente o cancelado sea liberado de participante y de la tabla persona... esta decisión puede
+ser obtenida de un flag en evento". Diseñado en plan mode antes de implementar — ver
+`PLAN-PURGAR-DATOS-PERSONA-CANCELADA-01092026.md`. 3 decisiones tomadas con el usuario: (1) el
+borrado dispara SOLO al pasar a `cancelled`, nunca sobre un `pending` en curso (podría estar
+pagando en ese instante); (2) `Persona` es una cuenta GLOBAL (sin FK a evento/registro,
+compartida entre todas las inscripciones que esa persona hizo en cualquier evento) — antes de
+borrarla se chequea que no tenga otra inscripción `paid`/`pending` vigente en NINGÚN evento; (3)
+no retroactivo, solo aplica hacia adelante desde que se activa el flag.
+
+### Added
+- `eventos.mantener_datos_persona` (boolean, default `true` — comportamiento actual intacto
+  para los eventos existentes hasta que un organizador lo apague).
+- `PurgarDatosPersonaCanceladaAction` — se dispara desde
+  `RegistrationService::updatePaymentStatus()` al pasar a `cancelled` (cubre tanto el cron de
+  expiración como una cancelación manual), después de `notificarReversionCupo()` (el email
+  todavía necesita el correo del participante). Borra el `Participante` (las 4 tablas hijas y la
+  pivot de staff/ponente ya tenían `cascadeOnDelete()` a nivel de BD — confirmado en sus
+  migraciones, no hizo falta borrarlas a mano) y, si esa identidad
+  (`numero_documento`/`correo`) no tiene ninguna otra inscripción vigente en ningún evento,
+  también la cuenta `Persona`. Salta participantes con un `Resultado` real cargado (ej.
+  ChronoTrack) — no se borra un dato de carrera legítimo.
+- Checkbox "Mantener datos de persona" en `admin-eventos/eventos/edit.blade.php` (nace tildado
+  — a diferencia del resto de los flags de esa página, que nacen destildados). Sin checkbox en
+  `create.blade.php` a propósito (mismo criterio que `aceptaUsd`/`talleresConCosto`): un evento
+  nuevo usa el default `true` de la columna sin que el panel lo pise.
+
+### Verified
+- 5 tests nuevos (`PurgarDatosPersonaCanceladaTest`): flag apagado sin otra inscripción vigente
+  → borra participante y persona; flag apagado con otra inscripción vigente en otro evento →
+  borra participante, conserva persona; flag encendido (default) → no borra nada; transición a
+  `paid` → nunca dispara el purge; participante con resultado cargado → no se toca.
+- Verificado en vivo contra `event_uat_testing`: `PUT /event/{id}` con `mantenerDatosPersona:
+  false` persiste correctamente (encontré y arreglé de paso que faltaba mapear la clave
+  camelCase→snake_case en `EventoService::update()` y la regla de validación en
+  `UpdateEventosRequest` — sin esto, el campo se hubiera descartado en silencio, mismo tipo de
+  bug ya encontrado varias veces esta sesión con otros campos). Render del checkbox nuevo
+  confirmado vía `admin-eventos` real (tildado por default en un evento sin tocar).
+- Suite completa de ApiRestEvent: 469 passed, 6 failed (flake preexistente de `tipos_evento`, no
+  relacionado).
+
 ## 2026-08-31 — Cupo de talleres secuestrado por inscripciones canceladas
 
 Pedido del usuario: "revisa los cupos de talleres, en elascenso/event y admin-eventos el número
@@ -106,6 +149,30 @@ ramas `pasarela === 'sip'` nuevas.
   el segmento de la ruta — un mismatch (`{event}` vs `$evento`) hacía que Laravel inyectara un
   `Evento` en blanco en silencio (sin 404), rompiendo la resolución de banco para todos los
   organizadores sin que varios tests lo notaran (esperaban `null` por otro motivo).
+
+## 2026-08-28 — Deshabilitar un taller sin ocultarlo
+
+Pedido del usuario, diseñado en plan mode antes de implementar. Ver
+`brain/api_rest_event/PLAN-TALLER-PERMITE-INSCRIPCION-28082026.md`. `talleres.activo=false` ya
+ocultaba el taller por completo del participante; se agrega un estado distinto — visible en la
+lista, pero no seleccionable — reutilizando el mismo patrón visual que "cupo lleno".
+
+### Added
+- `talleres.permite_inscripcion` (boolean, default `true`, aditivo — `activo` sin cambios).
+- `TallerResource` expone `permiteInscripcion`; `ValidarSeleccionesTallerAction` rechaza la
+  selección de un taller deshabilitado y lo excluye del chequeo de REQUIRED obligatorios.
+
+### Fixed (solo para el campo nuevo, no se tocó "Activo")
+- Un checkbox HTML sin marcar no manda nada en el POST — `admin-eventos` agrega un `<input
+  type="hidden" value="0">` antes del checkbox `permite_inscripcion` para que destildarlo sí
+  guarde `false`. El mismo bug ya existía en el checkbox "Activo" desde antes; documentado, no
+  corregido, a la espera de que el usuario decida si quiere tocarlo.
+
+### Verified
+- 4 tests nuevos en `TallerSeleccionInscripcionTest.php` — 11/11 en verde en aislamiento. La
+  suite completa mostró 4 fallas, todas la misma falla preexistente y no relacionada
+  (`tipos_evento`, overflow de AUTO_INCREMENT) — confirmado que no es una regresión.
+- Verificado en vivo contra el servidor local real (GET/POST reales, no solo tests).
 
 ## 2026-08-28 — Admin de evento asignado a varios eventos
 

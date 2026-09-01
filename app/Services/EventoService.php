@@ -54,6 +54,10 @@ class EventoService
             'feeIncluyeTalleres' => 'fee_incluye_talleres',
             // Precio USD fijo (19/08/2026) — ver brain/PLAN-PRECIO-USD-FIJO-19082026.md.
             'usdPrecioFijo'    => 'usd_precio_fijo',
+            // Purgar datos de Persona/Participante en inscripciones
+            // canceladas (01/09/2026) — ver
+            // PurgarDatosPersonaCanceladaAction.
+            'mantenerDatosPersona' => 'mantener_datos_persona',
             // Orden de secciones en #screen-form-types (25/08/2026) — ver
             // admin-eventos/EventoController::update() y elascenso/event/index.php.
             'seccionesOrden'   => 'secciones_orden',
