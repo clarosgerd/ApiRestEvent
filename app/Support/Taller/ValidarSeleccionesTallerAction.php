@@ -110,6 +110,18 @@ class ValidarSeleccionesTallerAction
                 );
             }
 
+            // Deshabilitar un taller sin ocultarlo (28/08/2026) — ver
+            // PLAN-TALLER-PERMITE-INSCRIPCION-28082026.md. Distinto de
+            // `activo`: el taller sigue visible en elascenso/event, pero
+            // no se puede seleccionar. `activo=false` ya lo bloquea arriba
+            // (y además lo oculta) — este chequeo cubre el caso nuevo
+            // (`activo=true`, `permite_inscripcion=false`).
+            if (! $taller->permite_inscripcion) {
+                throw new \DomainException(
+                    "El taller '{$taller->nombre}' no está disponible para inscripción en este momento."
+                );
+            }
+
             $sesiones[] = [
                 'sesion'  => $sesion,
                 'taller'  => $taller,
@@ -200,6 +212,22 @@ class ValidarSeleccionesTallerAction
                 });
             }
 
+            // Cupo secuestrado por inscripciones canceladas (31/08/2026,
+            // bug real reportado por el usuario: "los cupos muestran
+            // distinta información" entre elascenso/event y admin-eventos)
+            // — antes esto contaba CUALQUIER fila, incluidas inscripciones
+            // `pending` que expiraron y se cancelaron solas
+            // (ExpirarInscripcionesPendientesAction nunca borra estas
+            // filas, solo cambia `registrations.pago_status`), así que un
+            // pago QR nunca completado dejaba el cupo de la sesión
+            // ocupado para siempre. Mismo criterio que ya usa
+            // FormType::inscritosVigentes() para el cupo general del
+            // evento — `pending` sí reserva lugar (alguien pagando en
+            // este momento), `cancelled`/`failed` no.
+            $query->whereHas('participante.registration', function ($q) {
+                $q->whereNotIn('pago_status', ['cancelled', 'failed']);
+            });
+
             $ocupados = $query->count();
 
             if ($ocupados >= $sesion->cupo) {
@@ -221,8 +249,12 @@ class ValidarSeleccionesTallerAction
             return;
         }
 
+        // permite_inscripcion=false (28/08/2026) excluido acá también —
+        // no tiene sentido exigir la selección de un taller que nadie
+        // puede seleccionar. Ver PLAN-TALLER-PERMITE-INSCRIPCION-28082026.md.
         $requeridos = Taller::where('evento_id', $evento->id)
             ->where('activo', true)
+            ->where('permite_inscripcion', true)
             ->where('modalidad', 'REQUIRED')
             ->get();
 

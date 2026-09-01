@@ -347,4 +347,98 @@ class TallerSeleccionInscripcionTest extends TestCase
         $this->expectExceptionMessageMatches('/ya no tiene cupos/');
         ValidarSeleccionesTallerAction::runCapacidad($this->makeRegistrationDTO($p));
     }
+
+    /**
+     * Cupo secuestrado por inscripciones canceladas (31/08/2026, bug real
+     * reportado por el usuario: "los cupos muestran distinta información"
+     * entre elascenso/event y admin-eventos) — un pago QR que nunca se
+     * completó y terminó `cancelled` (ExpirarInscripcionesPendientesAction
+     * nunca borra la fila de participante_taller_sesion, solo cambia
+     * `registrations.pago_status`) NO debe seguir ocupando el cupo. Mismo
+     * escenario que test_cupo_lleno_rechaza_nueva_seleccion pero con las
+     * inscripciones que llenan el cupo en `cancelled` en vez de `pending`.
+     */
+    public function test_cupo_liberado_por_inscripcion_cancelada_permite_nueva_seleccion(): void
+    {
+        for ($i = 0; $i < $this->sesionEticaManana->cupo; $i++) {
+            $reg = Registration::factory()->create([
+                'evento_id' => $this->evento->id,
+                'form_types_id' => $this->formType->id,
+                'referencia' => 'LA-CANCEL-'.$i,
+                'evento_nombre' => $this->evento->nombre,
+                'tipo_pago' => 'QR',
+                'pago_status' => 'cancelled',
+            ]);
+            $part = Participante::create([
+                'registration_id' => $reg->id,
+                'nombre' => 'P'.$i, 'apellido' => 'X', 'genero' => 'Masculino',
+                'tipo_documento' => 'DNI', 'numero_documento' => (string) (20000000 + $i),
+                'fecha_nacimiento' => '1990-01-01', 'edad' => 30,
+                'correo' => 'pcancel'.$i.'@test.net',
+                'direccion' => 'x', 'ciudad' => 'x', 'telefono' => '1',
+                'categoria' => (string) $this->categoria->id,
+                'subtotal' => 100,
+            ]);
+            ParticipanteTallerSesion::create([
+                'participante_id'    => $part->id,
+                'sesion_congreso_id' => $this->sesionEticaManana->id,
+                'taller_id'          => $this->tallerEtica->id,
+                'unit_price'         => 50,
+                'total'              => 50,
+            ]);
+        }
+
+        $p = $this->makeParticipantDTO([
+            ['taller_id' => $this->tallerEtica->id, 'sesion_id' => $this->sesionEticaManana->id],
+        ]);
+
+        // No debe lanzar — el cupo está "lleno" solo de inscripciones
+        // canceladas, así que sigue disponible entero.
+        ValidarSeleccionesTallerAction::runCapacidad($this->makeRegistrationDTO($p));
+        $this->assertTrue(true);
+    }
+
+    /**
+     * Cupo secuestrado por inscripciones canceladas (31/08/2026) — lo que
+     * ve el participante en GET /event (TallerSesionResource) tampoco
+     * debe contar selecciones de inscripciones `cancelled`, mismo criterio
+     * que el resto del fix (ValidarSeleccionesTallerAction, reporte de
+     * admin-eventos).
+     */
+    public function test_disponibles_en_get_event_no_cuenta_inscripciones_canceladas(): void
+    {
+        $reg = Registration::factory()->create([
+            'evento_id' => $this->evento->id,
+            'form_types_id' => $this->formType->id,
+            'referencia' => 'LA-CANCEL-DISPONIBLES',
+            'evento_nombre' => $this->evento->nombre,
+            'tipo_pago' => 'QR',
+            'pago_status' => 'cancelled',
+        ]);
+        $part = Participante::create([
+            'registration_id' => $reg->id,
+            'nombre' => 'Cancelado', 'apellido' => 'X', 'genero' => 'Masculino',
+            'tipo_documento' => 'DNI', 'numero_documento' => '30000001',
+            'fecha_nacimiento' => '1990-01-01', 'edad' => 30,
+            'correo' => 'cancelado@test.net',
+            'direccion' => 'x', 'ciudad' => 'x', 'telefono' => '1',
+            'categoria' => (string) $this->categoria->id,
+            'subtotal' => 100,
+        ]);
+        ParticipanteTallerSesion::create([
+            'participante_id'    => $part->id,
+            'sesion_congreso_id' => $this->sesionEticaManana->id,
+            'taller_id'          => $this->tallerEtica->id,
+            'unit_price'         => 50,
+            'total'              => 50,
+        ]);
+
+        $response = $this->getJson("/api/v1/event/{$this->evento->id}")->assertOk();
+        $talleres = collect($response->json('eventos.talleres'));
+        $tallerEtica = $talleres->firstWhere('id', $this->tallerEtica->id);
+        $sesion = collect($tallerEtica['sesiones'])->firstWhere('id', $this->sesionEticaManana->id);
+
+        $this->assertSame(0, $sesion['ocupados'], 'la sesión cancelada no debería contar como ocupada.');
+        $this->assertSame($this->sesionEticaManana->cupo, $sesion['disponibles']);
+    }
 }

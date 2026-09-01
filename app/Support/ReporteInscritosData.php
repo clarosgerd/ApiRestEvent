@@ -55,11 +55,26 @@ class ReporteInscritosData
             ->with(['registration', 'talleresSesiones.taller', 'talleresSesiones.sesionCongreso'])
             ->get();
 
-        $porTaller = self::agruparPorTaller($participantesPagados);
+        // Cupo de talleres (31/08/2026) — universo aparte, VIGENTES (paid +
+        // pending, no cancelled/failed), solo para que `disponible` en
+        // agruparPorTaller() refleje el cupo real (un pago QR en curso
+        // también reserva lugar). El resto del reporte (modalidad,
+        // categoría, poleras, recaudación, detalle CSV) sigue usando
+        // exclusivamente $participantesPagados — ver docblock de la clase.
+        $participantesVigentesParaTalleres = Participante::whereHas(
+            'registration',
+            fn ($q) => $q->where('evento_id', $evento->id)->whereNotIn('pago_status', ['cancelled', 'failed'])
+        )
+            ->with(['registration', 'talleresSesiones.taller', 'talleresSesiones.sesionCongreso'])
+            ->get();
+
+        $porTaller = self::agruparPorTaller($participantesVigentesParaTalleres);
         // Detalle sin agrupar (20/08/2026) — pedido del usuario para poder
         // descargarlo en CSV: fila por cada selección de taller (participante
         // × sesión), ordenado por fecha/hora — a diferencia de `filas` de
-        // arriba (agrupado por sesión, con conteo/recaudación).
+        // arriba (agrupado por sesión, con conteo/recaudación). Sigue
+        // "solo pagados" (ver docblock de detalleTalleres()) — no confundir
+        // con $participantesVigentesParaTalleres de arriba.
         $porTaller['detalle'] = self::detalleTalleres($participantesPagados);
 
         return [
@@ -137,11 +152,28 @@ class ReporteInscritosData
      * acá es a propósito solo lo efectivamente cobrado, mismo criterio de
      * "recaudación" que el resto de este reporte.
      */
+    /**
+     * @param Collection $participantes Inscripciones VIGENTES (paid + pending,
+     *   no cancelled/failed — mismo criterio que FormType::inscritosVigentes()),
+     *   NO solo pagadas. `cantidad`/`recaudacion` siguen contando solo lo
+     *   `paid` (dinero efectivamente cobrado, ver docblock de la clase);
+     *   `disponible` cuenta TODO lo vigente, porque un pago en curso
+     *   (`pending`) también reserva el cupo real — ver
+     *   ValidarSeleccionesTallerAction::runCapacidad, que aplica el mismo
+     *   criterio del lado de la validación. Antes esto recibía
+     *   $participantesPagados y `disponible` = cupo - cantidad (solo
+     *   pagados), lo que mostraba MÁS cupo disponible del que en realidad
+     *   había apenas alguien tenía un pago QR en curso — bug real
+     *   reportado por el usuario (31/08/2026): "los cupos muestran
+     *   distinta información" entre elascenso/event y admin-eventos.
+     */
     private static function agruparPorTaller(Collection $participantes): array
     {
         $grupos = [];
 
         foreach ($participantes as $p) {
+            $pagado = $p->registration?->pago_status === 'paid';
+
             foreach ($p->talleresSesiones as $pts) {
                 $sesion = $pts->sesionCongreso;
                 $taller = $pts->taller;
@@ -166,7 +198,23 @@ class ReporteInscritosData
                     // ParticipanteTallerSesion::pago_pendiente.
                     'cantidadPendiente'    => 0,
                     'recaudacionPendiente' => 0.0,
+                    // ocupadosVigentes (31/08/2026) — paid + pending, solo
+                    // para calcular `disponible` más abajo; no se expone
+                    // tal cual (ver unset() después del loop).
+                    'ocupadosVigentes' => 0,
                 ];
+
+                $grupos[$id]['ocupadosVigentes']++;
+
+                // `cantidad`/`recaudacion` (y su desglose `Pendiente`, que es
+                // sobre un DETALLE de facturación distinto — ver
+                // ParticipanteTallerSesion::pago_pendiente) siguen siendo
+                // exclusivamente sobre inscripciones ya `paid`, sin cambios
+                // de comportamiento respecto a antes de este fix.
+                if (!$pagado) {
+                    continue;
+                }
+
                 $grupos[$id]['cantidad']++;
                 $grupos[$id]['recaudacion'] += (float) $pts->total;
                 if ($pts->pago_pendiente) {
@@ -180,7 +228,8 @@ class ReporteInscritosData
             $grupo['recaudacion'] = round($grupo['recaudacion'], 2);
             $grupo['recaudacionPendiente'] = round($grupo['recaudacionPendiente'], 2);
             $grupo['recaudacionCobrada']   = round($grupo['recaudacion'] - $grupo['recaudacionPendiente'], 2);
-            $grupo['disponible']  = $grupo['cupo'] !== null ? max(0, $grupo['cupo'] - $grupo['cantidad']) : null;
+            $grupo['disponible']  = $grupo['cupo'] !== null ? max(0, $grupo['cupo'] - $grupo['ocupadosVigentes']) : null;
+            unset($grupo['ocupadosVigentes']);
         }
         unset($grupo);
 

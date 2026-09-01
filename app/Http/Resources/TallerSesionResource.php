@@ -16,7 +16,15 @@ class TallerSesionResource extends JsonResource
 {
     public function toArray(Request $request): array
     {
-        $ocupados = $this->participanteSesiones()->count();
+        // Cupo secuestrado por inscripciones canceladas (31/08/2026) — ver
+        // el mismo fix en ValidarSeleccionesTallerAction::runCapacidad.
+        // Sin este filtro, una inscripción `pending` que expiró y se
+        // canceló sola seguía "ocupando" el cupo acá para siempre.
+        $ocupados = $this->participanteSesiones()
+            ->whereHas('participante.registration', function ($q) {
+                $q->whereNotIn('pago_status', ['cancelled', 'failed']);
+            })
+            ->count();
 
         return [
             'id'         => $this->id,
