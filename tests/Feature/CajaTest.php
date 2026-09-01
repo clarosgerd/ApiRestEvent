@@ -272,11 +272,14 @@ class CajaTest extends TestCase
     }
 
     /**
-     * Caja para eventos tipo congreso (20/08/2026) — sin el flag prendido
-     * en el form_type (default true), el contacto de emergencia sigue
-     * siendo obligatorio en Caja igual que antes de este feature.
+     * Contacto de emergencia relajado del todo (31/08/2026) — antes, con
+     * el flag prendido en el form_type (default true), esto se rechazaba
+     * con 422. Ahora nunca es obligatorio a nivel de validación, sin
+     * importar `requiere_contacto_emergencia` (ese flag sigue existiendo,
+     * pero solo controla si el frontend MUESTRA la sección — ver
+     * PLAN-GENERO-CATALOGO-CAMPOS-OPCIONALES-31082026.md).
      */
-    public function test_caja_rechaza_inscripcion_nueva_sin_contacto_emergencia_por_default(): void
+    public function test_caja_acepta_inscripcion_nueva_sin_contacto_emergencia_por_default(): void
     {
         $this->actingAsCajero();
         $this->postJson("/api/v1/event/{$this->evento->id}/caja/turno/abrir", ['fondo_inicial' => 100]);
@@ -288,7 +291,7 @@ class CajaTest extends TestCase
             'form_types_id' => $this->formType->id,
             'participante'  => $data,
             'totales'       => $this->totalesData(),
-        ])->assertUnprocessable();
+        ])->assertStatus(201)->assertJson(['success' => true]);
     }
 
     /**

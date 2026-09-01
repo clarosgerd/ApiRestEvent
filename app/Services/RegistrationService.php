@@ -172,8 +172,9 @@ class RegistrationService
         ]);
 
         // Caja para eventos tipo congreso (20/08/2026) — puede llegar
-        // vacío si form_types.requiere_contacto_emergencia es false, ver
-        // ValidaContactoEmergenciaCondicional.
+        // vacío; el contacto de emergencia dejó de ser obligatorio
+        // incondicionalmente (31/08/2026), ver
+        // PLAN-GENERO-CATALOGO-CAMPOS-OPCIONALES-31082026.md.
         $emergency = $data['contacto_emergencia'] ?? [];
         ContactoEmergenciaParticipante::create([
             'participante_id' => $participant->id,

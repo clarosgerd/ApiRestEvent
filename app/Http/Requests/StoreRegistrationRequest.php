@@ -2,14 +2,13 @@
 
 namespace App\Http\Requests;
 
-use App\Http\Requests\Concerns\ValidaContactoEmergenciaCondicional;
+use App\Models\Genero;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StoreRegistrationRequest extends FormRequest
 {
-    use ValidaContactoEmergenciaCondicional;
-
     /**
      * Determine if the user is authorized to make this request.
      */
@@ -49,8 +48,14 @@ class StoreRegistrationRequest extends FormRequest
             '*.tipo_cambio_aplicado' => ['nullable', 'numeric'],
             '*.total_pagado' => ['nullable', 'numeric'],
             '*.totales' => ['required','array'],
-            // Caja para eventos tipo congreso (20/08/2026) — obligatoriedad
-            // condicional por form_type, ver withValidator() más abajo.
+            // Contacto de emergencia (20/08/2026, relajado 31/08/2026) —
+            // ya nunca es obligatorio a nivel de validación, sin importar
+            // `form_types.requiere_contacto_emergencia` (ese flag sigue
+            // controlando solo si el frontend MUESTRA la sección, ver
+            // PLAN-GENERO-CATALOGO-CAMPOS-OPCIONALES-31082026.md).
+            // RegistrationService::createParticipantFromData() ya crea la
+            // fila de contacto_emergencia_participantes con fallback `?? ''`
+            // en los 3 campos, así que no hace falta migración de BD.
             '*.participantes.*.contacto_emergencia' => ['nullable','array'],
             '*.participantes.*.contacto_emergencia.*' => ['nullable','string'],
             '*.participantes.*.souvenirs' => ['nullable','array'],
@@ -84,7 +89,13 @@ class StoreRegistrationRequest extends FormRequest
             // (UpdateRegistrationRequest/UpdatePaidRegistrationRequest) y Caja
             // (StoreInscripcionCajaRequest) sí declaraban esta regla — el bug
             // era exclusivo del alta nueva pública.
-            '*.participantes.*.genero' => ['required','string'],
+            // Género por catálogo (31/08/2026) — Rule::in contra los
+            // géneros activos evita el 500 crudo de SQL que se producía
+            // antes si llegaba un valor fuera del ENUM de
+            // participantes.genero (bug real: el frontend ofrecía
+            // "Non-binary"/"Prefer not to say", que rompían el INSERT). Ver
+            // PLAN-GENERO-CATALOGO-CAMPOS-OPCIONALES-31082026.md.
+            '*.participantes.*.genero' => ['required','string', Rule::in(Genero::where('activo', true)->pluck('nombre'))],
             '*.participantes.*.correo' => ['required','email'],
             '*.participantes.*.numeroDocumento' => ['required'],
             '*.participantes.*.categoria' => ['required'],
@@ -101,9 +112,16 @@ class StoreRegistrationRequest extends FormRequest
           '*.participantes.*.promoCodigo' => ['nullable'],
            '*.participantes.*.polera' => ['required'],
            '*.participantes.*.precioPolera' => ['required'],
-           '*.participantes.*.direccion' => ['required'],
-           '*.participantes.*.ciudad' => ['required'],
-           '*.participantes.*.telefono' => ['required'],
+           // Dirección/Ciudad/Teléfono pasaron a opcionales (31/08/2026) —
+           // no hacen a la identidad de la persona, a diferencia de
+           // nombre/documento/email/fecha de nacimiento. Ver
+           // PLAN-GENERO-CATALOGO-CAMPOS-OPCIONALES-31082026.md.
+           // RegistrationService::createParticipantFromData() ya inserta
+           // estos 3 campos con fallback `?? ''`, así que no hace falta
+           // ninguna migración de BD para esto.
+           '*.participantes.*.direccion' => ['nullable'],
+           '*.participantes.*.ciudad' => ['nullable'],
+           '*.participantes.*.telefono' => ['nullable'],
            '*.participantes.*.donacion' => ['required'],
            '*.participantes.*.subtotal' => ['required'],
          
@@ -118,31 +136,5 @@ class StoreRegistrationRequest extends FormRequest
             '*.participantes.*.correo.email' => 'Correo inválido.'
 
         ];
-    }
-
-    /**
-     * Caja para eventos tipo congreso (20/08/2026) — contacto de
-     * emergencia obligatorio solo si `form_types.requiere_contacto_emergencia`
-     * lo pide (default true). No se puede expresar como regla declarativa
-     * porque depende de una consulta a `form_types` por cada registro del
-     * array raíz (payload es `[{form_types_id, participantes: [...]}]`).
-     */
-    public function withValidator($validator): void
-    {
-        $validator->after(function ($validator) {
-            foreach ($this->all() as $i => $registro) {
-                if (!is_array($registro) || !$this->formTypeRequiereContactoEmergencia($registro['form_types_id'] ?? null)) {
-                    continue;
-                }
-                foreach ($registro['participantes'] ?? [] as $j => $participante) {
-                    foreach ($this->camposContactoEmergenciaFaltantes($participante['contacto_emergencia'] ?? []) as $campo) {
-                        $validator->errors()->add(
-                            "{$i}.participantes.{$j}.contacto_emergencia.{$campo}",
-                            'El contacto de emergencia es obligatorio para este tipo de inscripción.'
-                        );
-                    }
-                }
-            }
-        });
     }
 }

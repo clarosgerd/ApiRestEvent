@@ -2,14 +2,12 @@
 
 namespace App\Http\Requests;
 
-use App\Http\Requests\Concerns\ValidaContactoEmergenciaCondicional;
-use App\Models\Registration;
+use App\Models\Genero;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class UpdatePaidRegistrationRequest extends FormRequest
 {
-    use ValidaContactoEmergenciaCondicional;
-
     public function authorize(): bool
     {
         return true;
@@ -24,7 +22,8 @@ class UpdatePaidRegistrationRequest extends FormRequest
             'participantes.*.nombre'                     => ['required', 'string'],
             'participantes.*.apellido'                   => ['required', 'string'],
             'participantes.*.alias'                      => ['nullable', 'string'],
-            'participantes.*.genero'                     => ['nullable', 'string'],
+            // Género por catálogo (31/08/2026) — ver StoreRegistrationRequest.
+            'participantes.*.genero'                     => ['nullable', 'string', Rule::in(Genero::where('activo', true)->pluck('nombre'))],
             'participantes.*.tipoDocumento'              => ['nullable', 'string'],
             'participantes.*.numeroDocumento'            => ['required', 'string'],
             'participantes.*.polera'                     => ['nullable', 'string'],
@@ -44,8 +43,8 @@ class UpdatePaidRegistrationRequest extends FormRequest
             'participantes.*.promoDescuento'             => ['nullable', 'numeric'],
             'participantes.*.promoCodigo'                => ['nullable', 'string'],
             'participantes.*.subtotal'                   => ['required', 'numeric'],
-            // Caja para eventos tipo congreso (20/08/2026) — obligatoriedad
-            // condicional por form_type, ver withValidator() más abajo.
+            // Contacto de emergencia — ya nunca obligatorio (31/08/2026),
+            // ver StoreRegistrationRequest.
             'participantes.*.contacto_emergencia'        => ['nullable', 'array'],
             'participantes.*.contacto_emergencia.*'      => ['nullable', 'string'],
             'participantes.*.souvenirs'                  => ['nullable', 'array'],
@@ -81,27 +80,5 @@ class UpdatePaidRegistrationRequest extends FormRequest
             'participantes.*.correo.email'    => 'Correo inválido.',
             'totales.required'                => 'Los totales son obligatorios.',
         ];
-    }
-
-    /**
-     * Caja para eventos tipo congreso (20/08/2026) — mismo criterio que
-     * UpdateRegistrationRequest::withValidator().
-     */
-    public function withValidator($validator): void
-    {
-        $validator->after(function ($validator) {
-            $registration = Registration::where('referencia', $this->route('reference'))->first();
-            if (!$this->formTypeRequiereContactoEmergencia($registration?->form_types_id)) {
-                return;
-            }
-            foreach ($this->input('participantes', []) as $j => $participante) {
-                foreach ($this->camposContactoEmergenciaFaltantes($participante['contacto_emergencia'] ?? []) as $campo) {
-                    $validator->errors()->add(
-                        "participantes.{$j}.contacto_emergencia.{$campo}",
-                        'El contacto de emergencia es obligatorio para este tipo de inscripción.'
-                    );
-                }
-            }
-        });
     }
 }

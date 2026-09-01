@@ -2,6 +2,50 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/).
 
+## 2026-08-31 — Género por catálogo + campos menos obligatorios
+
+Dos pedidos del usuario juntos por compartir repos y sesión (independientes entre sí). Ver
+`PLAN-GENERO-CATALOGO-CAMPOS-OPCIONALES-31082026.md`.
+
+### Género por catálogo
+El `<select>` de género en elascenso/event estaba hardcodeado con 4 opciones
+(Masculino/Femenino/Non-binary/Prefer not to say), pero `participantes.genero` es un ENUM que
+solo acepta `Masculino|Femenino|Otro` — las otras 2 opciones rompían el INSERT con un 500 crudo
+de SQL si alguien las elegía (bug real, preexistente).
+
+#### Added
+- Tabla nueva `generos` (NO es `sexos` — esa respalda `categories.sexo_id`, concepto distinto,
+  sin tocar). Seedeada con exactamente los 3 valores del ENUM actual (no se migra ese ENUM).
+- `GET /generos` público (mismo split público/admin que `TipoEventoController`) + CRUD admin
+  bajo `/catalogos/generos`, solo `super_admin`.
+- `Rule::in` contra los géneros activos en los 4 `FormRequest` que validan un participante — un
+  valor inválido ahora da 422 en vez del 500 crudo de antes. Test de regresión nuevo:
+  `RegistrationTest::test_create_registration_rejects_genero_fuera_del_catalogo`.
+- Pantalla nueva en admin-eventos (`/catalogos/generos`) para gestionar el catálogo.
+
+### Campos menos obligatorios
+Pasan a opcionales: **Dirección, Ciudad, Teléfono, Alias/Título y Contacto de emergencia
+completo** (nombre/celular/relación) — no hacen a la identidad de la persona, a diferencia de
+nombre/documento/email/fecha de nacimiento/categoría, que siguen obligatorios.
+
+#### Changed
+- `StoreRegistrationRequest`: `direccion`/`ciudad`/`telefono` pasan de `required` a `nullable`.
+- Los 4 `FormRequest` (`Store/UpdateRegistrationRequest`, `UpdatePaidRegistrationRequest`,
+  `StoreInscripcionCajaRequest`) ya no exigen el contacto de emergencia bajo ninguna condición —
+  se eliminó el trait `ValidaContactoEmergenciaCondicional` (dead code tras el cambio). El flag
+  `form_types.requiere_contacto_emergencia` sigue existiendo y sigue controlando si la sección
+  se MUESTRA en el frontend, ya no si es obligatoria.
+- Sin migraciones de BD: `RegistrationService::createParticipantFromData()` ya insertaba estos
+  campos con fallback `?? ''`.
+
+#### Verified
+- 2 tests existentes actualizados para reflejar el nuevo comportamiento (antes esperaban 422,
+  ahora esperan 201): `CajaTest::test_caja_acepta_inscripcion_nueva_sin_contacto_emergencia_por_default`,
+  `RegistrationTest::test_create_registration_allows_missing_emergency_contact`.
+- Suite completa: 464 passed, 4 failed (flake preexistente de `tipos_evento`, no relacionado).
+- Verificado en vivo: `_registro_validacion.php` (elascenso/event) con un participante real sin
+  alias/dirección/ciudad/teléfono/contacto de emergencia — sin error.
+
 ## 2026-08-31 — SIP multi-banco
 
 Pedido del usuario: "hacemos el pago por SIP con un solo banco (Bisa) pero ahora incluiremos
