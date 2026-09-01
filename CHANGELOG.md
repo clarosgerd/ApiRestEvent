@@ -2,6 +2,33 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/).
 
+## 2026-08-31 — Cupo de talleres secuestrado por inscripciones canceladas
+
+Pedido del usuario: "revisa los cupos de talleres, en elascenso/event y admin-eventos el número
+de cupos por taller muestra distinta información". Causa real: dos definiciones distintas de
+"ocupado", ninguna correcta. `TallerSesionResource`/`ValidarSeleccionesTallerAction` contaban
+CUALQUIER fila de `participante_taller_sesion` (incluidas inscripciones `cancelled`/`failed`);
+`ReporteInscritosData` (admin-eventos) contaba solo `paid`, ignorando `pending`. Ninguna usaba
+el criterio ya establecido en `FormType::inscritosVigentes()` (paid+pending, no cancelled/failed).
+
+### Fixed
+- `ValidarSeleccionesTallerAction::runCapacidad()` — el chequeo real que bloquea nuevas
+  selecciones ahora excluye `cancelled`/`failed`. Antes, una inscripción `pending` que expiraba
+  sola (`ExpirarInscripcionesPendientesAction` nunca borra `participante_taller_sesion`, solo
+  cambia `pago_status`) dejaba el cupo de esa sesión "secuestrado" para siempre.
+- `TallerSesionResource::ocupados/disponibles` — mismo filtro, para que el participante vea el
+  cupo real en `GET /event/{id}`.
+- `ReporteInscritosData::agruparPorTaller()` — `disponible` ahora cuenta paid+pending (vigentes);
+  `cantidad`/`recaudación` siguen siendo exclusivamente `paid` (dinero cobrado, sin cambios en
+  ese criterio, documentado en la clase).
+
+### Verified
+- 2 tests nuevos (`TallerSeleccionInscripcionTest`, `ValidarSeleccionesTallerAction` y
+  `GET /event/{id}`) + 1 test existente actualizado (`ReporteInscritosTest`, esperaba
+  `disponible=18` con un pendiente sin contar, ahora `17`). Suite completa: 464 passed / 6 failed
+  (flake preexistente de `tipos_evento`, no relacionado — 2 más que antes solo porque los 2 tests
+  nuevos viven en la misma clase flaky, confirmados en verde en aislamiento).
+
 ## 2026-08-31 — Género por catálogo + campos menos obligatorios
 
 Dos pedidos del usuario juntos por compartir repos y sesión (independientes entre sí). Ver

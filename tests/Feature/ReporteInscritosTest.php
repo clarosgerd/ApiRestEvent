@@ -155,7 +155,10 @@ class ReporteInscritosTest extends TestCase
             'participante_id' => $p2->id, 'sesion_congreso_id' => $sesion->id, 'taller_id' => $taller->id,
             'unit_price' => 800, 'discount' => 0, 'total' => 800,
         ]);
-        // 1 pendiente con el taller — no debe contarse.
+        // 1 pendiente con el taller — no cuenta para cantidad/recaudación
+        // (solo dinero cobrado), pero SÍ ocupa cupo (31/08/2026, mismo
+        // criterio que FormType::inscritosVigentes(): un pago QR en curso
+        // también reserva lugar) — ver disponible más abajo.
         $p3 = $this->crearInscripcion($formType, $categoria, ['subtotal' => 900, 'pago_status' => 'pending']);
         ParticipanteTallerSesion::create([
             'participante_id' => $p3->id, 'sesion_congreso_id' => $sesion->id, 'taller_id' => $taller->id,
@@ -182,7 +185,8 @@ class ReporteInscritosTest extends TestCase
         $this->assertSame(2, $fila['cantidad']);
         $this->assertEquals(1600.0, $fila['recaudacion']);
         $this->assertSame(20, $fila['cupo']);
-        $this->assertSame(18, $fila['disponible']);
+        // 20 - 2 pagados - 1 pendiente = 17 (el pendiente sí ocupa cupo).
+        $this->assertSame(17, $fila['disponible']);
     }
 
     /**
