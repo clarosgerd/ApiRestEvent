@@ -31,6 +31,13 @@ class Taller extends Model
         'price_usd',
         'orden',
         'activo',
+        // permite_inscripcion (28/08/2026) — distinto de `activo`. `activo`
+        // controla si el taller se VE en elascenso/event; esto controla si
+        // se puede SELECCIONAR. Un taller `activo=true,
+        // permite_inscripcion=false` sigue en la lista, pero sus sesiones
+        // aparecen como no seleccionables (mismo tratamiento visual que
+        // "cupo lleno"). Ver PLAN-TALLER-PERMITE-INSCRIPCION-28082026.md.
+        'permite_inscripcion',
     ];
 
     protected $casts = [
@@ -39,6 +46,7 @@ class Taller extends Model
         'price_usd' => 'decimal:2',
         'orden' => 'integer',
         'activo' => 'boolean',
+        'permite_inscripcion' => 'boolean',
     ];
 
     public function evento(): BelongsTo
