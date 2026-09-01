@@ -85,6 +85,16 @@ Route::group(['prefix' => 'v1','namespace' => 'App\Http\Controllers'], function 
     // cuenta.
     Route::get('persona/me', [PersonaController::class, 'me'])->middleware('auth:sanctum');
 
+    // SIP multi-banco (28/08/2026) — server-to-server ÚNICAMENTE, nunca
+    // auth:admins/sanctum (esto no es para humanos). Solo el backend PHP
+    // de elascenso/event lo llama, con el secreto compartido
+    // INTERNAL_API_SECRET (ver RequiresInternalSecret). Ver
+    // brain/api_rest_event/PLAN-SIP-MULTIBANCO-28082026.md.
+    Route::middleware('internal.secret')->prefix('internal')->group(function () {
+        Route::get('/event/{event}/sip-banco', [\App\Http\Controllers\Internal\SipBancoInternalController::class, 'paraEvento']);
+        Route::get('/sip-bancos/callback-credenciales', [\App\Http\Controllers\Internal\SipBancoInternalController::class, 'callbackCredenciales']);
+    });
+
     // Escritura — panel de administración de eventos (ver
     // brain/PLAN-PANEL-ADMIN-EVENTOS-02082026.md), protegido con guard
     // `admins` (super_admin ve todo, admin scoped a un evento — el scoping
@@ -255,6 +265,11 @@ Route::group(['prefix' => 'v1','namespace' => 'App\Http\Controllers'], function 
         Route::get('/admin/me', [AdminAuthController::class, 'me']);
         Route::apiResource('/admin/users', AdminUserController::class)->except(['create', 'edit']);
         Route::get('/admin/audit-logs', [AdminAuditLogController::class, 'index']);
+
+        // SIP multi-banco (28/08/2026) — CRUD de bancos, solo super_admin
+        // (asertado dentro del controller, mismo criterio que
+        // AdminUserController). Ver PLAN-SIP-MULTIBANCO-28082026.md.
+        Route::apiResource('/sip-bancos', \App\Http\Controllers\SipBancoController::class)->except(['create', 'edit']);
 
         // Consolidación financiera (liquidación de utilidades) — solo
         // super_admin, ver LiquidarEventoAction y elascenso/event/brain/

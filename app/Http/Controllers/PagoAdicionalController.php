@@ -101,6 +101,10 @@ class PagoAdicionalController extends Controller
             // configurado o falla la consulta — sin esto no puede calcular
             // el tiempo transcurrido desde que se creó el intento.
             'created_at' => optional($pago->created_at)->format('Y-m-d H:i:s'),
+            // eventoId (28/08/2026, SIP multi-banco) — pago_status_adicional.php
+            // lo necesita para resolver con qué banco consultar el estado
+            // en SIP (resolve_sip_bank()). Ver PLAN-SIP-MULTIBANCO-28082026.md.
+            'eventoId' => $pago->registration->evento_id,
         ];
         if ($pago->pago_status === 'paid') {
             $data['data'] = new RegistrationCollectionResource($registrationService->loadRelations($pago->registration));

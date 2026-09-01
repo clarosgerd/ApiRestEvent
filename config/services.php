@@ -51,4 +51,14 @@ return [
         'user_pass' => env('CHRONOTRACK_USER_PASS'),
     ],
 
+    // SIP multi-banco (28/08/2026) — secreto compartido para los
+    // endpoints /internal/* que devuelven credenciales SIP reales
+    // (nunca pasan por auth:admins/sanctum, es tráfico server-to-server
+    // desde elascenso/event, no algo que un navegador deba poder llamar
+    // nunca). Ver Http/Middleware/RequiresInternalSecret y
+    // brain/api_rest_event/PLAN-SIP-MULTIBANCO-28082026.md.
+    'internal' => [
+        'secret' => env('INTERNAL_API_SECRET'),
+    ],
+
 ];
