@@ -301,6 +301,23 @@ class RegistrationTest extends TestCase
             ->assertUnprocessable();
     }
 
+    /**
+     * Género por catálogo (31/08/2026) — antes esta regla solo pedía
+     * 'string', así que un valor fuera del ENUM de participantes.genero
+     * (Masculino/Femenino/Otro) pasaba la validación de Laravel y recién
+     * explotaba con un 500 crudo de SQL al insertar. Ver
+     * PLAN-GENERO-CATALOGO-CAMPOS-OPCIONALES-31082026.md.
+     */
+    public function test_create_registration_rejects_genero_fuera_del_catalogo(): void
+    {
+        $payload = $this->validPayload();
+        $payload[0]['participantes'][0]['genero'] = 'Klingon';
+
+        $this->postJson('/api/v1/registrations', $payload)
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['0.participantes.0.genero']);
+    }
+
     public function test_create_registration_rejects_missing_reference(): void
     {
         $payload = $this->validPayload();
@@ -319,20 +336,28 @@ class RegistrationTest extends TestCase
             ->assertUnprocessable();
     }
 
-    public function test_create_registration_rejects_missing_emergency_contact(): void
+    /**
+     * Contacto de emergencia relajado del todo (31/08/2026) — antes se
+     * rechazaba con 422 cuando el form_type lo pedía (default true). Ahora
+     * nunca es obligatorio a nivel de validación, ver
+     * PLAN-GENERO-CATALOGO-CAMPOS-OPCIONALES-31082026.md.
+     */
+    public function test_create_registration_allows_missing_emergency_contact(): void
     {
         $payload = $this->validPayload();
         unset($payload[0]['participantes'][0]['contacto_emergencia']);
 
         $this->postJson('/api/v1/registrations', $payload)
-            ->assertUnprocessable();
+            ->assertCreated();
     }
 
     /**
      * Caja para eventos tipo congreso (20/08/2026) — con
      * `requiere_contacto_emergencia=false` en el form_type, la
-     * inscripción pública se acepta igual sin contacto de emergencia.
-     * Ver ValidaContactoEmergenciaCondicional.
+     * inscripción pública se acepta igual sin contacto de emergencia
+     * (mismo comportamiento que con el flag en true, ver el test de
+     * arriba — el flag ya no cambia nada a nivel de validación, solo
+     * controla si el frontend MUESTRA la sección).
      */
     public function test_create_registration_allows_missing_emergency_contact_when_form_type_opts_out(): void
     {

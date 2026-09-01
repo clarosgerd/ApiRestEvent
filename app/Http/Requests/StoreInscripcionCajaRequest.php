@@ -2,8 +2,9 @@
 
 namespace App\Http\Requests;
 
-use App\Http\Requests\Concerns\ValidaContactoEmergenciaCondicional;
+use App\Models\Genero;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 /**
  * Caja de cobro presencial (14/08/2026) — alta de un participante nuevo
@@ -13,8 +14,6 @@ use Illuminate\Foundation\Http\FormRequest;
  */
 class StoreInscripcionCajaRequest extends FormRequest
 {
-    use ValidaContactoEmergenciaCondicional;
-
     public function authorize(): bool
     {
         return true;
@@ -28,7 +27,8 @@ class StoreInscripcionCajaRequest extends FormRequest
             'participante.nombre'                    => ['required', 'string'],
             'participante.apellido'                  => ['required', 'string'],
             'participante.alias'                     => ['nullable', 'string'],
-            'participante.genero'                    => ['nullable', 'string'],
+            // Género por catálogo (31/08/2026) — ver StoreRegistrationRequest.
+            'participante.genero'                    => ['nullable', 'string', Rule::in(Genero::where('activo', true)->pluck('nombre'))],
             'participante.tipoDocumento'              => ['nullable', 'string'],
             'participante.numeroDocumento'            => ['required', 'string'],
             'participante.polera'                     => ['nullable', 'string'],
@@ -52,8 +52,8 @@ class StoreInscripcionCajaRequest extends FormRequest
             'participante.promoDescuento'             => ['nullable', 'numeric'],
             'participante.promoCodigo'                => ['nullable', 'string'],
             'participante.subtotal'                   => ['required', 'numeric'],
-            // Caja para eventos tipo congreso (20/08/2026) — obligatoriedad
-            // condicional por form_type, ver withValidator() más abajo.
+            // Contacto de emergencia — ya nunca obligatorio (31/08/2026),
+            // ver StoreRegistrationRequest.
             'participante.contacto_emergencia'        => ['nullable', 'array'],
             'participante.contacto_emergencia.nombre' => ['nullable', 'string'],
             'participante.contacto_emergencia.celular' => ['nullable', 'string'],
@@ -76,26 +76,6 @@ class StoreInscripcionCajaRequest extends FormRequest
             'totales.descuento_registrante'            => ['nullable', 'numeric'],
             'totales.grand_total'                     => ['required', 'numeric'],
         ];
-    }
-
-    /**
-     * Caja para eventos tipo congreso (20/08/2026) — ver
-     * ValidaContactoEmergenciaCondicional.
-     */
-    public function withValidator($validator): void
-    {
-        $validator->after(function ($validator) {
-            if (!$this->formTypeRequiereContactoEmergencia($this->input('form_types_id'))) {
-                return;
-            }
-            $contacto = (array) $this->input('participante.contacto_emergencia', []);
-            foreach ($this->camposContactoEmergenciaFaltantes($contacto) as $campo) {
-                $validator->errors()->add(
-                    "participante.contacto_emergencia.{$campo}",
-                    'El contacto de emergencia es obligatorio para este tipo de inscripción.'
-                );
-            }
-        });
     }
 
     public function messages(): array

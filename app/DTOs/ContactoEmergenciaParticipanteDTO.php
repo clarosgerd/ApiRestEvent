@@ -14,10 +14,10 @@ class ContactoEmergenciaParticipanteDTO
 
     public static function fromArray(array $data): self
     {
-        // Caja para eventos tipo congreso (20/08/2026) — contacto de
-        // emergencia dejó de ser obligatorio incondicionalmente (ver
-        // ValidaContactoEmergenciaCondicional), así que $data puede llegar
-        // vacío. Defaults a '' preservan las columnas NOT NULL de
+        // El contacto de emergencia nunca es obligatorio a nivel de
+        // validación (relajado del todo el 31/08/2026, antes dependía de
+        // `form_types.requiere_contacto_emergencia`), así que $data puede
+        // llegar vacío. Defaults a '' preservan las columnas NOT NULL de
         // contacto_emergencia_participantes sin necesitar migración.
         return new self(
             name: $data['nombre'] ?? '',

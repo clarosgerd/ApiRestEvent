@@ -39,6 +39,7 @@ use App\Http\Controllers\SubtipoEventoController;
 use App\Http\Controllers\RelacionContactoController;
 use App\Http\Controllers\FormasPagoController;
 use App\Http\Controllers\FormularioCamposController;
+use App\Http\Controllers\GeneroController;
 
 Route::get('/user', function (Request $request) {
     return $request->user();
@@ -55,6 +56,11 @@ Route::group(['prefix' => 'v1','namespace' => 'App\Http\Controllers'], function 
     // brain/PLAN-ENDPOINT-CONSUMO-05082026.md.
     Route::get('/event/consumo', [EventoController::class, 'consumo']);
     Route::get('/tipos-evento', [TipoEventoController::class, 'index']);
+    // Catálogo de género de participante (31/08/2026) — público, sin auth,
+    // solo activos, mismo criterio que /tipos-evento de arriba. Ver
+    // PLAN-GENERO-CATALOGO-CAMPOS-OPCIONALES-31082026.md. NO confundir con
+    // /catalogos/sexos (admin-only, más abajo) — son catálogos distintos.
+    Route::get('/generos', [GeneroController::class, 'index']);
     Route::apiResource('/event',EventoController::class)->only(['index', 'show']);
     Route::get('/event/{event}/agenda-pdf', [EventoController::class, 'agendaPdf']);
     Route::get('/event/{event}/agenda-ics', [EventoController::class, 'agendaIcs']);
@@ -326,6 +332,15 @@ Route::group(['prefix' => 'v1','namespace' => 'App\Http\Controllers'], function 
             Route::post('/sexos', [SexoController::class, 'store']);
             Route::put('/sexos/{sexo}', [SexoController::class, 'update']);
             Route::delete('/sexos/{sexo}', [SexoController::class, 'destroy']);
+
+            // Género de participante (31/08/2026) — admin del catálogo, ver
+            // PLAN-GENERO-CATALOGO-CAMPOS-OPCIONALES-31082026.md. index()
+            // público sigue arriba, fuera de este grupo — mismo criterio
+            // que TipoEventoController (index() vs adminIndex()).
+            Route::get('/generos', [GeneroController::class, 'adminIndex']);
+            Route::post('/generos', [GeneroController::class, 'store']);
+            Route::put('/generos/{genero}', [GeneroController::class, 'update']);
+            Route::delete('/generos/{genero}', [GeneroController::class, 'destroy']);
 
             Route::get('/tipos-evento', [TipoEventoController::class, 'adminIndex']);
             Route::post('/tipos-evento', [TipoEventoController::class, 'store']);
