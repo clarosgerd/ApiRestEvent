@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Category;
 use App\Models\Evento;
 use App\Models\FormType;
+use App\Models\Persona;
 use App\Models\Registration;
 use App\Models\Participante;
 use App\Models\RegistrationTotal;
@@ -346,6 +347,35 @@ class RegistrationTest extends TestCase
     {
         $payload = $this->validPayload();
         unset($payload[0]['participantes'][0]['contacto_emergencia']);
+
+        $this->postJson('/api/v1/registrations', $payload)
+            ->assertCreated();
+    }
+
+    /**
+     * Bug real (01/09/2026, reportado por el usuario: "no se pudo
+     * completar el registro, intenta nuevamente" — reproducido con datos
+     * reales) — `personas.numero_documento` no tiene constraint único
+     * (solo `email`), así que pueden existir 2 cuentas Persona distintas
+     * con el mismo documento y emails distintos. Antes,
+     * RegistrationService::syncPersonas() podía matchear la cuenta
+     * EQUIVOCADA por documento e intentar pisarle el email con uno que
+     * ya era de la OTRA cuenta — reventaba el UNIQUE de `personas.email`
+     * dentro de la misma transacción que crea la inscripción, así que la
+     * inscripción entera se revertía por un problema de una tabla
+     * secundaria/derivada. Ahora syncPersonas() nunca debe poder tumbar
+     * un registro real.
+     */
+    public function test_create_registration_no_falla_por_numero_documento_compartido_entre_2_personas(): void
+    {
+        $payload = $this->validPayload();
+        $documento = $payload[0]['participantes'][0]['numeroDocumento'];
+        $correo = $payload[0]['participantes'][0]['correo'];
+
+        // Persona A: mismo documento, OTRO email.
+        Persona::factory()->create(['numero_documento' => $documento, 'email' => 'otro.email@test.net']);
+        // Persona B: dueña real del email que va a llegar en el payload.
+        Persona::factory()->create(['numero_documento' => '00000000', 'email' => $correo]);
 
         $this->postJson('/api/v1/registrations', $payload)
             ->assertCreated();

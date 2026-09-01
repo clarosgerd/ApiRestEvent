@@ -2,6 +2,30 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/).
 
+## 2026-09-01 — Registro real revertido por choque de email en syncPersonas()
+
+Reportado por el usuario probando en vivo contra una copia de producción
+(`event_prod_purga`): "No se pudo completar el registro, intenta nuevamente" con una
+inscripción por lo demás perfectamente válida. Causa encontrada en `storage/logs/laravel.log`:
+`personas.numero_documento` no tiene constraint único (solo `email` lo tiene), así que pueden
+existir 2 cuentas `Persona` distintas con el mismo documento y emails distintos (dato real
+encontrado: personas `90013`/`90153`). `RegistrationService::syncPersonas()` podía matchear la
+cuenta EQUIVOCADA por documento e intentar pisarle el email con uno que ya era de la OTRA cuenta
+— reventaba el `UNIQUE` de `personas.email` **dentro de la misma transacción que crea la
+inscripción**, revirtiendo el alta entera por un problema de una tabla secundaria/derivada.
+
+### Fixed
+- `syncPersonas()` ahora prioriza matchear por `email` (el único campo realmente único) antes
+  que por `numero_documento`, y todo el bloque queda envuelto en `try/catch` — `Persona` es una
+  cuenta derivada (login/historial), nunca debe poder tumbar un registro real. Un fallo
+  inesperado se loguea (`sync-personas-fallo`) en vez de relanzarse.
+
+### Verified
+- Reproducido primero el bug exacto con los datos reales que lo causaron (vía tinker contra
+  `event_prod_purga`), confirmado que el fix lo resuelve sin tocar ninguna de las 2 cuentas
+  ajenas. Test de regresión nuevo (`RegistrationTest::test_create_registration_no_falla_por_numero_documento_compartido_entre_2_personas`).
+  Suite completa sin regresiones.
+
 ## 2026-09-01 — Purgar datos de Persona/Participante en inscripciones canceladas
 
 Pedido del usuario: "necesitamos que cada vez que un participante se registra y su pago está
