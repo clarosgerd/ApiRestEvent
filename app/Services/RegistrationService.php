@@ -27,6 +27,7 @@ use App\Models\ParticipanteTallerSesion;
 use App\Support\DisponibilidadItemData;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 class RegistrationService
 {
@@ -470,33 +471,64 @@ class RegistrationService
         $participants = $registration->load('participants')->participants;
 
         foreach ($participants as $participante) {
-            $persona = Persona::where('numero_documento', $participante->numero_documento)
-                ->orWhere('email', $participante->correo)
-                ->first();
+            try {
+                // Bug real (01/09/2026, reportado por el usuario: "no se
+                // pudo completar el registro, intenta nuevamente" en un
+                // caso real) — `numero_documento` NO tiene constraint
+                // único en `personas` (solo `email` lo tiene), así que
+                // pueden existir 2 cuentas distintas con el mismo
+                // documento y emails distintos (dato real encontrado:
+                // personas 90013/90153, mismo numero_documento). El
+                // `where(...)->orWhere(...)->first()` de antes podía
+                // matchear la cuenta EQUIVOCADA (por documento) y después
+                // intentar pisarle el email con uno que ya era de la
+                // OTRA cuenta — reventaba el UNIQUE de `personas.email`
+                // dentro de la misma transacción que crea la inscripción,
+                // así que la inscripción entera se revertía por un
+                // problema de una tabla secundaria/derivada. Se prioriza
+                // matchear por `email` (el único campo realmente único)
+                // antes que por `numero_documento`.
+                $persona = Persona::where('email', $participante->correo)->first()
+                    ?? Persona::where('numero_documento', $participante->numero_documento)->first();
 
-            $data = [
-                'tipo_documento'   => $participante->tipo_documento,
-                'nombre'           => $participante->nombre,
-                'apellido'         => $participante->apellido,
-                'alias'            => $participante->alias,
-                'sexo'             => $participante->genero,
-                'email'            => $participante->correo,
-                'correo'           => $participante->correo,
-                'password'         => Hash::make($participante->numero_documento),
-                'direccion'        => $participante->direccion,
-                'ciudad'           => $participante->ciudad,
-                'telefono'         => $participante->telefono,
-                'celular'          => $participante->telefono,
-                'fecha_nacimiento' => $participante->fecha_nacimiento,
-            ];
+                $data = [
+                    'tipo_documento'   => $participante->tipo_documento,
+                    'nombre'           => $participante->nombre,
+                    'apellido'         => $participante->apellido,
+                    'alias'            => $participante->alias,
+                    'sexo'             => $participante->genero,
+                    'email'            => $participante->correo,
+                    'correo'           => $participante->correo,
+                    'password'         => Hash::make($participante->numero_documento),
+                    'direccion'        => $participante->direccion,
+                    'ciudad'           => $participante->ciudad,
+                    'telefono'         => $participante->telefono,
+                    'celular'          => $participante->telefono,
+                    'fecha_nacimiento' => $participante->fecha_nacimiento,
+                ];
 
-            if ($persona) {
-                $persona->update($data);
-            } else {
-                Persona::create(array_merge($data, [
-                    'numero_documento' => $participante->numero_documento,
-                    'token'            => Str::random(40),
-                ]));
+                if ($persona) {
+                    $persona->update($data);
+                } else {
+                    Persona::create(array_merge($data, [
+                        'numero_documento' => $participante->numero_documento,
+                        'token'            => Str::random(40),
+                    ]));
+                }
+            } catch (\Throwable $e) {
+                // `Persona` es una cuenta derivada (login/historial), NUNCA
+                // la fuente de verdad de la inscripción — un problema acá
+                // (ej. el choque de arriba, u otro caso no previsto) no
+                // debe tumbar un registro real. Se loguea para poder
+                // limpiar los datos duplicados a mano, no se relanza.
+                Log::warning('sync-personas-fallo', [
+                    'registration_id' => $registration->id,
+                    'referencia'      => $registration->referencia,
+                    'participante_id' => $participante->id,
+                    'numero_documento'=> $participante->numero_documento,
+                    'correo'          => $participante->correo,
+                    'error'           => $e->getMessage(),
+                ]);
             }
         }
     }
