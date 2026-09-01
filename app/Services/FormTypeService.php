@@ -56,6 +56,10 @@ class FormTypeService
                 'es_staff'                   => $data['es_staff'] ?? false,
                 // Ver brain/PLAN-VINCULACION-PONENTES-SESIONES-CONGRESO-13082026.md
                 'es_ponente'                 => $data['es_ponente'] ?? false,
+                // Ocultar Dirección/Ciudad/Teléfono/Alias por tipo de
+                // formulario (01/09/2026) — ver
+                // PLAN-OCULTAR-CAMPOS-FORM-TYPE-01092026.md.
+                'campos_ocultos'             => $data['campos_ocultos'] ?? [],
             ]);
 
             $this->createSouvenirs($formType, $data['souvenirs'] ?? []);

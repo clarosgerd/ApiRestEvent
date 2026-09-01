@@ -59,6 +59,10 @@ class StoreFormTypeRequest extends FormRequest
             'es_staff'                   => 'nullable|boolean',
             'es_ponente'                 => 'nullable|boolean',
             'requiere_contacto_emergencia' => 'nullable|boolean',
+            // Ocultar Dirección/Ciudad/Teléfono/Alias por tipo de
+            // formulario (01/09/2026) — ver PLAN-OCULTAR-CAMPOS-FORM-TYPE-01092026.md.
+            'campos_ocultos'             => 'nullable|array',
+            'campos_ocultos.*'           => 'string|in:direccion,ciudad,telefono,alias',
 
             'souvenirs'                  => 'nullable|array',
             'souvenirs.*.name'           => 'required_with:souvenirs|string|max:255',

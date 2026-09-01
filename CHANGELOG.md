@@ -2,6 +2,39 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/).
 
+## 2026-09-01 — Ocultar Dirección/Ciudad/Teléfono/Alias por tipo de formulario
+
+Pedido del usuario: "deberíamos colocar en form_type quitar esos campos de dirección, ciudad,
+teléfono, etc. desde admin-eventos". Distinto del cambio del 31/08 (esos 4 campos + contacto de
+emergencia pasaron a opcionales en TODOS los eventos) — esto además los saca del formulario,
+configurable por tipo de formulario. Contacto de emergencia queda fuera de este cambio: ya tenía
+su propio mecanismo de ocultar (`requiere_contacto_emergencia`).
+
+### Added
+- `form_types.campos_ocultos` (JSON, array de `direccion`/`ciudad`/`telefono`/`alias`, default
+  `[]`) — un solo array en vez de 4 columnas boolean nuevas, mismo criterio que
+  `eventos.secciones_orden`. Sin cambio de comportamiento para form_types existentes.
+- Checkbox "Ocultar del formulario público" en `admin-eventos` (editar un form_type existente, y
+  al agregar uno nuevo a un evento ya creado) — 4 casillas, una por campo. Sin checkbox en la
+  creación nested del evento (`create.blade.php`), mismo criterio ya usado para
+  `requiere_contacto_emergencia`.
+- `applyCamposOcultos()` en `elascenso/event` — oculta el `.form-group` correspondiente cuando
+  el campo está en `selectedFormType.camposOcultos`, llamado junto al resto de la visibilidad
+  condicional por form_type en `buildEventUI()`. Alias comparte el mismo campo de BD que "Título"
+  en form_types tipo congreso — ocultarlo saca a los dos, documentado en el checkbox.
+- No hizo falta relajar nada en la validación de participantes: los 4 campos ya son `nullable`
+  desde el 31/08/2026.
+
+### Verified
+- 4 tests nuevos (`FormTypeCamposOcultosTest`), suite completa sin regresiones (474/480, 6
+  fallas = flake preexistente de `tipos_evento`).
+- Verificado en vivo end-to-end contra `event_prod_purga`: `PUT /form-type/{id}` con
+  `campos_ocultos` real, confirmado en la respuesta y en `GET /event/{id}` (público); HTML de
+  `index.php` confirmado con los 4 `id` nuevos (`direccionGroup`/`ciudadGroup`/`telefonoGroup`,
+  más `aliasGroup` que ya existía) y la función/llamada nuevas presentes; checkbox verificado
+  renderizando (des)tildado correctamente en `admin-eventos` real. Datos de prueba revertidos
+  después.
+
 ## 2026-09-01 — Registro real revertido por choque de email en syncPersonas()
 
 Reportado por el usuario probando en vivo contra una copia de producción

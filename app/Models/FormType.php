@@ -39,6 +39,9 @@ class FormType extends Model
         'es_staff',
         'es_ponente',
         'requiere_contacto_emergencia',
+        // Ocultar Dirección/Ciudad/Teléfono/Alias por tipo de formulario
+        // (01/09/2026) — array de strings entre direccion/ciudad/telefono/alias.
+        'campos_ocultos',
         'max_integrantes_grupo',
         'descuento_registrante_pct',
         'hasQuestion',
@@ -57,6 +60,7 @@ class FormType extends Model
         'es_staff'                      => 'boolean',
         'es_ponente'                    => 'boolean',
         'requiere_contacto_emergencia'  => 'boolean',
+        'campos_ocultos'                => 'array',
         // Bug real (19/08/2026) — mismo patrón ya visto antes con
         // evento_id (memoria: "403 falso solo en UAT por driver PDO
         // devolviendo string"): sin cast, PDO en el hosting real devuelve

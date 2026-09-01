@@ -51,6 +51,10 @@ class FormTypeResource extends JsonResource
             // Caja para eventos tipo congreso (20/08/2026) — ver migración
             // add_requiere_contacto_emergencia_to_form_types_table.
             'requiereContactoEmergencia' => (bool) $this->requiere_contacto_emergencia,
+            // Ocultar Dirección/Ciudad/Teléfono/Alias por tipo de
+            // formulario (01/09/2026) — array de strings, nunca null (el
+            // frontend siempre puede hacer .includes() sin chequear antes).
+            'camposOcultos'              => $this->campos_ocultos ?? [],
             'max_integrantes_grupo'      => (int) $this->max_integrantes_grupo,
             'descuento_registrante_pct'  => (float) $this->descuento_registrante_pct,
             // Bug real encontrado 24/08/2026: este resource nunca expuso
