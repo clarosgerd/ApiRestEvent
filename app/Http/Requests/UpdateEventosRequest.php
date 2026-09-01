@@ -62,6 +62,10 @@ class UpdateEventosRequest extends FormRequest
             'feeIncluyeTalleres' => 'sometimes|boolean',
             // Precio USD fijo (19/08/2026) — ver EventoService::update().
             'usdPrecioFijo'    => 'sometimes|boolean',
+            // Purgar datos de Persona/Participante en inscripciones
+            // canceladas (01/09/2026) — ver
+            // PurgarDatosPersonaCanceladaAction.
+            'mantenerDatosPersona' => 'sometimes|boolean',
             // Orden de secciones en #screen-form-types (25/08/2026) — ver
             // EventoService::update(), mismas 9 claves fijas del frontend.
             'seccionesOrden'   => 'sometimes|nullable|array',

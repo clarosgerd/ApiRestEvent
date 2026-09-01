@@ -133,6 +133,12 @@ class EventoResource extends JsonResource
             // `aceptaUsd` con tasa: cuando está prendido, el frontend usa
             // `category.priceUsd` directo en vez de tipo_cambio.php.
             'usdPrecioFijo'              =>(bool) $this->usd_precio_fijo,
+            // Purgar datos de Persona/Participante en inscripciones
+            // canceladas (01/09/2026) — ver
+            // PLAN-PURGAR-DATOS-PERSONA-CANCELADA-01092026.md. Decisión
+            // 100% de backend/admin, elascenso/event nunca la usa — se
+            // expone acá solo por consistencia con el resto de los flags.
+            'mantenerDatosPersona'       =>(bool) $this->mantener_datos_persona,
             // Orden configurable de secciones en #screen-form-types
             // (25/08/2026) — null si el organizador no lo configuró, el
             // frontend cae al orden por defecto en ese caso.
