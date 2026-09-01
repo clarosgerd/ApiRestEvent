@@ -125,6 +125,16 @@ Route::group(['prefix' => 'v1','namespace' => 'App\Http\Controllers'], function 
         Route::apiResource('/promo-code', PromoCodeController::class)->only(['store', 'update', 'destroy']);
         Route::apiResource('/souvenir', SouvenirController::class)->only(['store', 'update', 'destroy']);
 
+        // Catálogo de equipos por evento (01/09/2026) — movidas acá desde
+        // el grupo público de abajo, no tenían auth (cualquiera podía
+        // inyectar equipos en cualquier evento sin loguearse; el frontend
+        // público nunca las llamó directo, solo lee `equipos` embebido en
+        // GET /event/{id}). update/destroy son nuevas.
+        Route::get('/event/{event}/equipos', [EquipoController::class, 'index']);
+        Route::post('/event/{event}/equipos', [EquipoController::class, 'store']);
+        Route::put('/equipo/{equipo}', [EquipoController::class, 'update']);
+        Route::delete('/equipo/{equipo}', [EquipoController::class, 'destroy']);
+
         // Preguntas adicionales del formulario de inscripción (20/08/2026) —
         // ver FormularioCamposController. Mismo scoping que souvenir/
         // category-price-period (admin de su propio evento, o
@@ -432,9 +442,7 @@ Route::group(['prefix' => 'v1','namespace' => 'App\Http\Controllers'], function 
     // cronometraje directo, sin panel, así que queda sin auth por ahora).
     Route::post('/event/{event}/resultados/bulk', [ResultadoController::class, 'bulk']);
 
-    // Catálogo de equipos por evento (inscripción individual con hasTeam)
-    Route::get('/event/{event}/equipos', [EquipoController::class, 'index']);
-    Route::post('/event/{event}/equipos', [EquipoController::class, 'store']);
+    // Catálogo de equipos por evento — movidas al grupo auth:admins (01/09/2026), ver arriba.
 
     // Resultados del participante logueado (individual + equipo)
     Route::get('/personas/me/resultados', [ResultadoController::class, 'mios'])->middleware('auth:sanctum');
