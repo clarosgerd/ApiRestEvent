@@ -4,6 +4,7 @@ use App\Http\Middleware\Admin\EnsureSuperAdminSession;
 use App\Http\Middleware\Admin\InjectAdminSessionToken;
 use App\Http\Middleware\Admin\RestrictCajeroToCaja;
 use App\Http\Middleware\NormalizeAuthTokenHeader;
+use App\Http\Middleware\RequiresInternalSecret;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -49,6 +50,9 @@ return Application::configure(basePath: dirname(__DIR__))
             'admin.token'           => InjectAdminSessionToken::class,
             'admin.superadmin'      => EnsureSuperAdminSession::class,
             'admin.restrict-cajero' => RestrictCajeroToCaja::class,
+            // SIP multi-banco (28/08/2026) — alias nuevo, aplicado solo a la
+            // ruta /internal/* (ver routes/api.php), nunca global.
+            'internal.secret'       => RequiresInternalSecret::class,
         ]);
         // Laravel reordena el middleware por una lista de prioridad interna
         // (Kernel::$middlewarePriority) — Authenticate SIEMPRE corre antes

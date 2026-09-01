@@ -2,6 +2,40 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/).
 
+## 2026-08-31 — SIP multi-banco
+
+Pedido del usuario: "hacemos el pago por SIP con un solo banco (Bisa) pero ahora incluiremos
+otros dos bancos con distintas credenciales, mismo gateway; implementalo pero esto no debería
+afectar Multipago". Ver `brain/api_rest_event/PLAN-SIP-MULTIBANCO-28082026.md` y
+`DEPLOY-CHECKLIST-SIP-MULTIBANCO-31082026.md`. Multipago no fue tocado — todo lo agregado son
+ramas `pasarela === 'sip'` nuevas.
+
+### Added
+- Tabla nueva `sip_bancos` (organizador_id nullable, credenciales SIP + callback, `activo`) —
+  nunca expuesta por ningún Resource público (mismo criterio que `FormasPagoResource` con
+  `config`). CRUD (`SipBancoController`, solo `super_admin`) con el patrón "dejar vacío = no
+  cambiar" para los secretos, ya usado en `AdminUser::password`.
+- Endpoints internos server-to-server nuevos bajo `/internal/*` (middleware
+  `RequiresInternalSecret`, header `X-Internal-Secret` contra `INTERNAL_API_SECRET`,
+  fail-closed): `GET /internal/event/{event}/sip-banco` resuelve el banco activo del
+  organizador dueño del evento; `GET /internal/sip-bancos/callback-credenciales` lista
+  credenciales de callback de todos los bancos activos, para que `elascenso/event` valide el
+  webhook de SIP sin saber de antemano con qué banco se generó el QR.
+- `PagoAdicionalController::show()` ahora siempre incluye `eventoId` en la respuesta (antes
+  solo viajaba si `pago_status === 'paid'`).
+
+### Verified
+- 14 tests nuevos en `SipBancoTest.php` — en verde. Suite completa: 463 passed, 4 failed (las 4
+  fallas son el flake preexistente y no relacionado de `tipos_evento`/AUTO_INCREMENT).
+- No probado todavía en vivo contra el gateway SIP real con un banco alternativo cargado (ver
+  checklist, §5).
+
+### Gotcha real (corregido)
+- Route model binding de Laravel exige que el nombre del parámetro del controller coincida con
+  el segmento de la ruta — un mismatch (`{event}` vs `$evento`) hacía que Laravel inyectara un
+  `Evento` en blanco en silencio (sin 404), rompiendo la resolución de banco para todos los
+  organizadores sin que varios tests lo notaran (esperaban `null` por otro motivo).
+
 ## 2026-08-28 — Admin de evento asignado a varios eventos
 
 Pedido del usuario, diseñado en plan mode antes de implementar. Ver
