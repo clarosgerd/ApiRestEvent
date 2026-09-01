@@ -72,11 +72,33 @@ class AuthTest extends TestCase
         $this->postJson('/api/v1/persona/register', [])
             ->assertUnprocessable()
             ->assertJsonValidationErrors([
-                'nombre', 'email', 'apellido', 'alias',
+                'nombre', 'email', 'apellido',
                 'sexo', 'tipo_documento', 'numero_documento',
-                'fecha_nacimiento', 'correo', 'direccion',
-                'ciudad', 'password',
+                'fecha_nacimiento', 'correo', 'password',
             ]);
+    }
+
+    /**
+     * Alias/Dirección/Ciudad opcionales en el alta de cuenta (01/09/2026) —
+     * bug real reportado por el usuario: un form_type que oculta estos
+     * campos (campos_ocultos) hacía que autoRegisterPersona() (alta
+     * automática de cuenta al confirmar la primera inscripción sin login
+     * previo, ver elascenso/event/index.php) rechazara con "El alias es
+     * obligatorio." + 2 más, pese a que el campo ya no estaba en el
+     * formulario. Esta clase se había quedado afuera del cambio del
+     * 31/08/2026 que ya hizo estos mismos campos opcionales en
+     * StorePersonaRequest/UpdatePersonaRequest (CRUD admin) y en las
+     * requests de inscripción.
+     */
+    public function test_register_no_rechaza_alias_direccion_ni_ciudad_vacios(): void
+    {
+        $payload = $this->validPayload;
+        $payload['alias'] = '';
+        $payload['direccion'] = '';
+        $payload['ciudad'] = '';
+
+        $this->postJson('/api/v1/persona/register', $payload)
+            ->assertCreated();
     }
 
     public function test_register_rejects_invalid_email_format(): void

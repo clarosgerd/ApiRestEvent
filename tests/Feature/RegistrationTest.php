@@ -114,6 +114,38 @@ class RegistrationTest extends TestCase
             ->assertJsonStructure(['success', 'message', 'data']);
     }
 
+    /**
+     * Bug real (01/09/2026) — reportado por el usuario probando en vivo:
+     * un form_type que oculta Dirección/Ciudad/Teléfono/Alias
+     * (campos_ocultos, ver FormType) mandaba estos campos vacíos, y
+     * ConvertEmptyStringsToNull (middleware global de Laravel) los
+     * convertía en null antes de llegar a ParticipantDTO::fromArray() —
+     * cuyas propiedades $address/$city/$phone son `string` no nullable,
+     * así que el registro entero fallaba con un TypeError genérico
+     * ("No se pudo completar el registro, intenta nuevamente." del lado
+     * del frontend). alias ya tenía el fallback `?? ''`, estos 3 no.
+     */
+    public function test_create_registration_accepts_empty_direccion_ciudad_telefono(): void
+    {
+        $payload = $this->validPayload([
+            'alias' => '',
+            'direccion' => '',
+            'ciudad' => '',
+            'telefono' => '',
+        ]);
+
+        $this->postJson('/api/v1/registrations', $payload)
+            ->assertCreated()
+            ->assertJsonPath('success', true);
+
+        $this->assertDatabaseHas('participantes', [
+            'numero_documento' => '87654321',
+            'direccion' => '',
+            'ciudad' => '',
+            'telefono' => '',
+        ]);
+    }
+
     public function test_create_registration_stores_in_database(): void
     {
         $payload = $this->validPayload();
@@ -155,6 +187,27 @@ class RegistrationTest extends TestCase
         $this->assertDatabaseHas('participantes', [
             'numero_documento' => '87654321',
             'genero' => 'Femenino',
+        ]);
+    }
+
+    /**
+     * Bug real (01/09/2026) — mismo patrón que el de género de arriba:
+     * StoreRegistrationRequest nunca declaró reglas para 'alias' ni
+     * 'tipoDocumento', así que $request->validated() los descartaba en
+     * silencio en TODA inscripción nueva pública. tipoDocumento caía
+     * siempre al default 'DNI' (ParticipantDTO::fromArray()) sin importar
+     * lo que el participante eligiera (CI/Pasaporte); alias caía siempre
+     * a ''. validPayload() ya manda 'CI' y 'anita' — antes del fix, este
+     * test fallaba (quedaba 'DNI'/'').
+     */
+    public function test_create_registration_respeta_tipo_documento_y_alias_elegidos(): void
+    {
+        $this->postJson('/api/v1/registrations', $this->validPayload())->assertCreated();
+
+        $this->assertDatabaseHas('participantes', [
+            'numero_documento' => '87654321',
+            'tipo_documento' => 'CI',
+            'alias' => 'anita',
         ]);
     }
 

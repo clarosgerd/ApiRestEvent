@@ -96,6 +96,19 @@ class StoreRegistrationRequest extends FormRequest
             // "Non-binary"/"Prefer not to say", que rompían el INSERT). Ver
             // PLAN-GENERO-CATALOGO-CAMPOS-OPCIONALES-31082026.md.
             '*.participantes.*.genero' => ['required','string', Rule::in(Genero::where('activo', true)->pluck('nombre'))],
+            // Bug real encontrado 01/09/2026 (probando en vivo el fix de
+            // campos_ocultos): mismo patrón que genero arriba — estas 2
+            // reglas nunca existieron acá, así que $request->validated()
+            // las descartaba en silencio en TODA inscripción nueva pública.
+            // tipoDocumento caía siempre al default 'DNI' de
+            // ParticipantDTO::fromArray() sin importar CI/Pasaporte
+            // elegido (mismo nivel de gravedad que el bug de género del
+            // 25/08); alias caía siempre a ''. UpdateRegistrationRequest/
+            // UpdatePaidRegistrationRequest/StoreInscripcionCajaRequest ya
+            // declaraban ambas reglas — el bug era exclusivo del alta
+            // nueva pública.
+            '*.participantes.*.alias' => ['nullable','string'],
+            '*.participantes.*.tipoDocumento' => ['nullable','string'],
             '*.participantes.*.correo' => ['required','email'],
             '*.participantes.*.numeroDocumento' => ['required'],
             '*.participantes.*.categoria' => ['required'],
