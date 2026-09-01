@@ -28,6 +28,7 @@ class StoreTallerRequest extends FormRequest
             'price_usd'   => 'nullable|numeric|min:0',
             'orden'       => 'nullable|integer|min:0',
             'activo'      => 'nullable|boolean',
+            'permite_inscripcion' => 'nullable|boolean',
         ];
     }
 }

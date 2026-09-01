@@ -27,6 +27,9 @@ class TallerResource extends JsonResource
             'precioUsd'   => $this->price_usd !== null ? (float) $this->price_usd : null,
             'orden'       => (int) $this->orden,
             'activo'      => (bool) $this->activo,
+            // permite_inscripcion (28/08/2026) — ver Taller model. false =
+            // sigue visible en la lista, pero no seleccionable.
+            'permiteInscripcion' => (bool) $this->permite_inscripcion,
             'sesiones'    => TallerSesionResource::collection(
                 $this->whenLoaded('sesiones')
             ),

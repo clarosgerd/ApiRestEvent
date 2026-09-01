@@ -43,6 +43,7 @@ class TallerCongresoController extends Controller
         $data = $request->validated();
         $data['evento_id'] = $event->id;
         $data['activo'] = $data['activo'] ?? true;
+        $data['permite_inscripcion'] = $data['permite_inscripcion'] ?? true;
         $data['orden'] = $data['orden'] ?? 0;
 
         $taller = Taller::create($data);

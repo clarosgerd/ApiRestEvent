@@ -256,6 +256,44 @@ class TallerSeleccionInscripcionTest extends TestCase
         ValidarSeleccionesTallerAction::runRequeridos($this->makeRegistrationDTO($p));
     }
 
+    /**
+     * Deshabilitar un taller sin ocultarlo (28/08/2026) — ver
+     * PLAN-TALLER-PERMITE-INSCRIPCION-28082026.md. Distinto de `activo`
+     * (ese además lo oculta del participante) — acá el taller sigue
+     * `activo=true` pero no se puede seleccionar.
+     */
+    public function test_taller_sin_permite_inscripcion_rechaza_la_seleccion(): void
+    {
+        $this->tallerIA->update(['permite_inscripcion' => false]);
+
+        $p = $this->makeParticipantDTO([
+            ['taller_id' => $this->tallerIA->id, 'sesion_id' => $this->sesionIA->id],
+        ]);
+
+        $this->expectException(\DomainException::class);
+        $this->expectExceptionMessageMatches('/no está disponible para inscripción/');
+        ValidarSeleccionesTallerAction::run($this->makeRegistrationDTO($p));
+    }
+
+    /**
+     * Un taller REQUIRED con permite_inscripcion=false no puede exigir su
+     * propia selección — nadie podría cumplirla.
+     */
+    public function test_taller_required_sin_permite_inscripcion_no_bloquea_el_registro(): void
+    {
+        $this->tallerEtica->update(['permite_inscripcion' => false]);
+
+        // Solo el opcional; Ética (REQUIRED, ahora deshabilitado) sin seleccionar.
+        $p = $this->makeParticipantDTO([
+            ['taller_id' => $this->tallerIA->id, 'sesion_id' => $this->sesionIA->id],
+        ]);
+
+        ValidarSeleccionesTallerAction::run($this->makeRegistrationDTO($p));
+        ValidarSeleccionesTallerAction::runRequeridos($this->makeRegistrationDTO($p));
+
+        $this->assertTrue(true); // llegó hasta acá sin throw
+    }
+
     public function test_sesion_no_seleccionable_rechaza(): void
     {
         // Sesión sin taller_id (keynote suelta) — no es seleccionable.
@@ -396,6 +434,27 @@ class TallerSeleccionInscripcionTest extends TestCase
         // canceladas, así que sigue disponible entero.
         ValidarSeleccionesTallerAction::runCapacidad($this->makeRegistrationDTO($p));
         $this->assertTrue(true);
+    }
+
+    /**
+     * El punto central del pedido del usuario: `permite_inscripcion=false`
+     * NO oculta el taller del participante (a diferencia de `activo`),
+     * solo bloquea que se seleccione — ver los 2 tests de arriba para el
+     * bloqueo. Este confirma la visibilidad end-to-end vía el endpoint
+     * público real (GET /event/{id}, el que consume elascenso/event).
+     */
+    public function test_taller_sin_permite_inscripcion_sigue_visible_en_get_event(): void
+    {
+        $this->tallerIA->update(['permite_inscripcion' => false]);
+
+        $response = $this->getJson("/api/v1/event/{$this->evento->id}");
+
+        $response->assertOk();
+        $talleres = collect($response->json('eventos.talleres'));
+        $tallerIA = $talleres->firstWhere('id', $this->tallerIA->id);
+
+        $this->assertNotNull($tallerIA, 'el taller deshabilitado desapareció de GET /event — no debería.');
+        $this->assertFalse($tallerIA['permiteInscripcion']);
     }
 
     /**
