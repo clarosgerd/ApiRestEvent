@@ -68,21 +68,30 @@ class PersonaController extends Controller
     }
  public function register(RegisterPersonaRequest $request): JsonResponse
     {
-        $validated = $request->validated(); 
+        $validated = $request->validated();
 //dd($validated->);
+        // alias/direccion/ciudad/telefono/celular son `nullable` en
+        // RegisterPersonaRequest (01/09/2026, ver comentario ahí) pero las
+        // columnas de `personas` son NOT NULL sin default (migración
+        // 2026_07_03_143925) — ConvertEmptyStringsToNull (middleware
+        // global de Laravel) convierte un '' que llega del formulario en
+        // null antes de esta validación, así que sin el `?? ''` acá el
+        // INSERT reventaba con "Column 'alias' cannot be null" en vez de
+        // simplemente guardar la cuenta con el campo vacío. Mismo
+        // fallback que ya usa store() (alta admin) para direccion/ciudad.
         $user = Persona::create([
             'nombre' => $validated['nombre'],
             'apellido' => $validated['apellido'],
-            'alias' => $validated['alias'],
+            'alias' => $validated['alias'] ?? '',
             'sexo' => $validated['sexo'],
             'tipo_documento' => $validated['tipo_documento'],
             'numero_documento' => $validated['numero_documento'],
             'fecha_nacimiento' => date('Y-m-d H:i:s', strtotime($validated['fecha_nacimiento'])),
             'correo' => $validated['email'],
-            'direccion' => $validated['direccion'],
-            'ciudad' => $validated['ciudad'],
-            'telefono' => $validated['telefono'],
-            'celular' => $validated['celular'],
+            'direccion' => $validated['direccion'] ?? '',
+            'ciudad' => $validated['ciudad'] ?? '',
+            'telefono' => $validated['telefono'] ?? '',
+            'celular' => $validated['celular'] ?? '',
             'email' => $validated['email'],
             'password' => Hash::make($validated['password']),
             'token' => Str::random(40),
@@ -121,7 +130,10 @@ class PersonaController extends Controller
         $persona = Persona::create([
             'nombre' => $data['nombre'],
             'apellido' => $data['apellido'],
-            'alias' => $data['alias'] ?? null,
+            // ?? '' y no ?? null: alias/direccion/ciudad/telefono/celular
+            // son NOT NULL sin default en la tabla `personas` (ver mismo
+            // comentario en register() más abajo).
+            'alias' => $data['alias'] ?? '',
             'email' => $data['email'],
             // correo es un duplicado histórico de email (ver register()
             // más abajo, que ya hace lo mismo) — se mantienen sincronizados
@@ -137,8 +149,8 @@ class PersonaController extends Controller
             'fecha_nacimiento' => date('Y-m-d H:i:s', strtotime($data['fecha_nacimiento'])),
             'direccion' => $data['direccion'] ?? '',
             'ciudad' => $data['ciudad'] ?? '',
-            'telefono' => $data['telefono'] ?? null,
-            'celular' => $data['celular'] ?? null,
+            'telefono' => $data['telefono'] ?? '',
+            'celular' => $data['celular'] ?? '',
             'acepta_marketing' => $data['acepta_marketing'] ?? true,
             'token' => Str::random(40),
         ]);

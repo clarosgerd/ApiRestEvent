@@ -68,9 +68,18 @@ class ParticipantDTO
             birthDate: BirthDateDTO::fromArray($data['nacimiento']),
             age: (int) $data['edad'],
             email: $data['correo'],
-            address: $data['direccion'],
-            city: $data['ciudad'],
-            phone: $data['telefono'],
+            // ?? '' en los 3 (01/09/2026): estos campos ya son opcionales y
+            // ocultables por form_type (campos_ocultos) — cuando el cliente
+            // los manda vacíos, ConvertEmptyStringsToNull (middleware
+            // global de Laravel) los convierte en null antes de llegar
+            // acá, y $address/$city/$phone son `string` no nullable →
+            // TypeError al construir el DTO, mismo bug ya visto y
+            // corregido en PersonaController (alias ya tenía este mismo
+            // fallback acá, direccion/ciudad/telefono se habían quedado
+            // afuera).
+            address: $data['direccion'] ?? '',
+            city: $data['ciudad'] ?? '',
+            phone: $data['telefono'] ?? '',
             emergencyContact: ContactoEmergenciaParticipanteDTO::fromArray($data['contacto_emergencia'] ?? []), 
             souvenirs: array_map(
                 fn(array $souvenir) => SouvenirParticipanteDTO::fromArray($souvenir),

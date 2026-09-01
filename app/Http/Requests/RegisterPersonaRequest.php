@@ -26,14 +26,22 @@ class RegisterPersonaRequest extends FormRequest
             'nombre' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:personas',
             'apellido' => 'required|string|max:255',
-            'alias' => 'required|string|max:255',
+            // Dirección/Ciudad/Teléfono/Alias opcionales (31/08/2026) +
+            // ocultables por form_type (01/09/2026) — esta clase quedó
+            // afuera de ese cambio en su momento (es alta de cuenta
+            // Persona, no de inscripción) y quedó rechazando el auto-alta
+            // de cuenta (autoRegisterPersona en elascenso/event) cuando el
+            // form_type oculta alguno de estos campos y viaja vacío. Mismo
+            // criterio que StorePersonaRequest/UpdatePersonaRequest (CRUD
+            // admin de personas), que ya los trata como nullable.
+            'alias' => 'nullable|string|max:255',
             'sexo' => 'required|string|max:255',
             'tipo_documento' => 'required|string|max:255',
             'numero_documento' => 'required|string|max:255',
             'fecha_nacimiento' => 'required|date',
             'correo' => 'required|string|max:255',
-            'direccion' => 'required|string|max:255',
-            'ciudad' => 'required|string|max:255',
+            'direccion' => 'nullable|string|max:255',
+            'ciudad' => 'nullable|string|max:255',
             'telefono' => 'nullable|string|max:255',
             'celular' => 'nullable|string|max:255',
 
