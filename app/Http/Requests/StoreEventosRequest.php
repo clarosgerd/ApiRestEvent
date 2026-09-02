@@ -57,6 +57,10 @@ class StoreEventosRequest extends FormRequest
             'feeIncluyeTalleres'    => 'nullable|boolean',
             // Precio USD fijo (19/08/2026) — ver EventoDTO/CrearEventoAction.
             'usdPrecioFijo'         => 'nullable|boolean',
+            // "Pagar en el evento (efectivo)" al agregar un taller a una
+            // inscripción pagada — configurable por evento (02/09/2026).
+            // Default false: se ofrecen ambas opciones (comportamiento actual).
+            'forzarQrPagoAdicional' => 'nullable|boolean',
             // Orden de secciones en #screen-form-types (25/08/2026) — ver
             // EventoService::update(), mismas 9 claves fijas del frontend.
             'seccionesOrden'        => 'nullable|array',

@@ -133,6 +133,12 @@ class EventoResource extends JsonResource
             // `aceptaUsd` con tasa: cuando está prendido, el frontend usa
             // `category.priceUsd` directo en vez de tipo_cambio.php.
             'usdPrecioFijo'              =>(bool) $this->usd_precio_fijo,
+            // "Pagar en el evento (efectivo)" al agregar un taller a una
+            // inscripción pagada — configurable por evento (02/09/2026).
+            // Si es true, elascenso/event/index.php oculta el radio de
+            // efectivo en esa pantalla y deja QR como única opción. Ver
+            // migración add_forzar_qr_pago_adicional_to_eventos_table.
+            'forzarQrPagoAdicional'      =>(bool) $this->forzar_qr_pago_adicional,
             // Purgar datos de Persona/Participante en inscripciones
             // canceladas (01/09/2026) — ver
             // PLAN-PURGAR-DATOS-PERSONA-CANCELADA-01092026.md. Decisión

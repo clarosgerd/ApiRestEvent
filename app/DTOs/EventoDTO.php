@@ -33,6 +33,11 @@ class EventoDTO
         // brain/PLAN-PRECIO-USD-FIJO-19082026.md. Default false: modo
         // alternativo a `aceptaUsd` con tasa, no reemplaza nada existente.
         public bool $usdPrecioFijo = false,
+        // "Pagar en el evento (efectivo)" al agregar un taller a una
+        // inscripción pagada — configurable por evento (02/09/2026).
+        // Default false: se ofrecen ambas opciones (comportamiento actual,
+        // ver PLAN-COBRO-SIP-ADICIONAL-26082026.md).
+        public bool $forzarQrPagoAdicional = false,
         public ?int $organizadorId,
         public ?int $tipoEventoId,
         public ?int $subtipoEventoId,
@@ -91,6 +96,9 @@ class EventoDTO
             feeIncluyeTalleres: (bool) ($data['feeIncluyeTalleres'] ?? $data['fee_incluye_talleres'] ?? true),
             // Precio USD fijo (19/08/2026).
             usdPrecioFijo: (bool) ($data['usdPrecioFijo'] ?? $data['usd_precio_fijo'] ?? false),
+            // "Pagar en el evento (efectivo)" al agregar un taller a una
+            // inscripción pagada (02/09/2026).
+            forzarQrPagoAdicional: (bool) ($data['forzarQrPagoAdicional'] ?? $data['forzar_qr_pago_adicional'] ?? false),
             organizadorId: isset($data['organizador_id']) ? (int) $data['organizador_id'] : null,
             // Default 1 ("Carrera de Ruta") si no viene: mismo comportamiento
             // histórico para no romper callers que todavía no lo mandan (la

@@ -77,6 +77,12 @@ class Evento extends Model
         // `categories.price_usd` directo, sin tipo_cambio.php. Default
         // false: no cambia nada de lo que ya existe.
         'usd_precio_fijo',
+        // "Pagar en el evento (efectivo)" al agregar un taller a una
+        // inscripción pagada — configurable por evento (02/09/2026). Ver
+        // migración add_forzar_qr_pago_adicional_to_eventos_table. Default
+        // false: se siguen ofreciendo ambas opciones (efectivo y QR) igual
+        // que hoy.
+        'forzar_qr_pago_adicional',
         // Purgar datos de Persona/Participante en inscripciones canceladas
         // (01/09/2026) — ver PLAN-PURGAR-DATOS-PERSONA-CANCELADA-01092026.md.
         // Default true: comportamiento actual (nunca se borra nada) sin
@@ -106,6 +112,7 @@ protected $casts = [
     'fee_incluye_talleres' => 'boolean',
     'acepta_usd'        => 'boolean',
     'usd_precio_fijo'   => 'boolean',
+    'forzar_qr_pago_adicional' => 'boolean',
     'mantener_datos_persona' => 'boolean',
     'secciones_orden'   => 'array',
 ];

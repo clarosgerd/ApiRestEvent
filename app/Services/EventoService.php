@@ -54,6 +54,10 @@ class EventoService
             'feeIncluyeTalleres' => 'fee_incluye_talleres',
             // Precio USD fijo (19/08/2026) — ver brain/PLAN-PRECIO-USD-FIJO-19082026.md.
             'usdPrecioFijo'    => 'usd_precio_fijo',
+            // "Pagar en el evento (efectivo)" al agregar un taller a una
+            // inscripción pagada — configurable por evento (02/09/2026) —
+            // ver migración add_forzar_qr_pago_adicional_to_eventos_table.
+            'forzarQrPagoAdicional' => 'forzar_qr_pago_adicional',
             // Purgar datos de Persona/Participante en inscripciones
             // canceladas (01/09/2026) — ver
             // PurgarDatosPersonaCanceladaAction.

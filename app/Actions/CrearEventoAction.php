@@ -50,6 +50,9 @@ class CrearEventoAction
                 'fee_incluye_talleres' => $dto->feeIncluyeTalleres,
                 // Precio USD fijo (19/08/2026).
                 'usd_precio_fijo'     => $dto->usdPrecioFijo,
+                // "Pagar en el evento (efectivo)" al agregar un taller a
+                // una inscripción pagada (02/09/2026).
+                'forzar_qr_pago_adicional' => $dto->forzarQrPagoAdicional,
                 'video_url'           => $dto->videoUrl ?? '',
                 'imagen_portada_url'  => $dto->imagenPortadaUrl ?? '',
                 // Default navy: mismo color que ya usaban gafetes/certificados antes de

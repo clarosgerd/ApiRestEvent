@@ -2,6 +2,47 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/).
 
+## 2026-09-02 — "Pagar en el evento (efectivo)" configurable en el pago adicional
+
+Pedido del usuario, tras probar la pantalla de editar una inscripción pagada para agregar un
+taller: "necesito la manera de que sacar 'pagar en el evento (efectivo)' de manera automática".
+Antes de esto el radio de efectivo aparecía siempre junto al de QR (ver entry del
+26/08/2026, "Cobro real por SIP del monto adicional") — nunca se podía sacar sin tocar código.
+
+### Added
+- `eventos.forzar_qr_pago_adicional` (boolean, default `false`) — mismo patrón que
+  `fee_incluye_talleres`/`usd_precio_fijo`: ningún evento existente cambia de comportamiento
+  (se siguen ofreciendo ambas opciones), el organizador lo prende puntualmente desde
+  admin-eventos → editar evento → pestaña de datos generales.
+- `elascenso/event/index.php` — cuando el flag está prendido, oculta el radio "Pagar en el
+  evento (efectivo)" en la pantalla de edición de una inscripción pagada y deja QR
+  preseleccionado como única opción visible. Cede ante `usdPrecioFijo` si ambos están
+  prendidos a la vez: SIP todavía no soporta el cobro del adicional en eventos USD fijo (ver
+  entry del 27/08/2026), así que ahí el efectivo sigue siendo obligatorio sin importar este
+  flag nuevo.
+
+### Fixed
+- `elascenso/event/index.php::buildSummary()` — el "Costo de edición" mostrado en el resumen
+  antes de confirmar duplicaba el precio del taller nuevo: `totTalleres` (fila "Total
+  Talleres") ya es el total completo (viejo + nuevo), pero la fila "Costo de edición" volvía a
+  sumar ese mismo taller nuevo (`costo_edicion` flat + `totTalleresNuevos`), inflando el GRAND
+  TOTAL exactamente por el precio del taller agregado. Reportado por el usuario con un caso
+  real (Bs1000 de más). El monto que realmente se cobra (mensaje "vas a pagar $X ahora" y
+  `pago_adicional.php`) no tenía este bug — es puramente un error de visualización del
+  resumen, ya coincidía con lo que calcula `CalcularCostoAdicionalAction` del lado del
+  backend.
+
+### Verified
+- `ForzarQrPagoAdicionalTest` (4 tests nuevos) — default false, exposición en `EventoResource`,
+  admin scoped puede activarlo, no interfiere con otros campos. Confirmado que 2 de los 4
+  fallan sin el fix (`git stash` de Resource/Service/Request). Suite completa de
+  `EventoFeePctTest`/`EventoOrganizadorInmutableTest` sin regresiones.
+- Duplicación del "Costo de edición": recalculada a mano con datos reales de
+  `event_prod_purga` (evento 1, registro `LA-C404D0CA`, taller "REASE: Manejo de Paro
+  Intraoperatorio" Bs1000) — TOTAL GENERAL pasa de Bs3845.00 (con el bug) a Bs2845.00
+  (correcto), diferencia exacta de Bs1000.00. Sin navegador disponible en este entorno para un
+  click real; pendiente que el usuario confirme visualmente en su próxima prueba.
+
 ## 2026-09-01 — Ocultar Dirección/Ciudad/Teléfono/Alias por tipo de formulario
 
 Pedido del usuario: "deberíamos colocar en form_type quitar esos campos de dirección, ciudad,
