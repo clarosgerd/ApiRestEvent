@@ -429,6 +429,140 @@ class EditarInscripcionPagadaTallerCategoriaTest extends TestCase
         ]);
     }
 
+    // ── Grandfather clause de disponibilidad (bug real UAT 02/09/2026) ──
+
+    /**
+     * Bug real reportado en UAT: SIP cobró un pago adicional real (agregar
+     * un taller nuevo) y la aplicación falló de todos modos porque OTRO
+     * taller — uno que el participante ya tenía pagado de antes — había
+     * sido deshabilitado (`permite_inscripcion=false`) mientras tanto. Como
+     * ese taller no se puede quitar (ver
+     * test_ningun_flujo_puede_quitar_un_taller_ya_pagado), la edición
+     * quedaba bloqueada para siempre sin ninguna forma de aplicar el
+     * cambio que el dinero ya había pagado.
+     */
+    public function test_editar_pagada_no_bloquea_por_taller_ya_pagado_que_luego_se_deshabilita(): void
+    {
+        $registration = $this->crearInscripcionPagadaSinTaller('20000020');
+        app(ActualizarInscripcionPagadaAction::class)->handle($registration->referencia, [
+            'participantes' => [$this->participanteData('20000020', [
+                'talleres' => [['taller_id' => $this->taller->id, 'sesion_congreso_id' => $this->sesion->id]],
+            ])],
+            'totales' => $this->totalesData(['talleres' => 30, 'fee' => 4, 'grand_total' => 84]),
+            '_usuario' => 'participante@test.net',
+        ]);
+
+        // El organizador deshabilita el taller que este participante ya
+        // tiene pagado (cupo lleno, lo que sea) — no afecta lo ya pagado.
+        $this->taller->update(['permite_inscripcion' => false]);
+
+        $tallerNuevo = Taller::factory()->create(['evento_id' => $this->evento->id, 'modalidad' => 'OPTIONAL', 'precio' => 15]);
+        // Horario distinto al de $this->sesion (default de la factory:
+        // 09:00-10:00) para que no choque con el solape.
+        $sesionNueva = SesionCongreso::factory()->create([
+            'evento_id' => $this->evento->id, 'taller_id' => $tallerNuevo->id, 'cupo' => 10,
+            'hora_inicio' => '11:00:00', 'hora_fin' => '12:00:00',
+        ]);
+
+        // Agrega un taller NUEVO (distinto) sin tocar el ya deshabilitado —
+        // no debe rechazar por el taller viejo, que sigue viajando en el
+        // payload porque no se puede quitar.
+        $result = app(ActualizarInscripcionPagadaAction::class)->handle($registration->referencia, [
+            'participantes' => [$this->participanteData('20000020', [
+                'talleres' => [
+                    ['taller_id' => $this->taller->id, 'sesion_congreso_id' => $this->sesion->id],
+                    ['taller_id' => $tallerNuevo->id, 'sesion_congreso_id' => $sesionNueva->id],
+                ],
+            ])],
+            'totales' => $this->totalesData(['talleres' => 45, 'fee' => 4, 'grand_total' => 99]),
+            '_usuario' => 'sip:AD-TEST',
+        ]);
+
+        // costo_edicion (10) + precio real del taller nuevo (15) = 25.
+        $this->assertEquals(25.0, $result['costo_adicion']);
+        $this->assertDatabaseHas('participante_taller_sesion', ['sesion_congreso_id' => $this->sesion->id]);
+        $this->assertDatabaseHas('participante_taller_sesion', ['sesion_congreso_id' => $sesionNueva->id]);
+    }
+
+    /**
+     * El fix de arriba NO relaja la regla para selecciones genuinamente
+     * nuevas — solo exime a las que el participante ya tenía antes de esta
+     * edición.
+     */
+    public function test_editar_pagada_sigue_rechazando_un_taller_nuevo_con_permite_inscripcion_false(): void
+    {
+        $registration = $this->crearInscripcionPagadaSinTaller('20000021');
+
+        $tallerDeshabilitado = Taller::factory()->create([
+            'evento_id' => $this->evento->id, 'modalidad' => 'OPTIONAL', 'precio' => 15, 'permite_inscripcion' => false,
+        ]);
+        $sesionDeshabilitada = SesionCongreso::factory()->create(['evento_id' => $this->evento->id, 'taller_id' => $tallerDeshabilitado->id, 'cupo' => 10]);
+
+        $this->expectException(\DomainException::class);
+        $this->expectExceptionMessage('no está disponible para inscripción en este momento');
+
+        app(ActualizarInscripcionPagadaAction::class)->handle($registration->referencia, [
+            'participantes' => [$this->participanteData('20000021', [
+                'talleres' => [['taller_id' => $tallerDeshabilitado->id, 'sesion_congreso_id' => $sesionDeshabilitada->id]],
+            ])],
+            'totales' => $this->totalesData(['talleres' => 15, 'fee' => 4, 'grand_total' => 69]),
+            '_usuario' => 'participante@test.net',
+        ]);
+    }
+
+    /**
+     * Misma categoría de bug que el de arriba, pero con cupo en vez de
+     * permite_inscripcion: si el organizador reduce el cupo de una sesión
+     * después de que el participante ya la pagó, y mientras tanto OTRA
+     * inscripción también la ocupa, revalidar la capacidad de esa sesión
+     * ya pagada en cada edición posterior bloquearía la edición para
+     * siempre por algo que el participante no puede resolver.
+     */
+    public function test_editar_pagada_no_bloquea_por_cupo_lleno_de_taller_ya_pagado(): void
+    {
+        $sesionChica = SesionCongreso::factory()->create(['evento_id' => $this->evento->id, 'taller_id' => $this->taller->id, 'cupo' => 2]);
+
+        $registration = $this->crearInscripcionPagadaSinTaller('20000022');
+        app(ActualizarInscripcionPagadaAction::class)->handle($registration->referencia, [
+            'participantes' => [$this->participanteData('20000022', [
+                'talleres' => [['taller_id' => $this->taller->id, 'sesion_congreso_id' => $sesionChica->id]],
+            ])],
+            'totales' => $this->totalesData(['talleres' => 30, 'fee' => 4, 'grand_total' => 84]),
+            '_usuario' => 'participante@test.net',
+        ]);
+
+        // Otra inscripción distinta también ocupa esa misma sesión —
+        // ahora el cupo (2) está completo entre las dos.
+        $otraRegistration = $this->crearInscripcionPagadaSinTaller('20000023');
+        app(ActualizarInscripcionPagadaAction::class)->handle($otraRegistration->referencia, [
+            'participantes' => [$this->participanteData('20000023', [
+                'talleres' => [['taller_id' => $this->taller->id, 'sesion_congreso_id' => $sesionChica->id]],
+            ])],
+            'totales' => $this->totalesData(['talleres' => 30, 'fee' => 4, 'grand_total' => 84]),
+            '_usuario' => 'participante@test.net',
+        ]);
+
+        // El organizador reduce el cupo (ej. cambio de sala más chica) DESPUÉS
+        // de que ambas ya estaban pagadas — sin esto, el chequeo de cupo
+        // (que excluye la propia inscripción) nunca llega a `>= cupo` y el
+        // test no reproduce el bug real.
+        $sesionChica->update(['cupo' => 1]);
+
+        // El participante original edita algo sin relación con el taller
+        // (ej. teléfono) — no debe rechazar por cupo de una sesión que ya
+        // tenía pagada de antes.
+        $result = app(ActualizarInscripcionPagadaAction::class)->handle($registration->referencia, [
+            'participantes' => [$this->participanteData('20000022', [
+                'telefono' => '999999',
+                'talleres' => [['taller_id' => $this->taller->id, 'sesion_congreso_id' => $sesionChica->id]],
+            ])],
+            'totales' => $this->totalesData(['talleres' => 30, 'fee' => 4, 'grand_total' => 84]),
+            '_usuario' => 'participante@test.net',
+        ]);
+
+        $this->assertEquals(10.0, $result['costo_adicion']);
+    }
+
     public function test_taller_nuevo_que_choca_con_uno_ya_pagado_rechaza(): void
     {
         $registration = $this->crearInscripcionPagadaSinTaller('20000008');

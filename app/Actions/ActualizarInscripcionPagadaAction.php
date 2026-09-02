@@ -80,8 +80,6 @@ class ActualizarInscripcionPagadaAction
                 'fecha'          => $registration->fecha?->toDateTimeString() ?? now()->toDateTimeString(),
                 'form_types_id'  => $registration->form_types_id,
             ]));
-            ValidarSeleccionesTallerAction::run($registrationDto);
-            ValidarSeleccionesTallerAction::runCapacidad($registrationDto, $registration->id);
 
             // Agregar talleres a una inscripción pagada (25/08/2026) — ver
             // PLAN-EDICION-PAGADA-TALLERES-CATEGORIA-25082026.md. Snapshot
@@ -90,6 +88,22 @@ class ActualizarInscripcionPagadaAction
             // por POSICIÓN (mismo criterio que ya asume el resto de esta
             // Action: no se agregan ni quitan personas en esta operación,
             // solo se modifican las que ya existen).
+            //
+            // Movido ANTES de ValidarSeleccionesTallerAction (02/09/2026) —
+            // bug real en UAT: SIP cobró un pago adicional real (agregar un
+            // taller nuevo) y ConfirmarPagoAdicionalAction rechazó igual la
+            // aplicación con "El taller 'Bombas Elastoméricas' no está
+            // disponible para inscripción en este momento" — ESE taller no
+            // era el nuevo, era uno que el participante ya tenía pagado de
+            // antes y que el organizador deshabilitó (permite_inscripcion)
+            // después. Como un taller ya pagado NUNCA se puede quitar (ver
+            // el chequeo un poco más abajo), revalidar su disponibilidad
+            // actual en cada edición posterior era una contradicción sin
+            // salida — el dinero ya cobrado por SIP quedaba en 'error' sin
+            // poder aplicarse nunca. Ahora se arma acá arriba para pasarle a
+            // ValidarSeleccionesTallerAction::run()/runCapacidad() qué
+            // sesiones son "previas" (no sujetas a los chequeos de
+            // disponibilidad, ya que no se les puede quitar).
             $participantesAnteriores = $registration->participants()
                 ->with('talleresSesiones')
                 ->orderBy('id')
@@ -100,6 +114,16 @@ class ActualizarInscripcionPagadaAction
                     'Esta operación no permite agregar ni quitar participantes, solo modificar los existentes.'
                 );
             }
+
+            $sesionIdsPreviasPorIndice = $participantesAnteriores
+                ->map(fn ($anterior) => $anterior->talleresSesiones
+                    ->pluck('sesion_congreso_id')
+                    ->map(fn ($id) => (int) $id)
+                    ->all())
+                ->all();
+
+            ValidarSeleccionesTallerAction::run($registrationDto, $sesionIdsPreviasPorIndice);
+            ValidarSeleccionesTallerAction::runCapacidad($registrationDto, $registration->id, $sesionIdsPreviasPorIndice);
 
             $tallerIdsNuevosPorIndice = [];
             $pagoPendientePorIndiceYSesion = [];
