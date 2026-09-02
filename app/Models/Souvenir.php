@@ -23,13 +23,17 @@ class Souvenir extends Model
         // Souvenirs invisibles para el participante (22/08/2026) — ver
         // migración add_visible_participante_to_souvenirs_table.
         'visible_participante',
+        // Cargo de servicio por souvenir individual (01/09/2026) — ver
+        // migración add_aplica_cargo_servicio_to_souvenirs_table.
+        'aplica_cargo_servicio',
     ];
 
     protected $casts = [
-        'incluido'              => 'boolean',
-        'requiere_talla'        => 'boolean',
-        'requiere_sexo'         => 'boolean',
-        'visible_participante'  => 'boolean',
+        'incluido'               => 'boolean',
+        'requiere_talla'         => 'boolean',
+        'requiere_sexo'          => 'boolean',
+        'visible_participante'   => 'boolean',
+        'aplica_cargo_servicio'  => 'boolean',
     ];
 
 

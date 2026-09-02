@@ -13,6 +13,7 @@ use App\Models\FormType;
 use App\Models\Participante;
 use App\Models\Registration;
 use App\Models\RegistrationTotal;
+use App\Models\Souvenir;
 use App\Models\SouvenirParticipante;
 use App\Services\NotificacionService;
 use App\Services\RegistrationService;
@@ -381,6 +382,14 @@ class CrearInscripcionAction
      * `fee_incluye_talleres` (mismo día) — configurable por evento, para
      * cuando el organizador no quiere aplicar el cargo a los talleres
      * (p.ej. convenio de gateway distinto). Default true.
+     *
+     * Cargo de servicio por souvenir individual (01/09/2026) — souvenirs
+     * quedaban siempre afuera de la base; ahora cada souvenir puede
+     * marcarse `aplica_cargo_servicio` (default false, opt-in) para sumar
+     * su precio de catálogo a la base junto con inscripción/talleres. Se
+     * recalcula acá con el precio REAL del souvenir (nunca el que mande
+     * el cliente), mismo criterio "nunca confiar en el proxy" del resto
+     * de este método.
      */
     private function validateFeePct(RegistrationDTO $dto): void
     {
@@ -389,7 +398,22 @@ class CrearInscripcionAction
             return; // el chequeo de evento inexistente ya lo hizo elascenso/event antes de llegar acá
         }
 
-        $baseFee = $dto->totals->registration + ($evento->fee_incluye_talleres ? $dto->totals->talleres : 0);
+        $souvenirIds = collect($dto->participants)
+            ->flatMap(fn (ParticipantDTO $p) => collect($p->souvenirs)->pluck('souvenir_id'))
+            ->unique()
+            ->values();
+
+        $souvenirsConCargo = Souvenir::whereIn('id', $souvenirIds)
+            ->where('aplica_cargo_servicio', true)
+            ->pluck('price', 'id');
+
+        $totalSouvenirsConCargo = collect($dto->participants)
+            ->flatMap(fn (ParticipantDTO $p) => $p->souvenirs)
+            ->sum(fn ($sv) => (float) ($souvenirsConCargo[$sv->souvenir_id] ?? 0));
+
+        $baseFee = $dto->totals->registration
+            + ($evento->fee_incluye_talleres ? $dto->totals->talleres : 0)
+            + $totalSouvenirsConCargo;
         $feeEsperado = round($baseFee * (float) $evento->fee_pct, 2);
 
         if (abs($feeEsperado - $dto->totals->fee) > 0.02) {

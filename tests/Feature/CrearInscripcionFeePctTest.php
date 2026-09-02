@@ -10,6 +10,7 @@ use App\Models\Evento;
 use App\Models\FormType;
 use App\Models\Organizador;
 use App\Models\Pais;
+use App\Models\Souvenir;
 use App\Models\SubtipoEvento;
 use App\Models\TipoEvento;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -100,6 +101,47 @@ class CrearInscripcionFeePctTest extends TestCase
         ]);
     }
 
+    /**
+     * Cargo de servicio por souvenir individual (01/09/2026) — igual que
+     * dtoConFee(), pero el participante elige un souvenir puntual. El
+     * precio del souvenir se manda tal cual lo elegiría el cliente; lo
+     * que varía entre tests es si ESE souvenir tiene
+     * `aplica_cargo_servicio` true/false en la BD.
+     */
+    private function dtoConFeeYSouvenir(float $fee, int $souvenirId, float $precioSouvenir): RegistrationDTO
+    {
+        $participante = [
+            'nombre' => 'Ana', 'apellido' => 'Prueba', 'alias' => '', 'genero' => 'Femenino',
+            'tipoDocumento' => 'DNI', 'numeroDocumento' => (string) rand(10000000, 99999999),
+            'polera' => '', 'precioPolera' => 0,
+            'nacimiento' => ['dia' => 1, 'mes' => 1, 'anio' => 1995], 'edad' => 30,
+            'correo' => 'ana'.rand(1, 999999).'@test.net', 'direccion' => 'x', 'ciudad' => 'x', 'telefono' => '123',
+            'contacto_emergencia' => ['nombre' => 'X', 'celular' => '123', 'relacion' => 'Madre'],
+            'souvenirs' => [
+                ['id' => $souvenirId, 'nombre' => 'Polera', 'precio' => $precioSouvenir],
+            ],
+            'answers' => [],
+            'categoria' => (string) $this->categoria->id, 'precioCategoria' => 100, 'donacion' => 0, 'promoDescuento' => 0, 'promoCodigo' => '',
+            'subtotal' => 100 + $precioSouvenir + $fee,
+        ];
+
+        return RegistrationDTO::fromArray([
+            'referencia' => 'LA-FEE-'.uniqid(),
+            'fecha' => now()->toDateTimeString(),
+            'evento_id' => $this->evento->id,
+            'evento_nombre' => $this->evento->nombre,
+            'form_types_id' => $this->formType->id,
+            'tipo_pago' => 'pendiente',
+            'pago_status' => 'pending',
+            'pay_order_number' => null,
+            'totales' => [
+                'inscripcion' => 100, 'donacion' => 0, 'souvenirs' => $precioSouvenir, 'talleres' => 0, 'fee' => $fee,
+                'descuento' => 0, 'descuento_registrante' => 0, 'grand_total' => 100 + $precioSouvenir + $fee,
+            ],
+            'participantes' => [$participante],
+        ]);
+    }
+
     public function test_acepta_el_fee_correcto_con_el_5_por_ciento_default(): void
     {
         $registration = app(CrearInscripcionAction::class)->handle($this->dtoConFee(5.00));
@@ -180,5 +222,64 @@ class CrearInscripcionFeePctTest extends TestCase
         // 15.00 sería correcto con el flag prendido (default) — pero acá
         // está apagado, así que el esperado es 5.00 (solo inscripción).
         app(CrearInscripcionAction::class)->handle($this->dtoConFee(15.00, talleres: 200));
+    }
+
+    /**
+     * Cargo de servicio por souvenir individual (01/09/2026) — souvenir
+     * con `aplica_cargo_servicio=true` (ej. una polera con costo real)
+     * suma su precio a la base. Inscripción 100 + souvenir 50 = 150
+     * base, 5% = 7.50.
+     */
+    public function test_acepta_el_fee_correcto_incluyendo_souvenir_con_cargo(): void
+    {
+        $souvenir = Souvenir::factory()->create([
+            'form_types_id' => $this->formType->id,
+            'price' => 50,
+            'aplica_cargo_servicio' => true,
+        ]);
+
+        $registration = app(CrearInscripcionAction::class)->handle(
+            $this->dtoConFeeYSouvenir(7.50, $souvenir->id, 50)
+        );
+
+        $this->assertDatabaseHas('registrations', ['id' => $registration->id]);
+    }
+
+    public function test_rechaza_un_fee_que_ignora_el_souvenir_con_cargo(): void
+    {
+        $souvenir = Souvenir::factory()->create([
+            'form_types_id' => $this->formType->id,
+            'price' => 50,
+            'aplica_cargo_servicio' => true,
+        ]);
+
+        $this->expectException(\DomainException::class);
+        $this->expectExceptionMessage('cargo de servicio no coincide');
+
+        // 5.00 sería correcto si el fee solo mirara inscripción (100) —
+        // pero con el souvenir (50) en la base, el esperado es 7.50.
+        app(CrearInscripcionAction::class)->handle(
+            $this->dtoConFeeYSouvenir(5.00, $souvenir->id, 50)
+        );
+    }
+
+    /**
+     * `aplica_cargo_servicio=false` (default, ej. una medalla incluida) —
+     * el souvenir NO suma a la base, comportamiento de siempre. Mismo
+     * fee que sin ningún souvenir seleccionado (5.00).
+     */
+    public function test_souvenir_sin_cargo_no_afecta_el_fee(): void
+    {
+        $souvenir = Souvenir::factory()->create([
+            'form_types_id' => $this->formType->id,
+            'price' => 50,
+            'aplica_cargo_servicio' => false,
+        ]);
+
+        $registration = app(CrearInscripcionAction::class)->handle(
+            $this->dtoConFeeYSouvenir(5.00, $souvenir->id, 50)
+        );
+
+        $this->assertDatabaseHas('registrations', ['id' => $registration->id]);
     }
 }
