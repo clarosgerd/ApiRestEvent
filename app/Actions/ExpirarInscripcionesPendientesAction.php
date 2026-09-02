@@ -27,6 +27,17 @@ use App\Services\RegistrationService;
  * el cupo (deactivateFormTypeIfCupoLleno() solo desactiva, nunca
  * reactiva — reabrir el form_type sigue siendo decisión manual del
  * organizador, sin cambios en ese criterio).
+ *
+ * Bug real (02/09/2026, reportado por el usuario: 14 inscripciones de
+ * una carga masiva por CSV amanecieron `cancelled`) — este comando
+ * nunca distinguió el método de pago: `tipo_pago='pendiente'` ("el
+ * participante deja el registro guardado y paga después", sin pasarela,
+ * sin plazo corto por diseño — ver CLAUDE.md) recibía el MISMO
+ * `tiempo_expiracion_min` pensado para un QR/pasarela abandonado (90
+ * minutos en el caso real). Se excluye `tipo_pago='pendiente'` de este
+ * ciclo entero — sigue cubierto por `notificaciones:revertir-cupo`
+ * (recordatorio 15 días + gracia), que es el ciclo pensado para este
+ * método desde el principio.
  */
 class ExpirarInscripcionesPendientesAction
 {
@@ -40,6 +51,7 @@ class ExpirarInscripcionesPendientesAction
         $expiradas = 0;
 
         Registration::where('pago_status', 'pending')
+            ->where('tipo_pago', '!=', 'pendiente')
             ->with('formType')
             ->chunkById(100, function ($registrations) use (&$expiradas) {
                 foreach ($registrations as $registration) {
