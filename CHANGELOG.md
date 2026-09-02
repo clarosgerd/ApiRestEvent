@@ -2,6 +2,41 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/).
 
+## 2026-09-02 — Correo de confirmación de pago adicional (no existía)
+
+Parte 2 del incidente de UAT de hoy (ver entry anterior, "SIP cobró un pago adicional que nunca
+se aplicó"): el usuario preguntó cómo avisarle a Flor Banegas, la participante cuyo pago
+adicional (`AD-B4NTW3BV`) sí se terminó aplicando bien — pero nunca le llegó ningún correo.
+Investigando se confirmó que `ConfirmarPagoAdicionalAction` nunca disparó ningún correo desde que
+existe (26/08/2026, PLAN-COBRO-SIP-ADICIONAL-26082026.md) — ni siquiera cuando el pago se aplica
+sin problemas. No es un efecto del bug de hoy, es un hueco que estuvo ahí desde el principio.
+
+### Added
+- `NotificacionService::notificarPagoAdicionalConfirmado()` + `PagoAdicionalConfirmadoMail` +
+  vista `emails/pago-adicional-confirmado.blade.php` — mismo espíritu que el correo de pago
+  confirmado normal (`PagoConfirmadoMail`), pero sin PDF adjunto: monto adicional cobrado,
+  método, y la lista completa de talleres que la inscripción tiene ahora.
+- `pagos_adicionales_inscripcion.notificado_at` (nullable) — idempotencia PROPIA de este correo,
+  a propósito NO reusa `registration_notifications` (única por registration_id+tipo): una misma
+  inscripción puede tener varios pagos adicionales a lo largo del tiempo, y esa tabla compartida
+  bloquearía el segundo aviso.
+- `ConfirmarPagoAdicionalAction` ahora dispara la notificación al confirmar (después de aplicar
+  el cambio real) — nunca tumba la confirmación si el correo falla.
+- Comando `notificaciones:reenviar-pago-adicional {referencia} [--confirmar] [--forzar]` —
+  reenvío puntual/retroactivo, dry-run por default, mismo patrón que
+  `personas:purgar-canceladas-retroactivo`. Usado para el caso real de Flor Banegas.
+
+### Verified
+- 4 tests nuevos en `PagoAdicionalSipTest`: se envía al confirmar; no se reenvía en un reintento
+  de SIP; NO se envía si el pago queda en 'error'; un segundo pago adicional de la MISMA
+  inscripción manda su propio correo (prueba clave del diseño de idempotencia por pago, no por
+  inscripción). Confirmado que 3 de los 4 fallan sin el hook-up (`git stash`).
+- Vista renderizada localmente contra el pago adicional real de Flor Banegas
+  (`event_prod_purga`, sincronizada desde UAT) — sin errores, muestra Bs1010.00 y los 3 talleres
+  correctos. Comando probado en dry-run y en envío real contra el sandbox de Mailtrap local (no
+  llega a su bandeja real) — falta correrlo de verdad en UAT con `--confirmar` para que a ella le
+  llegue.
+
 ## 2026-09-02 — Incidente UAT: SIP cobró un pago adicional que nunca se aplicó
 
 Reportado por el usuario con logs reales de `payment_callback_20260902.log`: en el congreso, un

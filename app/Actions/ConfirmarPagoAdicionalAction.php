@@ -3,7 +3,9 @@
 namespace App\Actions;
 
 use App\Models\PagoAdicionalInscripcion;
+use App\Services\NotificacionService;
 use App\Services\RegistrationService;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Cobro real por SIP del monto adicional (26/08/2026) — ver
@@ -18,6 +20,7 @@ class ConfirmarPagoAdicionalAction
     public function __construct(
         private readonly ActualizarInscripcionPagadaAction $actualizarInscripcionPagada,
         private readonly RegistrationService $registrationService,
+        private readonly NotificacionService $notificaciones,
     ) {
     }
 
@@ -75,7 +78,20 @@ class ConfirmarPagoAdicionalAction
         }
 
         $pago->update(['pago_status' => 'paid', 'paid_at' => now()]);
+        $pago->refresh();
 
-        return ['pago' => $pago->fresh(), 'registration' => $result['registration']];
+        // Correo de confirmación por pago adicional (02/09/2026) — hueco
+        // real encontrado en un incidente de UAT: hasta hoy, ni siquiera un
+        // pago adicional aplicado con éxito avisaba nada al participante.
+        // No debe tumbar la confirmación si falla (NotificacionService ya
+        // atrapa errores de SMTP por su cuenta; este try/catch es defensa
+        // extra por si algo más falla armando el correo).
+        try {
+            $this->notificaciones->notificarPagoAdicionalConfirmado($pago);
+        } catch (\Throwable $e) {
+            Log::error("No se pudo notificar el pago adicional confirmado {$pago->referencia}: {$e->getMessage()}");
+        }
+
+        return ['pago' => $pago, 'registration' => $result['registration']];
     }
 }

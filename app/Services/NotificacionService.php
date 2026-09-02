@@ -5,9 +5,11 @@ namespace App\Services;
 use App\Jobs\SendWhatsappMessageJob;
 use App\Mail\CupoRevertidoMail;
 use App\Mail\InscripcionPendienteMail;
+use App\Mail\PagoAdicionalConfirmadoMail;
 use App\Mail\PagoConfirmadoMail;
 use App\Mail\RecordatorioKitMail;
 use App\Mail\RecordatorioPagoMail;
+use App\Models\PagoAdicionalInscripcion;
 use App\Models\Registration;
 use App\Models\RegistrationNotification;
 use Illuminate\Mail\Mailable;
@@ -62,6 +64,57 @@ class NotificacionService
             'pago_confirmado',
             fn () => new PagoConfirmadoMail($registration)
         );
+    }
+
+    /**
+     * Correo de confirmación por pago adicional (02/09/2026) — hueco real
+     * encontrado en un incidente de UAT: `ConfirmarPagoAdicionalAction`
+     * nunca avisaba nada al participante, ni siquiera cuando el pago se
+     * aplicaba bien (ver PLAN-COBRO-SIP-ADICIONAL-26082026.md, nunca tuvo
+     * este correo desde el principio).
+     *
+     * Idempotencia por `notificado_at` en la propia fila de
+     * `PagoAdicionalInscripcion` — NO usa `registration_notifications`
+     * como el resto de esta clase: esa tabla es única por
+     * (registration_id, tipo, canal), y una misma inscripción puede tener
+     * varios pagos adicionales a lo largo del tiempo (talleres agregados
+     * en ediciones distintas) — ese UNIQUE bloquearía el segundo aviso.
+     */
+    public function notificarPagoAdicionalConfirmado(PagoAdicionalInscripcion $pago): void
+    {
+        if ($pago->notificado_at !== null) {
+            return;
+        }
+
+        $registration = $pago->registration;
+        if (! $registration) {
+            return;
+        }
+
+        $registration->loadMissing([
+            'participants.souvenirParticipante',
+            'participants.talleresSesiones.taller',
+            'evento', 'formType',
+        ]);
+
+        $destinatarios = $registration->participants->pluck('correo')->filter()->unique();
+
+        if ($destinatarios->isEmpty()) {
+            return;
+        }
+
+        foreach ($destinatarios as $correo) {
+            try {
+                // Instancia nueva por destinatario, mismo motivo que en
+                // enviarEmailSiNoEnviado(): Mailable::to() acumula en vez
+                // de reemplazar.
+                Mail::to($correo)->send(new PagoAdicionalConfirmadoMail($pago));
+            } catch (\Throwable $e) {
+                Log::error("No se pudo enviar email (pago_adicional_confirmado) a {$correo} para {$pago->referencia}: {$e->getMessage()}");
+            }
+        }
+
+        $pago->update(['notificado_at' => now()]);
     }
 
     /**
