@@ -64,7 +64,17 @@ class OrganizadorDashboardController extends Controller
 
         $participantes = $query->get();
 
-        return response()->streamDownload(function () use ($participantes, $evento) {
+        // Nombre de categoría en el CSV (02/09/2026) — participantes.categoria
+        // guarda el ID de la categoría (ver backfill_participante_categoria_
+        // legacy_names_to_id), no el nombre; el CSV lo mostraba crudo ("6",
+        // "90028") en vez de "15K"/"35K". Mismo mapeo que ya arma
+        // DashboardInscripcionesData::paraEvento() (nombresCategorias) para
+        // la tabla "Por categoría" en pantalla. Fallback al valor crudo: un
+        // form_type sin categoría real (requiere_categoria=false) guarda su
+        // propio nombre en este campo, no un ID — ya es legible tal cual.
+        $nombresCategorias = $evento->categories()->pluck('name', 'id');
+
+        return response()->streamDownload(function () use ($participantes, $evento, $nombresCategorias) {
             $out = fopen('php://output', 'w');
             fputcsv($out, [
                 'Nombre', 'Apellido', 'Documento', 'Categoría', 'Tipo de formulario',
@@ -94,7 +104,7 @@ class OrganizadorDashboardController extends Controller
                     $p->nombre,
                     $p->apellido,
                     trim($p->tipo_documento . ' ' . $p->numero_documento),
-                    $p->categoria,
+                    $nombresCategorias[$p->categoria] ?? $p->categoria,
                     optional($formType)->name,
                     $p->polera,
                     $p->souvenirParticipante->pluck('nombre')->implode(', '),

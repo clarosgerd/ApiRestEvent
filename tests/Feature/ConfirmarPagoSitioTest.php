@@ -206,4 +206,43 @@ class ConfirmarPagoSitioTest extends TestCase
         $this->assertEmpty($filaConCategoria[$urlIdx]);
         $this->assertEmpty($filaConCategoria[$montoIdx]);
     }
+
+    /**
+     * Bug real (02/09/2026, reportado por el usuario revisando el CSV
+     * exportado): la columna "Categoría" mostraba el ID crudo guardado en
+     * `participantes.categoria` (ej. "6", "90028") en vez del nombre real
+     * (ej. "15K") — mismo mapeo que ya usa la pantalla del dashboard
+     * (`nombresCategorias`), ahora también en el CSV. Un form_type sin
+     * categoría real (requiere_categoria=false) sigue mostrando su propio
+     * nombre tal cual (ya era legible, no hace falta mapeo).
+     */
+    public function test_csv_export_muestra_el_nombre_de_la_categoria_no_el_id(): void
+    {
+        $formTypeSinCategoria = FormType::factory()->create([
+            'event_id' => $this->evento->id, 'activo' => true,
+            'requiere_categoria' => false, 'precio_base' => 30, 'name' => 'Sin categoría X',
+        ]);
+        $this->crearInscripcionPendiente($formTypeSinCategoria, 30, '30303030');
+
+        $formTypeConCategoria = FormType::factory()->create([
+            'event_id' => $this->evento->id, 'activo' => true,
+            'requiere_categoria' => true,
+        ]);
+        $categoria = Category::factory()->create(['event_id' => $this->evento->id, 'price' => 80, 'name' => '15K']);
+        $this->crearInscripcionPendiente($formTypeConCategoria, 80, '40404040', $categoria->id);
+
+        $url = URL::signedRoute('organizador.dashboard.export', ['evento' => $this->evento->id]);
+        $csv = $this->get($url)->assertOk()->streamedContent();
+
+        $lines = array_map('str_getcsv', explode("\n", trim($csv)));
+        $header = $lines[0];
+        $catIdx = array_search('Categoría', $header);
+        $docIdx = array_search('Documento', $header);
+
+        $filaSinCategoria = collect($lines)->first(fn ($l) => str_contains($l[$docIdx] ?? '', '30303030'));
+        $filaConCategoria = collect($lines)->first(fn ($l) => str_contains($l[$docIdx] ?? '', '40404040'));
+
+        $this->assertSame('15K', $filaConCategoria[$catIdx]);
+        $this->assertSame('Sin categoría X', $filaSinCategoria[$catIdx]);
+    }
 }
