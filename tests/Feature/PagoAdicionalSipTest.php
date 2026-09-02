@@ -7,6 +7,7 @@ use App\Actions\CrearInscripcionAction;
 use App\Actions\ExpirarPagosAdicionalesAction;
 use App\Actions\GenerarPagoAdicionalAction;
 use App\DTOs\RegistrationDTO;
+use App\Mail\PagoAdicionalConfirmadoMail;
 use App\Models\Category;
 use App\Models\Ciudad;
 use App\Models\Evento;
@@ -317,5 +318,116 @@ class PagoAdicionalSipTest extends TestCase
             ->assertOk()->assertJson(['success' => true, 'pago_status' => 'paid']);
 
         $this->assertDatabaseHas('participante_taller_sesion', ['sesion_congreso_id' => $this->sesion->id]);
+    }
+
+    // ── Correo de confirmación (bug real 02/09/2026, incidente UAT) ────
+
+    /**
+     * Hueco real encontrado en un incidente de UAT: hasta hoy, ni siquiera
+     * un pago adicional aplicado con éxito avisaba nada al participante.
+     */
+    public function test_confirmar_pago_adicional_envia_correo_de_confirmacion(): void
+    {
+        $registration = $this->crearInscripcionPagadaSinTaller('40000010');
+        $participantes = [$this->participanteData('40000010', [
+            'talleres' => [['taller_id' => $this->taller->id, 'sesion_congreso_id' => $this->sesion->id]],
+        ])];
+        $totales = $this->totalesData(['talleres' => 30, 'fee' => 4, 'grand_total' => 84]);
+        $pago = app(GenerarPagoAdicionalAction::class)->handle($registration, $participantes, $totales, 40.0);
+
+        // El correo real del destinatario es el de $participantes (lo que
+        // ActualizarInscripcionPagadaAction recrea) — no el del
+        // participante original de $registration: participanteData()
+        // genera un correo aleatorio nuevo en cada llamada, y acá se llamó
+        // dos veces (una dentro de crearInscripcionPagadaSinTaller(), otra
+        // arriba para armar $participantes).
+        $correo = $participantes[0]['correo'];
+
+        $result = app(ConfirmarPagoAdicionalAction::class)->handle($pago->referencia);
+
+        Mail::assertSent(PagoAdicionalConfirmadoMail::class, function ($mail) use ($correo, $pago) {
+            return $mail->hasTo($correo) && $mail->pago->referencia === $pago->referencia;
+        });
+        $this->assertNotNull($result['pago']->notificado_at);
+    }
+
+    public function test_confirmar_pago_adicional_no_reenvia_correo_en_reintento(): void
+    {
+        $registration = $this->crearInscripcionPagadaSinTaller('40000011');
+        $participantes = [$this->participanteData('40000011', [
+            'talleres' => [['taller_id' => $this->taller->id, 'sesion_congreso_id' => $this->sesion->id]],
+        ])];
+        $totales = $this->totalesData(['talleres' => 30, 'fee' => 4, 'grand_total' => 84]);
+        $pago = app(GenerarPagoAdicionalAction::class)->handle($registration, $participantes, $totales, 40.0);
+
+        app(ConfirmarPagoAdicionalAction::class)->handle($pago->referencia);
+        // SIP reintenta el callback — no debe reenviar el correo.
+        app(ConfirmarPagoAdicionalAction::class)->handle($pago->referencia);
+
+        Mail::assertSent(PagoAdicionalConfirmadoMail::class, 1);
+    }
+
+    public function test_pago_adicional_en_error_no_envia_correo_de_confirmacion(): void
+    {
+        $registration = $this->crearInscripcionPagadaSinTaller('40000012');
+        $participantes = [$this->participanteData('40000012', [
+            'talleres' => [['taller_id' => $this->taller->id, 'sesion_congreso_id' => $this->sesion->id]],
+        ])];
+        $totales = $this->totalesData(['talleres' => 30, 'fee' => 4, 'grand_total' => 84]);
+        $pago = app(GenerarPagoAdicionalAction::class)->handle($registration, $participantes, $totales, 40.0);
+
+        // Otro participante ocupa el único cupo mientras el primero todavía
+        // no confirmó el pago SIP — el mismo escenario de
+        // test_si_el_cupo_se_llena_antes_de_confirmar_el_pago_queda_en_error_sin_tocar_la_inscripcion.
+        $otraInscripcion = $this->crearInscripcionPagadaSinTaller('40000013');
+        app(\App\Actions\ActualizarInscripcionPagadaAction::class)->handle($otraInscripcion->referencia, [
+            'participantes' => [$this->participanteData('40000013', [
+                'talleres' => [['taller_id' => $this->taller->id, 'sesion_congreso_id' => $this->sesion->id]],
+            ])],
+            'totales' => $totales,
+            '_usuario' => 'test@test.net',
+        ]);
+
+        try {
+            app(ConfirmarPagoAdicionalAction::class)->handle($pago->referencia);
+        } catch (\DomainException $e) {
+            // esperado
+        }
+
+        Mail::assertNotSent(PagoAdicionalConfirmadoMail::class);
+    }
+
+    /**
+     * Prueba clave del diseño: `notificado_at` vive en la fila del PAGO
+     * adicional, no en `registration_notifications` (única por
+     * registration_id+tipo) — si usara esa tabla, el segundo pago
+     * adicional de la misma inscripción nunca mandaría su propio correo.
+     */
+    public function test_segundo_pago_adicional_de_la_misma_inscripcion_tambien_envia_su_propio_correo(): void
+    {
+        $registration = $this->crearInscripcionPagadaSinTaller('40000014');
+        $participantes1 = [$this->participanteData('40000014', [
+            'talleres' => [['taller_id' => $this->taller->id, 'sesion_congreso_id' => $this->sesion->id]],
+        ])];
+        $totales1 = $this->totalesData(['talleres' => 30, 'fee' => 4, 'grand_total' => 84]);
+        $pago1 = app(GenerarPagoAdicionalAction::class)->handle($registration, $participantes1, $totales1, 40.0);
+        app(ConfirmarPagoAdicionalAction::class)->handle($pago1->referencia);
+
+        $tallerB = Taller::factory()->create(['evento_id' => $this->evento->id, 'modalidad' => 'OPTIONAL', 'precio' => 20]);
+        $sesionB = SesionCongreso::factory()->create([
+            'evento_id' => $this->evento->id, 'taller_id' => $tallerB->id, 'cupo' => 10,
+            'hora_inicio' => '11:00:00', 'hora_fin' => '12:00:00',
+        ]);
+        $participantes2 = [$this->participanteData('40000014', [
+            'talleres' => [
+                ['taller_id' => $this->taller->id, 'sesion_congreso_id' => $this->sesion->id],
+                ['taller_id' => $tallerB->id, 'sesion_congreso_id' => $sesionB->id],
+            ],
+        ])];
+        $totales2 = $this->totalesData(['talleres' => 50, 'fee' => 5, 'grand_total' => 105]);
+        $pago2 = app(GenerarPagoAdicionalAction::class)->handle($registration->fresh(), $participantes2, $totales2, 30.0);
+        app(ConfirmarPagoAdicionalAction::class)->handle($pago2->referencia);
+
+        Mail::assertSent(PagoAdicionalConfirmadoMail::class, 2);
     }
 }

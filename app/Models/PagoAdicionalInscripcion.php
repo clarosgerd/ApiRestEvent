@@ -28,6 +28,9 @@ class PagoAdicionalInscripcion extends Model
         'qr_id',
         'pago_status',
         'paid_at',
+        // Correo de confirmación por pago adicional (02/09/2026) — ver
+        // migración add_notificado_at_to_pagos_adicionales_inscripcion_table.
+        'notificado_at',
     ];
 
     protected $casts = [
@@ -35,6 +38,7 @@ class PagoAdicionalInscripcion extends Model
         'participantes_payload' => 'array',
         'totales_payload' => 'array',
         'paid_at' => 'datetime',
+        'notificado_at' => 'datetime',
     ];
 
     public function registration(): BelongsTo
