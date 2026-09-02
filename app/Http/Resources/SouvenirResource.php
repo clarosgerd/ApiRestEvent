@@ -36,6 +36,13 @@ class SouvenirResource extends JsonResource
             // no es admin/super_admin), pero se expone igual el flag para
             // que el panel admin pueda mostrarlo/editarlo.
             'visible_participante' => (bool) $this->visible_participante,
+            // Cargo de servicio por souvenir individual (01/09/2026) — si
+            // este ítem suma su precio a la base del cargo de servicio
+            // (junto a inscripción/talleres) o queda afuera, igual que
+            // siempre (default false). Ver CrearInscripcionAction::
+            // validateFeePct() y api/_registro_validacion.php (fuente de
+            // verdad del cálculo).
+            'aplica_cargo_servicio' => (bool) $this->aplica_cargo_servicio,
             // Array vacío = disponibilidad no controlada (sin filas de
             // stock cargadas) — no significa "agotado", ver
             // DisponibilidadItemData.
