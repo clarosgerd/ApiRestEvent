@@ -43,6 +43,11 @@ class SouvenirResource extends JsonResource
             // validateFeePct() y api/_registro_validacion.php (fuente de
             // verdad del cálculo).
             'aplica_cargo_servicio' => (bool) $this->aplica_cargo_servicio,
+            // Texto promocional por souvenir (02/09/2026) — texto libre
+            // opcional para promocionar el ítem en el formulario público
+            // (ej. "La mejor Coca-Cola bien fría"). Puramente de
+            // marketing, null si no se cargó nada.
+            'texto_promocional' => $this->texto_promocional,
             // Array vacío = disponibilidad no controlada (sin filas de
             // stock cargadas) — no significa "agotado", ver
             // DisponibilidadItemData.

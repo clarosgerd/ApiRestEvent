@@ -295,4 +295,50 @@ class SouvenirInvisibleTest extends TestCase
             'nombre' => 'Poncho',
         ]);
     }
+
+    /**
+     * Texto promocional por souvenir (02/09/2026) — texto libre opcional,
+     * puramente de marketing (ej. "La mejor Coca-Cola bien fría"), sin
+     * efecto en precio/disponibilidad. Se guarda en el alta, se puede
+     * editar después, y se expone en el Resource para que
+     * elascenso/event lo muestre en la tarjeta.
+     */
+    public function test_guarda_y_expone_el_texto_promocional(): void
+    {
+        $admin = $this->actingAsAdmin();
+        $admin->update(['rol' => 'super_admin']);
+
+        $response = $this->postJson('/api/v1/souvenir', [
+            'form_types_id' => $this->formType->id,
+            'name' => 'Coca-Cola',
+            'price' => 5,
+            'icon' => '🥤',
+            'texto_promocional' => 'La mejor Coca-Cola bien fría',
+        ])->assertCreated();
+
+        $souvenirId = $response->json('souvenir.id');
+        $this->assertDatabaseHas('souvenirs', [
+            'id' => $souvenirId,
+            'texto_promocional' => 'La mejor Coca-Cola bien fría',
+        ]);
+
+        $this->putJson("/api/v1/souvenir/{$souvenirId}", [
+            'texto_promocional' => 'Ahora con hielo',
+        ])->assertOk()
+            ->assertJsonPath('souvenir.texto_promocional', 'Ahora con hielo');
+    }
+
+    public function test_texto_promocional_es_opcional(): void
+    {
+        $admin = $this->actingAsAdmin();
+        $admin->update(['rol' => 'super_admin']);
+
+        $this->postJson('/api/v1/souvenir', [
+            'form_types_id' => $this->formType->id,
+            'name' => 'Medalla',
+            'price' => 0,
+            'icon' => '🏅',
+        ])->assertCreated()
+            ->assertJsonPath('souvenir.texto_promocional', null);
+    }
 }
