@@ -80,12 +80,3 @@ Schedule::command('notificaciones:recordatorio-dashboard-organizador')->daily()-
 // reciente de todos modos, pero mantiene el orden lógico.
 Schedule::command('backup:run --only-db')->daily()->appendOutputTo($schedulerLog);
 Schedule::command('backup:clean')->daily()->appendOutputTo($schedulerLog);
-
-// ⚠️ TEMPORAL (01/09/2026) — purga retroactiva de canceladas del evento 4,
-// CONFIRMADO por el usuario tras revisar el reporte (9 participantes, 7
-// personas). Disparado por everyMinute() para no depender de esperar al
-// ciclo diario — BORRAR esta línea (y este comentario) apenas se
-// confirme en storage/logs/scheduler.log que corrió una vez, no debe
-// quedar ejecutándose cada minuto para siempre. Ver
-// app/Console/Commands/PurgarDatosPersonaCanceladaRetroactivo.php.
-Schedule::command('personas:purgar-canceladas-retroactivo 4 --confirmar')->everyMinute()->appendOutputTo($schedulerLog);
