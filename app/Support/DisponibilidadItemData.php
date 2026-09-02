@@ -50,16 +50,27 @@ class DisponibilidadItemData
      */
     public static function disponibleParaCombinacion(Souvenir $souvenir, ?string $talla, ?string $sexo): ?int
     {
-        $stock = ItemStock::where('souvenir_id', $souvenir->id)
-            ->where('talla', $talla)
-            ->where('sexo', $sexo)
-            ->first();
+        // Bug real (01/09/2026): un souvenir sin requiere_sexo (el sexo ya
+        // va implícito en el nombre, ej. "Polera Solo Varones") nunca le
+        // pide sexo al participante — $sexo llega null acá — pero el
+        // admin puede haber cargado el stock CON un sexo propio en esas
+        // filas (ej. sexo=masculino). El match exacto contra `sexo` nunca
+        // encontraba esa fila: se trataba como "sin stock controlado"
+        // (siempre disponible) del lado de acá, y como "sin stock" (0
+        // disponible, bloqueado) del lado del pre-chequeo de
+        // elascenso/event — inconsistentes y las dos mal. Si $sexo es
+        // null, sumamos todas las filas de esa talla sin filtrar por sexo.
+        $query = ItemStock::where('souvenir_id', $souvenir->id)->where('talla', $talla);
+        if ($sexo !== null) {
+            $query->where('sexo', $sexo);
+        }
+        $stocks = $query->get();
 
-        if (! $stock) {
+        if ($stocks->isEmpty()) {
             return null;
         }
 
-        return max(0, $stock->cantidad_total - self::ocupado($souvenir->id, $talla, $sexo));
+        return max(0, $stocks->sum('cantidad_total') - self::ocupado($souvenir->id, $talla, $sexo));
     }
 
     /**
@@ -136,15 +147,23 @@ class DisponibilidadItemData
     public static function validarDemandaOFail(array $demanda): void
     {
         foreach ($demanda as $item) {
-            $stock = ItemStock::where('souvenir_id', $item['souvenir_id'])
+            // Mismo criterio que disponibleParaCombinacion() (ver
+            // comentario ahí, 01/09/2026): con sexo null (souvenir sin
+            // requiere_sexo) no se exige que la fila de stock también
+            // tenga sexo null — se suman todas las filas de esa talla.
+            $query = ItemStock::where('souvenir_id', $item['souvenir_id'])
                 ->where('talla', $item['talla'])
-                ->where('sexo', $item['sexo'])
-                ->lockForUpdate()
-                ->first();
+                ->lockForUpdate();
+            if ($item['sexo'] !== null) {
+                $query->where('sexo', $item['sexo']);
+            }
+            $stocks = $query->get();
 
-            if (!$stock) {
+            if ($stocks->isEmpty()) {
                 continue; // disponibilidad no controlada, no se bloquea
             }
+
+            $cantidadTotal = $stocks->sum('cantidad_total');
 
             $ocupado = SouvenirParticipante::where('souvenir_id', $item['souvenir_id'])
                 ->where('talla', $item['talla'])
@@ -155,14 +174,14 @@ class DisponibilidadItemData
                 ->lockForUpdate()
                 ->count();
 
-            if ($ocupado + $item['cantidad'] > $stock->cantidad_total) {
+            if ($ocupado + $item['cantidad'] > $cantidadTotal) {
                 $souvenir = Souvenir::find($item['souvenir_id']);
                 throw new \DomainException(
                     sprintf(
                         'No hay stock suficiente de "%s"%s. Quedan %d disponibles.',
                         $souvenir->name ?? 'el ítem seleccionado',
                         $item['talla'] ? " (talla {$item['talla']})" : '',
-                        max(0, $stock->cantidad_total - $ocupado)
+                        max(0, $cantidadTotal - $ocupado)
                     )
                 );
             }

@@ -173,6 +173,38 @@ class KitTallasStockTest extends TestCase
         ]));
     }
 
+    /**
+     * Bug real (01/09/2026, reportado por el usuario en vivo): un souvenir
+     * SIN requiere_sexo (ej. "Polera Solo Varones", el sexo ya está
+     * implícito en el nombre) nunca le pide sexo al participante — la
+     * selección siempre llega con sexo null — pero el admin puede haber
+     * cargado el stock CON un sexo propio en esas filas (ej.
+     * sexo=masculino, 300 unidades reales). El match exacto contra `sexo`
+     * nunca encontraba esa fila: bloqueaba la compra ("No hay stock
+     * disponible...") pese a haber stock real cargado.
+     */
+    public function test_permite_inscripcion_cuando_stock_tiene_sexo_pero_souvenir_no_lo_pide(): void
+    {
+        $souvenir = Souvenir::factory()->create([
+            'form_types_id' => $this->formType->id,
+            'requiere_talla' => false,
+            'requiere_sexo' => false,
+        ]);
+        ItemStock::create(['souvenir_id' => $souvenir->id, 'talla' => null, 'sexo' => 'masculino', 'cantidad_total' => 300]);
+
+        $action = app(CrearInscripcionAction::class);
+        $registration = $action->handle($this->dtoParaParticipante([], [
+            ['id' => $souvenir->id, 'nombre' => $souvenir->name, 'precio' => 0],
+        ]));
+
+        $participante = $registration->participants->first();
+        $this->assertDatabaseHas('souvenir_participantes', [
+            'participante_id' => $participante->id,
+            'souvenir_id' => $souvenir->id,
+        ]);
+        $this->assertSame(299, DisponibilidadItemData::disponibleParaCombinacion($souvenir, null, null));
+    }
+
     public function test_permite_inscripcion_con_stock_disponible_y_guarda_talla(): void
     {
         $souvenir = Souvenir::factory()->create(['form_types_id' => $this->formType->id, 'requiere_talla' => true]);
