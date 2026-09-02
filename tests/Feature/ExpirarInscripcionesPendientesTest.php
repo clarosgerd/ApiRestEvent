@@ -22,7 +22,7 @@ class ExpirarInscripcionesPendientesTest extends TestCase
 {
     use RefreshDatabase;
 
-    private function crearRegistrationPendiente(FormType $formType, int $minutosDeAntiguedad): Registration
+    private function crearRegistrationPendiente(FormType $formType, int $minutosDeAntiguedad, string $tipoPago = 'qr'): Registration
     {
         $registration = Registration::create([
             'referencia'    => 'REF-EXP-' . uniqid(),
@@ -30,7 +30,7 @@ class ExpirarInscripcionesPendientesTest extends TestCase
             'evento_id'     => $formType->event_id,
             'form_types_id' => $formType->id,
             'evento_nombre' => 'x',
-            'tipo_pago'     => 'qr',
+            'tipo_pago'     => $tipoPago,
             'pago_status'   => 'pending',
         ]);
 
@@ -151,5 +151,28 @@ class ExpirarInscripcionesPendientesTest extends TestCase
             ->assertExitCode(0);
 
         $this->assertSame('paid', $registration->fresh()->pago_status);
+    }
+
+    /**
+     * Bug real (02/09/2026) — tipo_pago='pendiente' ("el participante deja
+     * el registro guardado y paga después", sin pasarela, sin plazo corto
+     * por diseño) recibía el mismo tiempo_expiracion_min que un QR/pasarela
+     * abandonado. 14 inscripciones de una carga masiva CSV (siempre
+     * tipo_pago='pendiente') amanecieron canceladas por esto.
+     */
+    public function test_no_expira_tipo_pago_pendiente_aunque_supere_el_tiempo(): void
+    {
+        $evento = Evento::factory()->create();
+        $formType = FormType::factory()->create([
+            'event_id' => $evento->id,
+            'tiempo_expiracion_min' => 30,
+        ]);
+        $registration = $this->crearRegistrationPendiente($formType, 90, tipoPago: 'pendiente');
+
+        $this->artisan('notificaciones:expirar-pendientes')
+            ->expectsOutput('Inscripciones expiradas: 0')
+            ->assertExitCode(0);
+
+        $this->assertSame('pending', $registration->fresh()->pago_status);
     }
 }
