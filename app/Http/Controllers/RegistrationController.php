@@ -555,9 +555,14 @@ public function estadoTransaccion(
             'participantes.*.genero' => ['required', 'string'],
             'participantes.*.fecha_nacimiento' => ['required', 'date'],
             'participantes.*.email' => ['required', 'email'],
-            'participantes.*.direccion' => ['required', 'string'],
-            'participantes.*.ciudad' => ['required', 'string'],
-            'participantes.*.telefono' => ['required', 'string'],
+            // Dirección/Ciudad/Teléfono opcionales (31/08/2026) — esta
+            // carga masiva (05/08/2026, previa a ese cambio) se había
+            // quedado con `required`, mismo patrón de "un spot afuera del
+            // barrido" ya visto varias veces esta sesión. ParticipantDTO
+            // ya tiene el `?? ''` correspondiente desde el 01/09/2026.
+            'participantes.*.direccion' => ['nullable', 'string'],
+            'participantes.*.ciudad' => ['nullable', 'string'],
+            'participantes.*.telefono' => ['nullable', 'string'],
             'participantes.*.contacto_emergencia_nombre' => ['required', 'string'],
             'participantes.*.contacto_emergencia_telefono' => ['required', 'string'],
             'participantes.*.contacto_emergencia_relacion' => ['required', 'string'],
@@ -738,26 +743,68 @@ public function estadoTransaccion(
      * por el formulario público o el panel en su lugar. Ver
      * brain/api_rest_event/PLAN-CARGA-MASIVA-TALLERES-21082026.md.
      *
+     * Desambiguación por horario (01/09/2026) — ver resolverTallerYSesion():
+     * cuando 2+ talleres del evento comparten nombre exacto (ej. mismo
+     * taller dictado 2 veces en distinto turno, cargados como registros
+     * separados en vez de 2 sesiones de un mismo taller), el CSV puede
+     * agregar "@DD/MM HH:MM" después del nombre para elegir cuál, sin
+     * tener que renombrar el taller real. Caso real: usuario con 14
+     * inscripciones de un congreso real, 2 pares de talleres con nombre
+     * idéntico (mismo nombre, dictados en 2 horarios distintos cada uno).
+     *
      * @return array{0: array<int, array{taller_id:int, sesion_congreso_id:int}>, 1: float}
      */
     private function resolverTalleresFila(Evento $event, string $celda): array
     {
-        $nombres = array_values(array_filter(
+        $entradas = array_values(array_filter(
             array_map('trim', explode(';', $celda)),
             fn ($n) => $n !== ''
         ));
 
-        if (empty($nombres)) {
+        if (empty($entradas)) {
             return [[], 0.0];
         }
 
         $talleres = [];
         $total = 0.0;
 
-        foreach ($nombres as $nombre) {
-            $taller = \App\Models\Taller::where('evento_id', $event->id)
-                ->whereRaw('LOWER(nombre) = ?', [mb_strtolower($nombre)])
-                ->first();
+        foreach ($entradas as $entrada) {
+            [$taller, $sesion] = $this->resolverTallerYSesion($event, $entrada);
+
+            $talleres[] = ['taller_id' => $taller->id, 'sesion_congreso_id' => $sesion->id];
+            $total += \App\Support\Taller\ResolverPrecioTallerData::total($taller, $sesion, $event);
+        }
+
+        return [$talleres, round($total, 2)];
+    }
+
+    /**
+     * Resuelve una entrada de la celda `talleres` a un taller+sesión
+     * puntuales.
+     *
+     * Formato normal: "Nombre del taller" — exige que el nombre matchee
+     * un solo taller del evento (case-insensitive), y que ese taller
+     * tenga exactamente 1 sesión activa. Comportamiento de siempre, sin
+     * cambios, cuando no se usa "@".
+     *
+     * Formato con desambiguación (01/09/2026): "Nombre del taller@DD/MM
+     * HH:MM" — busca, entre TODOS los talleres del evento con ese nombre
+     * (puede haber más de un registro `talleres`, no solo más de una
+     * sesión de uno solo), la sesión activa cuya fecha/hora de inicio
+     * coincida exacto. Sirve tanto para 2 talleres homónimos como para 1
+     * taller con 2 sesiones — en ambos casos el nombre solo ya no alcanza.
+     */
+    private function resolverTallerYSesion(Evento $event, string $entrada): array
+    {
+        [$nombre, $horario] = array_pad(explode('@', $entrada, 2), 2, null);
+        $nombre = trim($nombre);
+        $horario = $horario !== null ? trim($horario) : null;
+
+        $talleresQuery = \App\Models\Taller::where('evento_id', $event->id)
+            ->whereRaw('LOWER(nombre) = ?', [mb_strtolower($nombre)]);
+
+        if ($horario === null) {
+            $taller = (clone $talleresQuery)->first();
 
             if (!$taller) {
                 throw new \DomainException("El taller \"{$nombre}\" no existe en este evento.");
@@ -767,20 +814,47 @@ public function estadoTransaccion(
             }
 
             $sesionesActivas = $taller->sesiones()->where('activa', true)->get();
+            $hayOtroTallerConMismoNombre = $talleresQuery->count() > 1;
 
             if ($sesionesActivas->isEmpty()) {
                 throw new \DomainException("El taller \"{$nombre}\" no tiene ninguna sesión activa configurada.");
             }
-            if ($sesionesActivas->count() > 1) {
-                throw new \DomainException("El taller \"{$nombre}\" tiene más de un horario — no se puede identificar por nombre en el CSV, cargá esta fila desde el formulario público o el panel.");
+            if ($sesionesActivas->count() > 1 || $hayOtroTallerConMismoNombre) {
+                throw new \DomainException(
+                    "El taller \"{$nombre}\" tiene más de un horario (o más de un taller con ese nombre) — " .
+                    "agregá \"@DD/MM HH:MM\" después del nombre en el CSV para elegir el horario exacto " .
+                    "(ej. \"{$nombre}@16/10 08:00\")."
+                );
             }
 
-            $sesion = $sesionesActivas->first();
-
-            $talleres[] = ['taller_id' => $taller->id, 'sesion_congreso_id' => $sesion->id];
-            $total += \App\Support\Taller\ResolverPrecioTallerData::total($taller, $sesion, $event);
+            return [$taller, $sesionesActivas->first()];
         }
 
-        return [$talleres, round($total, 2)];
+        if (!preg_match('/^(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{2})$/', $horario, $m)) {
+            throw new \DomainException("El horario \"{$horario}\" de \"{$nombre}\" no tiene el formato esperado DD/MM HH:MM (ej. \"16/10 08:00\").");
+        }
+        [, $dia, $mes, $hora, $min] = $m;
+
+        $tallerIds = $talleresQuery->pluck('id');
+        if ($tallerIds->isEmpty()) {
+            throw new \DomainException("El taller \"{$nombre}\" no existe en este evento.");
+        }
+
+        $sesion = \App\Models\SesionCongreso::whereIn('taller_id', $tallerIds)
+            ->where('activa', true)
+            ->whereRaw('DAY(fecha) = ? AND MONTH(fecha) = ?', [(int) $dia, (int) $mes])
+            ->whereRaw("TIME_FORMAT(hora_inicio, '%H:%i') = ?", [sprintf('%02d:%02d', (int) $hora, (int) $min)])
+            ->first();
+
+        if (!$sesion) {
+            throw new \DomainException("No se encontró una sesión activa de \"{$nombre}\" el {$dia}/{$mes} a las {$hora}:{$min}.");
+        }
+
+        $taller = $sesion->taller;
+        if (!$taller->activo) {
+            throw new \DomainException("El taller \"{$nombre}\" no está activo.");
+        }
+
+        return [$taller, $sesion];
     }
 }
