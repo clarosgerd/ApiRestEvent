@@ -26,6 +26,10 @@ class Souvenir extends Model
         // Cargo de servicio por souvenir individual (01/09/2026) — ver
         // migración add_aplica_cargo_servicio_to_souvenirs_table.
         'aplica_cargo_servicio',
+        // Texto promocional por souvenir (02/09/2026) — ver migración
+        // add_texto_promocional_to_souvenirs_table. Puramente de
+        // marketing, no afecta precio ni disponibilidad.
+        'texto_promocional',
     ];
 
     protected $casts = [

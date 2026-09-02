@@ -38,6 +38,9 @@ class UpdateSouvenirRequest extends FormRequest
             // Cargo de servicio por souvenir individual (01/09/2026) — ver
             // migración add_aplica_cargo_servicio_to_souvenirs_table.
             'aplica_cargo_servicio' => 'sometimes|boolean',
+            // Texto promocional por souvenir (02/09/2026) — ver migración
+            // add_texto_promocional_to_souvenirs_table.
+            'texto_promocional' => 'sometimes|nullable|string|max:500',
         ];
     }
 
