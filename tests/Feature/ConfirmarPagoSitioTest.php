@@ -245,4 +245,66 @@ class ConfirmarPagoSitioTest extends TestCase
         $this->assertSame('15K', $filaConCategoria[$catIdx]);
         $this->assertSame('Sin categoría X', $filaSinCategoria[$catIdx]);
     }
+
+    /**
+     * "Monto categoría"/"Monto souvenir" (02/09/2026) — mismo pedido que
+     * el nombre de categoría de arriba: el CSV mostraba los nombres pero
+     * no cuánto pagó cada participante por cada uno.
+     */
+    public function test_csv_export_incluye_monto_categoria_y_monto_souvenir(): void
+    {
+        $formType = FormType::factory()->create([
+            'event_id' => $this->evento->id, 'activo' => true, 'requiere_categoria' => true,
+        ]);
+        $categoria = Category::factory()->create(['event_id' => $this->evento->id, 'price' => 100, 'name' => '15K']);
+        $souvenir = \App\Models\Souvenir::factory()->create([
+            'form_types_id' => $formType->id, 'name' => 'Polera', 'price' => 40,
+        ]);
+
+        $participante = [
+            'nombre' => 'Ana', 'apellido' => 'Prueba', 'alias' => '', 'genero' => 'Femenino',
+            'tipoDocumento' => 'DNI', 'numeroDocumento' => '50505050',
+            'polera' => '', 'precioPolera' => 0,
+            'nacimiento' => ['dia' => 1, 'mes' => 1, 'anio' => 1995], 'edad' => 30,
+            'correo' => 'ana'.rand(1, 999999).'@test.net', 'direccion' => 'x', 'ciudad' => 'x', 'telefono' => '123',
+            'contacto_emergencia' => ['nombre' => 'X', 'celular' => '123', 'relacion' => 'Madre'],
+            'souvenirs' => [['id' => $souvenir->id, 'nombre' => 'Polera', 'precio' => 40]],
+            'answers' => [],
+            'categoria' => (string) $categoria->id, 'precioCategoria' => 100,
+            'donacion' => 0, 'promoDescuento' => 0, 'promoCodigo' => '',
+            'subtotal' => 140,
+        ];
+        $dto = RegistrationDTO::fromArray([
+            'referencia' => 'LA-SITIO-'.uniqid(),
+            'fecha' => now()->toDateTimeString(),
+            'evento_id' => $this->evento->id,
+            'evento_nombre' => $this->evento->nombre,
+            'form_types_id' => $formType->id,
+            'tipo_pago' => 'pendiente',
+            'pago_status' => 'pending',
+            'pay_order_number' => null,
+            'totales' => [
+                // souvenir default aplica_cargo_servicio=false -> el fee
+                // solo mira inscripción (100 * 5% = 5), no la polera.
+                'inscripcion' => 100, 'donacion' => 0, 'souvenirs' => 40, 'fee' => 5,
+                'descuento' => 0, 'descuento_registrante' => 0, 'grand_total' => 145,
+            ],
+            'participantes' => [$participante],
+        ]);
+        app(CrearInscripcionAction::class)->handle($dto);
+
+        $url = URL::signedRoute('organizador.dashboard.export', ['evento' => $this->evento->id]);
+        $csv = $this->get($url)->assertOk()->streamedContent();
+
+        $lines = array_map('str_getcsv', explode("\n", trim($csv)));
+        $header = $lines[0];
+        $docIdx = array_search('Documento', $header);
+        $montoCatIdx = array_search('Monto categoría', $header);
+        $montoSvIdx = array_search('Monto souvenir', $header);
+
+        $fila = collect($lines)->first(fn ($l) => str_contains($l[$docIdx] ?? '', '50505050'));
+
+        $this->assertEquals('100.00', $fila[$montoCatIdx]);
+        $this->assertEquals('40.00', $fila[$montoSvIdx]);
+    }
 }

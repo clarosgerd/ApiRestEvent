@@ -77,8 +77,12 @@ class OrganizadorDashboardController extends Controller
         return response()->streamDownload(function () use ($participantes, $evento, $nombresCategorias) {
             $out = fopen('php://output', 'w');
             fputcsv($out, [
-                'Nombre', 'Apellido', 'Documento', 'Categoría', 'Tipo de formulario',
-                'Talla/Polera', 'Souvenirs', 'Teléfono', 'Correo', 'Estado de pago', 'Referencia',
+                // 'Monto categoría'/'Monto souvenir' (02/09/2026) — pedido
+                // del usuario revisando este mismo CSV: antes solo se veía
+                // el nombre de la categoría/souvenirs, sin poder saber
+                // cuánto pagó cada participante por cada uno.
+                'Nombre', 'Apellido', 'Documento', 'Categoría', 'Monto categoría', 'Tipo de formulario',
+                'Talla/Polera', 'Souvenirs', 'Monto souvenir', 'Teléfono', 'Correo', 'Estado de pago', 'Referencia',
                 'NumeroCorredor', 'Chip', 'ActualizarNumeracionUrl',
                 'MontoPendiente', 'ConfirmarPagoSitioUrl',
             ]);
@@ -105,9 +109,14 @@ class OrganizadorDashboardController extends Controller
                     $p->apellido,
                     trim($p->tipo_documento . ' ' . $p->numero_documento),
                     $nombresCategorias[$p->categoria] ?? $p->categoria,
+                    $p->precio_categoria,
                     optional($formType)->name,
                     $p->polera,
                     $p->souvenirParticipante->pluck('nombre')->implode(', '),
+                    // number_format explícito: sum() no pasa por el cast
+                    // decimal:2 del modelo (a diferencia de precio_categoria
+                    // arriba), sale "40" en vez de "40.00" si no se fuerza.
+                    number_format((float) $p->souvenirParticipante->sum('precio'), 2, '.', ''),
                     $p->telefono,
                     $p->correo,
                     $p->registration->pago_status,
