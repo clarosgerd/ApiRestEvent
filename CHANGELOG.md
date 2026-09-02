@@ -2,6 +2,47 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/).
 
+## 2026-09-02 — Incidente UAT: SIP cobró un pago adicional que nunca se aplicó
+
+Reportado por el usuario con logs reales de `payment_callback_20260902.log`: en el congreso, un
+participante editó su inscripción ya pagada para agregar un taller, pagó con QR (SIP cobró el
+dinero de verdad), pero el cambio nunca se aplicó — la fila de `pagos_adicionales` quedó en
+'error', sin correo, sin taller agregado. El usuario tuvo que recrear el registro a mano. 2 de 3
+intentos reales (`AD-TLJCPR12`, `AD-OXGY7QB9`) quedaron stuck para siempre (cada reintento de
+SIP repetía "Este pago adicional ya no está pendiente (estado: error)"); el tercero
+(`AD-B4NTW3BV`) se recuperó solo porque alguien reactivó a mano el taller entre reintentos.
+
+### Root cause
+
+`ValidarSeleccionesTallerAction::runPorParticipante()`/`runCapacidad()` — llamadas por
+`ActualizarInscripcionPagadaAction` en CADA edición de una inscripción pagada — revalidaban la
+disponibilidad (`activo`/`permite_inscripcion`/cupo) de TODOS los talleres del participante,
+incluidos los que ya tenía pagados de ANTES de esta edición. Como esa misma Action prohíbe quitar
+un taller ya pagado ("No se pueden quitar talleres que ya fueron pagados"), si el organizador
+deshabilitaba ese taller después (cupo lleno, lo que sea) el participante quedaba bloqueado para
+editar CUALQUIER cosa de su inscripción, sin ninguna salida — ni siquiera para agregar un taller
+totalmente distinto. En el flujo SIP esto es grave: el dinero ya se cobró antes de este chequeo.
+
+### Fixed
+- `ValidarSeleccionesTallerAction::run()`/`runPorParticipante()`/`runCapacidad()` — nuevo
+  parámetro (mapa de sesiones ya seleccionadas antes de esta edición) que exime esas sesiones de
+  los chequeos de disponibilidad/cupo; las genuinamente nuevas siguen validándose igual que
+  siempre. `ActualizarInscripcionPagadaAction` arma y pasa ese mapa (movió el snapshot de
+  `$participantesAnteriores` para que corra ANTES de la validación). `CrearInscripcionAction`
+  (alta nueva, todo es nuevo) y `ActualizarInscripcionAction` (inscripción pendiente, todavía se
+  puede quitar cualquier taller) no lo necesitan y siguen con la validación estricta de siempre.
+
+### Verified
+- 3 tests nuevos en `EditarInscripcionPagadaTallerCategoriaTest`: taller ya pagado que se
+  deshabilita no bloquea agregar uno nuevo distinto; el mismo escenario con cupo reducido
+  después de pagado; guard de que un taller GENUINAMENTE nuevo con `permite_inscripcion=false`
+  se sigue rechazando igual que siempre. Los 3 confirmados que fallan sin el fix (`git stash`),
+  con el mensaje de error exacto del incidente real. Suite completa de talleres/Caja/pago
+  adicional (69 tests) sin regresiones.
+- No hizo falta recuperar datos: las 2 filas 'error' del incidente (`AD-TLJCPR12`,
+  `AD-OXGY7QB9`) ya las resolvió el usuario a mano recreando el registro — este fix es
+  preventivo, para que no vuelva a pasar.
+
 ## 2026-09-02 — "Pagar en el evento (efectivo)" configurable en el pago adicional
 
 Pedido del usuario, tras probar la pantalla de editar una inscripción pagada para agregar un

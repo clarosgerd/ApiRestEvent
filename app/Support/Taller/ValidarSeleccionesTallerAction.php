@@ -42,11 +42,30 @@ class ValidarSeleccionesTallerAction
     /**
      * Validar todas las selecciones de todos los participantes de una
      * inscripción. Lanza `DomainException` ante el primer error.
+     *
+     * $sesionIdsPreviasPorIndice — bug real 02/09/2026 (reportado en UAT:
+     * SIP cobró un pago adicional real y la aplicación falló igual, dejando
+     * el intento en 'error' sin forma de recuperarse). Ver
+     * ActualizarInscripcionPagadaAction: una vez pagado, un taller NUNCA se
+     * puede quitar ("No se pueden quitar talleres que ya fueron pagados"),
+     * así que revalidar su disponibilidad actual (activo/permite_inscripcion)
+     * en cada edición posterior es una contradicción — si el organizador
+     * deshabilita ese taller después (cupo lleno, lo que sea), el
+     * participante queda bloqueado para siempre para editar CUALQUIER cosa
+     * de su inscripción ya pagada, sin ninguna forma de "sacarlo" porque no
+     * se puede quitar. Mapa índice-de-participante => ids de
+     * sesion_congreso ya seleccionadas ANTES de esta edición (armado por el
+     * caller); esas sesiones se eximen de los chequeos de disponibilidad
+     * (activa/activo/permite_inscripcion) pero siguen validando pertenencia/
+     * duplicado/solape igual que cualquier otra. Vacío por default —
+     * CrearInscripcionAction (alta nueva, todo es "nuevo") y
+     * ActualizarInscripcionAction (inscripción pendiente, todavía se puede
+     * quitar cualquier taller) no lo necesitan y no lo pasan.
      */
-    public static function run(RegistrationDTO $dto): void
+    public static function run(RegistrationDTO $dto, array $sesionIdsPreviasPorIndice = []): void
     {
-        foreach ($dto->participants as $p) {
-            self::runPorParticipante($dto, $p);
+        foreach ($dto->participants as $i => $p) {
+            self::runPorParticipante($dto, $p, $sesionIdsPreviasPorIndice[$i] ?? []);
         }
     }
 
@@ -55,8 +74,10 @@ class ValidarSeleccionesTallerAction
      * y solape. La capacidad se valida en `runCapacidad()` y se separa
      * porque requiere lock transaccional — se invoca desde el mismo
      * `DB::transaction` del caller.
+     *
+     * $sesionIdsPrevias — ver doc de `run()`.
      */
-    public static function runPorParticipante(RegistrationDTO $dto, ParticipantDTO $p): void
+    public static function runPorParticipante(RegistrationDTO $dto, ParticipantDTO $p, array $sesionIdsPrevias = []): void
     {
         if (empty($p->talleres)) {
             return;
@@ -98,13 +119,21 @@ class ValidarSeleccionesTallerAction
                 );
             }
 
-            if (! $sesion->activa) {
+            // Grandfather clause para selecciones ya existentes (02/09/2026)
+            // — ver doc de `run()`. Los 3 chequeos de disponibilidad de
+            // abajo (sesión activa / taller activo / permite_inscripcion)
+            // solo aplican a una selección REALMENTE nueva en esta edición;
+            // una que el participante ya tenía de antes no se vuelve a
+            // filtrar por esto, porque de todos modos no se le puede quitar.
+            $esSeleccionPrevia = in_array((int) $t->sesionCongresoId, $sesionIdsPrevias, true);
+
+            if (! $sesion->activa && ! $esSeleccionPrevia) {
                 throw new \DomainException(
                     "La sesión '{$sesion->titulo}' no está activa."
                 );
             }
 
-            if (! $taller->activo) {
+            if (! $taller->activo && ! $esSeleccionPrevia) {
                 throw new \DomainException(
                     "El taller '{$taller->nombre}' no está activo."
                 );
@@ -116,7 +145,7 @@ class ValidarSeleccionesTallerAction
             // no se puede seleccionar. `activo=false` ya lo bloquea arriba
             // (y además lo oculta) — este chequeo cubre el caso nuevo
             // (`activo=true`, `permite_inscripcion=false`).
-            if (! $taller->permite_inscripcion) {
+            if (! $taller->permite_inscripcion && ! $esSeleccionPrevia) {
                 throw new \DomainException(
                     "El taller '{$taller->nombre}' no está disponible para inscripción en este momento."
                 );
@@ -170,7 +199,20 @@ class ValidarSeleccionesTallerAction
     public static function runCapacidad(
         RegistrationDTO $dto,
         ?int $excludeInscripcionId = null,
+        array $sesionIdsPreviasPorIndice = [],
     ): void {
+        // Mismo motivo que en run()/runPorParticipante(): una sesión que el
+        // participante ya tenía de antes de esta edición no se puede quitar,
+        // así que no tiene sentido volver a exigirle cupo libre — si otra
+        // gente llenó el cupo mientras tanto, eso no es "culpa" de esta
+        // edición ni algo que el participante pueda resolver.
+        $sesionIdsPrevias = [];
+        foreach ($sesionIdsPreviasPorIndice as $ids) {
+            foreach ($ids as $id) {
+                $sesionIdsPrevias[(int) $id] = true;
+            }
+        }
+
         // Mapa sesion_id => [taller, dto] (del primer participante que la trae).
         $seleccionesPorSesion = [];
         foreach ($dto->participants as $p) {
@@ -184,6 +226,10 @@ class ValidarSeleccionesTallerAction
         }
 
         foreach (array_keys($seleccionesPorSesion) as $sesionId) {
+            if (isset($sesionIdsPrevias[(int) $sesionId])) {
+                continue;
+            }
+
             /** @var SesionCongreso $sesion */
             $sesion = SesionCongreso::where('id', $sesionId)
                 ->lockForUpdate()
