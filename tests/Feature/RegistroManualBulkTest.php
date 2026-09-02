@@ -117,6 +117,26 @@ class RegistroManualBulkTest extends TestCase
         $this->assertSame((string) $this->categoria->id, Participante::first()->categoria);
     }
 
+    /**
+     * Bug real (01/09/2026): esta carga masiva (05/08/2026) se había
+     * quedado con direccion/ciudad/telefono `required`, sin actualizar
+     * cuando esos campos pasaron a opcionales el 31/08/2026 — un CSV real
+     * de un usuario, con la mayoría de las filas sin dirección, rechazaba
+     * el archivo entero con 422 antes de crear una sola inscripción.
+     */
+    public function test_acepta_direccion_ciudad_telefono_vacios(): void
+    {
+        $admin = $this->actingAsAdmin();
+        $admin->update(['rol' => 'super_admin']);
+
+        $response = $this->postJson("/api/v1/event/{$this->evento->id}/registro-manual/bulk", $this->payload([
+            'participantes' => [$this->participanteRow(['direccion' => '', 'ciudad' => '', 'telefono' => ''])],
+        ]));
+
+        $response->assertStatus(200)->assertJson(['success' => true]);
+        $this->assertCount(1, $response->json('creados'));
+    }
+
     public function test_categoria_inexistente_devuelve_422(): void
     {
         $admin = $this->actingAsAdmin();
@@ -297,5 +317,82 @@ class RegistroManualBulkTest extends TestCase
         $response->assertStatus(200)->assertJson(['success' => true]);
         $this->assertCount(0, $response->json('creados'));
         $this->assertStringContainsString('más de un horario', $response->json('errores')[0]['error']);
+    }
+
+    /**
+     * Desambiguación por horario (01/09/2026) — caso real reportado por el
+     * usuario: un congreso con 2 talleres DISTINTOS (2 filas de `talleres`,
+     * no 2 sesiones de uno solo) que comparten el nombre exacto, dictados
+     * en horarios distintos. "Nombre@DD/MM HH:MM" elige cuál sin tener que
+     * renombrar los talleres reales.
+     */
+    public function test_desambigua_por_horario_cuando_dos_talleres_comparten_nombre(): void
+    {
+        $tallerManana = \App\Models\Taller::factory()->create(['evento_id' => $this->evento->id, 'nombre' => 'REASE', 'modalidad' => 'OPTIONAL']);
+        $sesionManana = \App\Models\SesionCongreso::factory()->create([
+            'evento_id' => $this->evento->id, 'taller_id' => $tallerManana->id,
+            'fecha' => '2026-10-16', 'hora_inicio' => '08:00', 'hora_fin' => '12:00',
+        ]);
+        $tallerTarde = \App\Models\Taller::factory()->create(['evento_id' => $this->evento->id, 'nombre' => 'REASE', 'modalidad' => 'OPTIONAL']);
+        $sesionTarde = \App\Models\SesionCongreso::factory()->create([
+            'evento_id' => $this->evento->id, 'taller_id' => $tallerTarde->id,
+            'fecha' => '2026-10-16', 'hora_inicio' => '14:00', 'hora_fin' => '18:00',
+        ]);
+
+        $admin = $this->actingAsAdmin();
+        $admin->update(['rol' => 'super_admin']);
+
+        $response = $this->postJson("/api/v1/event/{$this->evento->id}/registro-manual/bulk",
+            $this->payload(['participantes' => [$this->participanteRow(['talleres' => 'REASE@16/10 14:00'])]])
+        );
+
+        $response->assertStatus(200)->assertJson(['success' => true]);
+        $this->assertCount(1, $response->json('creados'));
+
+        $participante = Participante::first();
+        $this->assertDatabaseHas('participante_taller_sesion', [
+            'participante_id' => $participante->id,
+            'sesion_congreso_id' => $sesionTarde->id,
+        ]);
+        $this->assertDatabaseMissing('participante_taller_sesion', [
+            'participante_id' => $participante->id,
+            'sesion_congreso_id' => $sesionManana->id,
+        ]);
+    }
+
+    public function test_sin_horario_dos_talleres_con_mismo_nombre_pide_desambiguar(): void
+    {
+        \App\Models\Taller::factory()->create(['evento_id' => $this->evento->id, 'nombre' => 'REASE', 'modalidad' => 'OPTIONAL'])
+            ->sesiones()->save(\App\Models\SesionCongreso::factory()->make(['evento_id' => $this->evento->id, 'fecha' => '2026-10-16', 'hora_inicio' => '08:00']));
+        \App\Models\Taller::factory()->create(['evento_id' => $this->evento->id, 'nombre' => 'REASE', 'modalidad' => 'OPTIONAL'])
+            ->sesiones()->save(\App\Models\SesionCongreso::factory()->make(['evento_id' => $this->evento->id, 'fecha' => '2026-10-16', 'hora_inicio' => '14:00']));
+
+        $admin = $this->actingAsAdmin();
+        $admin->update(['rol' => 'super_admin']);
+
+        $response = $this->postJson("/api/v1/event/{$this->evento->id}/registro-manual/bulk",
+            $this->payload(['participantes' => [$this->participanteRow(['talleres' => 'REASE'])]])
+        );
+
+        $response->assertStatus(200)->assertJson(['success' => true]);
+        $this->assertCount(0, $response->json('creados'));
+        $this->assertStringContainsString('@DD/MM HH:MM', $response->json('errores')[0]['error']);
+    }
+
+    public function test_horario_que_no_matchea_ninguna_sesion_rechaza_con_mensaje_claro(): void
+    {
+        \App\Models\Taller::factory()->create(['evento_id' => $this->evento->id, 'nombre' => 'REASE', 'modalidad' => 'OPTIONAL'])
+            ->sesiones()->save(\App\Models\SesionCongreso::factory()->make(['evento_id' => $this->evento->id, 'fecha' => '2026-10-16', 'hora_inicio' => '08:00']));
+
+        $admin = $this->actingAsAdmin();
+        $admin->update(['rol' => 'super_admin']);
+
+        $response = $this->postJson("/api/v1/event/{$this->evento->id}/registro-manual/bulk",
+            $this->payload(['participantes' => [$this->participanteRow(['talleres' => 'REASE@16/10 09:00'])]])
+        );
+
+        $response->assertStatus(200)->assertJson(['success' => true]);
+        $this->assertCount(0, $response->json('creados'));
+        $this->assertStringContainsString('No se encontró una sesión activa', $response->json('errores')[0]['error']);
     }
 }
