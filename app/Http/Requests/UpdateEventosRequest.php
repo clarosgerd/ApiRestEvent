@@ -62,6 +62,10 @@ class UpdateEventosRequest extends FormRequest
             'feeIncluyeTalleres' => 'sometimes|boolean',
             // Precio USD fijo (19/08/2026) — ver EventoService::update().
             'usdPrecioFijo'    => 'sometimes|boolean',
+            // "Pagar en el evento (efectivo)" al agregar un taller a una
+            // inscripción pagada — configurable por evento (02/09/2026) —
+            // ver EventoService::update().
+            'forzarQrPagoAdicional' => 'sometimes|boolean',
             // Purgar datos de Persona/Participante en inscripciones
             // canceladas (01/09/2026) — ver
             // PurgarDatosPersonaCanceladaAction.
