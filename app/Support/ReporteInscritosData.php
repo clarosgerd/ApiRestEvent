@@ -137,10 +137,7 @@ class ReporteInscritosData
      */
     private static function agruparPoleras(Evento $evento, Collection $participantes): array
     {
-        $souvenirIdsPolera = \App\Models\Souvenir::whereIn('form_types_id', $evento->formTypes()->pluck('id'))
-            ->where('es_polera', true)
-            ->pluck('id')
-            ->all();
+        $souvenirIdsPolera = TallaPoleraData::souvenirIdsPolera($evento->formTypes()->pluck('id')->all());
 
         $grupos = [];
 

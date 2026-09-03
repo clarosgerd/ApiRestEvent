@@ -13,6 +13,7 @@ use App\Http\Resources\ParticipanteResource;
 use App\Http\Resources\ParticipanteCollection;
 use App\Http\Controllers\Concerns\AuthorizesEventoScope;
 use App\Services\AdminAuditLogger;
+use App\Support\TallaPoleraData;
 
 class ParticipanteController extends Controller
 {
@@ -215,7 +216,9 @@ class ParticipanteController extends Controller
             // sesionCongreso/taller anidados (24/08/2026) — necesarios para
             // resolver price_usd por taller en inscripciones usdPrecioFijo,
             // ver más abajo.
-            ->with(['registration:id,referencia,pago_status,fecha,tipo_pago,moneda_pago', 'talleresSesiones.sesionCongreso', 'talleresSesiones.taller'])
+            // souvenirParticipante (03/09/2026) — ver TallaPoleraData, para
+            // resolver la talla real de la polera sin N+1.
+            ->with(['registration:id,referencia,pago_status,fecha,tipo_pago,moneda_pago', 'talleresSesiones.sesionCongreso', 'talleresSesiones.taller', 'souvenirParticipante'])
             ->when($data['categoria'] ?? null, fn ($q, $categoria) => $q->where('categoria', $categoria))
             ->orderBy('categoria')
             ->orderBy('apellido');
@@ -234,8 +237,13 @@ class ParticipanteController extends Controller
         // mismo, no por evento — un evento con `aceptaUsd` normal (tipo de
         // cambio) puede mezclar registros en BOB y en USD.
         $categoriasPorId = $event->categories->keyBy(fn ($c) => (string) $c->id);
+        // Talla real de la polera (03/09/2026) — ver TallaPoleraData: esta
+        // columna leía directo `polera` (legacy), que queda siempre en el
+        // sentinel 'No shirt' para eventos que ya modelan la polera como
+        // un souvenir normal.
+        $souvenirIdsPolera = TallaPoleraData::souvenirIdsPolera($event->formTypes()->pluck('id')->all());
 
-        $mapear = function (Participante $p) use ($categoriasPorId) {
+        $mapear = function (Participante $p) use ($categoriasPorId, $souvenirIdsPolera) {
             $esUsdFijo = $p->registration->moneda_pago === 'USD';
             $importe = (float) $p->subtotal;
             $importeTaller = round((float) $p->talleresSesiones->sum('total'), 2);
@@ -266,7 +274,7 @@ class ParticipanteController extends Controller
             'ciudad'          => $p->ciudad,
             'genero'          => $p->genero,
             'fechaNacimiento' => optional($p->fecha_nacimiento)->format('Y-m-d'),
-            'polera'          => $p->polera,
+            'polera'          => TallaPoleraData::resolver($p, $souvenirIdsPolera),
             // pagoStatus/checkedInAt: para el contador "X de Y acreditados"
             // de la pantalla de Acreditación (admin-eventos) — "Y" es el
             // total de pagados, "X" cuántos de esos ya tienen checkedInAt.

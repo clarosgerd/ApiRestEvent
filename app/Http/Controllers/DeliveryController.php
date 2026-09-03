@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Controllers\Concerns\AuthorizesEventoScope;
 use App\Models\Evento;
 use App\Models\Participante;
+use App\Support\TallaPoleraData;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\JsonResponse;
@@ -39,6 +40,10 @@ class DeliveryController extends Controller
                 'delivery.dashboard.update-estado',
                 ['evento' => $evento->id, 'participante' => $p->id]
             ),
+            // Talla real de la polera (03/09/2026) — ver TallaPoleraData.
+            // La vista resuelve por participante con
+            // TallaPoleraData::resolver($p, $souvenirIdsPolera).
+            'souvenirIdsPolera'  => TallaPoleraData::souvenirIdsPolera($evento->formTypes()->pluck('id')->all()),
         ]);
     }
 
@@ -59,7 +64,10 @@ class DeliveryController extends Controller
 
         $participantes = $query->get();
 
-        return response()->streamDownload(function () use ($participantes) {
+        // Talla real de la polera (03/09/2026) — ver TallaPoleraData.
+        $souvenirIdsPolera = TallaPoleraData::souvenirIdsPolera($evento->formTypes()->pluck('id')->all());
+
+        return response()->streamDownload(function () use ($participantes, $souvenirIdsPolera) {
             $out = fopen('php://output', 'w');
             fputcsv($out, [
                 'Nombre', 'Apellido', 'Documento', 'Dirección', 'Ciudad', 'Lat', 'Lng', 'Teléfono', 'Correo',
@@ -77,7 +85,7 @@ class DeliveryController extends Controller
                     $p->telefono,
                     $p->correo,
                     $p->categoria,
-                    $p->polera,
+                    TallaPoleraData::resolver($p, $souvenirIdsPolera),
                     $p->souvenirParticipante->pluck('nombre')->implode(', '),
                     optional($p->registration->formType)->name,
                     $p->estado_delivery,
@@ -128,6 +136,8 @@ class DeliveryController extends Controller
     public function json(Evento $evento)
     {
         $participantes = $this->participantesDelEvento($evento)->get();
+        // Talla real de la polera (03/09/2026) — ver TallaPoleraData.
+        $souvenirIdsPolera = TallaPoleraData::souvenirIdsPolera($evento->formTypes()->pluck('id')->all());
 
         return response()->json([
             'success' => true,
@@ -151,7 +161,7 @@ class DeliveryController extends Controller
                 'telefono'            => $p->telefono,
                 'correo'              => $p->correo,
                 'categoria'           => $p->categoria,
-                'talla'               => $p->polera,
+                'talla'               => TallaPoleraData::resolver($p, $souvenirIdsPolera),
                 'souvenirs'           => $p->souvenirParticipante->pluck('nombre')->values(),
                 'tipoFormulario'      => optional($p->registration->formType)->name,
                 'referencia'          => $p->registration->referencia,
@@ -179,6 +189,8 @@ class DeliveryController extends Controller
         $this->assertCanWriteEvento($event->id);
 
         $participantes = $this->participantesDelEvento($event)->get();
+        // Talla real de la polera (03/09/2026) — ver TallaPoleraData.
+        $souvenirIdsPolera = TallaPoleraData::souvenirIdsPolera($event->formTypes()->pluck('id')->all());
 
         return response()->json([
             'success' => true,
@@ -195,7 +207,7 @@ class DeliveryController extends Controller
                 'telefono'       => $p->telefono,
                 'correo'         => $p->correo,
                 'categoria'      => $p->categoria,
-                'talla'          => $p->polera,
+                'talla'          => TallaPoleraData::resolver($p, $souvenirIdsPolera),
                 'souvenirs'      => $p->souvenirParticipante->pluck('nombre')->values(),
                 'tipoFormulario' => optional($p->registration->formType)->name,
                 'referencia'     => $p->registration->referencia,

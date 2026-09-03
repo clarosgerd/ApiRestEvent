@@ -15,6 +15,16 @@
     igual que siempre.
 --}}
 @php($esCongreso = $registration->formType?->tipo === 'congreso')
+{{--
+    Talla real de la polera (03/09/2026) — bug real reportado por el
+    usuario: esta línea mostraba "Camiseta: No shirt" a CUALQUIER
+    participante de un evento cuya polera está modelada como souvenir
+    normal (participantes.polera es un campo legacy que queda siempre en
+    ese sentinel para esos eventos). Ver App\Support\TallaPoleraData —
+    mismo colaborador que ReporteInscritosData::agruparPoleras() y los
+    CSV/JSON del organizador/delivery.
+--}}
+@php($souvenirIdsPolera = \App\Support\TallaPoleraData::souvenirIdsPolera($registration->form_types_id))
 @foreach ($registration->participants as $p)
     <tr>
       <td style="padding:16px;background:#f4f8fb;border-radius:8px;margin-bottom:8px;">
@@ -40,7 +50,8 @@
           <br>
           Documento: <strong>{{ $p->tipo_documento }} {{ $p->numero_documento }}</strong><br>
           @unless ($esCongreso)
-            Camiseta: <strong>{{ $p->polera }}</strong><br>
+            @php($tallaPolera = \App\Support\TallaPoleraData::resolver($p, $souvenirIdsPolera))
+            Camiseta: <strong>{{ $tallaPolera }}</strong><br>
           @endunless
           {{--
               Bug real (19/08/2026): esta línea decía "Taller:" pero mostraba
