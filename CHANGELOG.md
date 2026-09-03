@@ -2,6 +2,37 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/).
 
+## 2026-09-03 — `tipos_evento.id`/`subtipos_evento.id` desbordaban `tinyint` en corridas completas de test
+
+Encontrado mientras se verificaba el fix de arriba ("Mismo bug de talla..."): la nota "aparte" de
+esa entrada se convirtió en su propio fix a pedido explícito del usuario ("arreglalo porfavor").
+
+### Root cause
+`tipos_evento.id`/`subtipos_evento.id` nacieron `tinyIncrements` (máx 255) — un catálogo tan
+chico en producción (7 tipos, 18 subtipos) que en su momento pareció suficiente. El problema es
+el AUTO_INCREMENT de InnoDB: no es transaccional, así que sobrevive los rollbacks de
+`RefreshDatabase`. 36 archivos de test crean un `TipoEvento`/`SubtipoEvento` en su `setUp()`, y
+el contador real de la tabla sube en cada intento — incluso los que se revierten. Alrededor del
+test #256 de cualquier corrida completa (`php artisan test` sin filtro), el INSERT revienta con
+`SQLSTATE[22003]: Numeric value out of range`.
+
+### Fixed
+- `tipos_evento.id`/`subtipos_evento.id` ensanchadas a `INT UNSIGNED` (mismo tipo que ya usa
+  `categories.id`, otro catálogo de tamaño similar). Ensanchadas también las 3 columnas FK que
+  apuntan acá (`subtipos_evento.tipo_evento_id`, `eventos.tipo_evento_id`,
+  `eventos.subtipo_evento_id`) — MySQL exige que una FK y su columna referenciada compartan tipo.
+  Puramente de tipo, ningún dato se renumera ni se pierde.
+- Aplicada también a `event_prod_purga` y `event` (DBs locales reales) — conteos de filas
+  verificados sin cambios antes/después de la migración.
+
+### Verified
+- 2 tests nuevos (`TiposEventoAutoIncrementRangoTest`) — insertan un id explícito > 255 (sin usar
+  `ALTER TABLE ... AUTO_INCREMENT` dentro de un test: eso es DDL, hace commit implícito en MySQL
+  y rompe el aislamiento transaccional de `RefreshDatabase` — se probó, dejó una fila filtrada
+  fuera de cualquier rollback, limpiada a mano antes de reescribir el test con un INSERT normal).
+  Confirmado con la migración temporalmente removida + `migrate:fresh` que ambos tests fallan sin
+  el fix. Suite completa: 541 tests, sin regresiones, ya no desborda de punta a punta.
+
 ## 2026-09-03 — Mismo bug de talla "No shirt" en delivery, correo de confirmación y Detalle de inscritos
 
 Extensión del bug de abajo ("Reporte de poleras mostraba 'No shirt'"): encontrado proactivamente
