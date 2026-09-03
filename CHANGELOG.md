@@ -2,6 +2,42 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/).
 
+## 2026-09-03 — Mismo bug de talla "No shirt" en delivery, correo de confirmación y Detalle de inscritos
+
+Extensión del bug de abajo ("Reporte de poleras mostraba 'No shirt'"): encontrado proactivamente
+vía `grep -rn "\$p->polera\|\->polera\b"` mientras se arreglaba el CSV del organizador — el mismo
+campo legacy se leía directo en 3 lugares más. Confirmado con el usuario antes de tocarlos
+("Sí, arreglá los 3 también").
+
+### Fixed
+- Nueva `App\Support\TallaPoleraData` — extrae la resolución de talla (antes duplicada entre
+  `ReporteInscritosData` y el CSV del organizador) a un colaborador compartido:
+  `souvenirIdsPolera()` + `resolver()`, con el mismo fallback al campo legacy para eventos que
+  todavía usan el flujo viejo (`form_types.hasshirt`).
+- `DeliveryController` (`show()`, `exportCsv()`, `json()`, `indexForAdmin()`) y
+  `organizador/delivery.blade.php` — la talla mostrada/exportada a la empresa de delivery ya no
+  es el sentinel.
+- `emails/partials/participantes.blade.php` — la línea "Camiseta:" del correo de confirmación de
+  pago (compartida por todos los Mailables que usan este partial) ya muestra la talla real.
+- `ParticipanteController::porEvento()` ("Detalle de inscritos" en admin-eventos) — mismo fix,
+  con eager-load de `souvenirParticipante` agregado para no introducir N+1.
+
+### Verified
+- 6 tests nuevos: 2 en `ParticipantesPorEventoTest`, 3 en el nuevo `DeliveryControllerTest`
+  (CSV + JSON), 1 en `EmailParticipantesPartialTest`. Confirmado con `git stash` que los 6
+  fallan sin el fix (falso-negativo real). 76 tests de archivos relacionados
+  (`ReporteInscritosTest`, `SouvenirInvisibleTest`, `ConfirmarPagoSitioTest`,
+  `EditarInscripcionPagadaTallerCategoriaTest`, `PagoAdicionalSipTest`,
+  `NotificacionServiceConcurrenciaTest`) sin regresiones.
+- **Nota aparte, no relacionada a este fix**: la suite completa (`php artisan test` sin filtro)
+  falla en ~54 tests con `SQLSTATE[22003]: Numeric value out of range... column 'id'` en
+  `tipos_evento` — columna `tinyint unsigned` (máx 255) cuyo AUTO_INCREMENT no es transaccional
+  en InnoDB, así que sobrevive los rollbacks de `RefreshDatabase` y desborda alrededor del test
+  #256 de cualquier corrida completa. Preexistente, no causado por este cambio — confirmado
+  corriendo los mismos archivos que fallan en la suite completa de forma aislada (pasan limpio) y
+  viendo la misma falla en archivos no tocados por este commit. Pendiente: migrar la columna a un
+  tipo normal (`unsignedBigInteger`/`id()`) — decisión del usuario, no se tocó en esta sesión.
+
 ## 2026-09-03 — Reporte de poleras mostraba "No shirt" + dashboard del organizador
 
 Reportado por el usuario con capturas del dashboard: la columna "Talla" del Reporte de poleras
