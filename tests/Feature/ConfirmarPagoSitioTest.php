@@ -338,13 +338,15 @@ class ConfirmarPagoSitioTest extends TestCase
     /**
      * Reporte de poleras (03/09/2026) — pedido del usuario: faltaba en
      * esta misma página, ver ReporteInscritosData::agruparPoleras().
+     * Costo unitario/Total (mismo día, pedido aparte) — la fila lleva 1
+     * sola selección, así que costoUnitario == montoTotal == $45.
      */
     public function test_dashboard_incluye_reporte_de_poleras(): void
     {
         $formType = FormType::factory()->create(['event_id' => $this->evento->id, 'requiere_categoria' => true]);
         $categoria = Category::factory()->create(['event_id' => $this->evento->id, 'price' => 100]);
         $polera = Souvenir::factory()->create([
-            'form_types_id' => $formType->id, 'requiere_talla' => true, 'es_polera' => true,
+            'form_types_id' => $formType->id, 'requiere_talla' => true, 'es_polera' => true, 'price' => 45,
         ]);
 
         $registration = $this->crearInscripcionPendiente($formType, 100, '70707070', (string) $categoria->id);
@@ -361,5 +363,7 @@ class ConfirmarPagoSitioTest extends TestCase
         $response->assertSee('Reporte de poleras');
         $response->assertSee('Femenino');
         $response->assertSee('M');
+        $response->assertSee('Costo unitario');
+        $response->assertSee('$45.00');
     }
 }

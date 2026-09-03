@@ -134,6 +134,17 @@ class ReporteInscritosData
      * criterio que agruparPorTaller() (por selección, no por participante
      * único) — un participante sin ninguna selección marcada simplemente
      * no aporta ninguna fila.
+     *
+     * Costo unitario/total (03/09/2026, pedido del usuario) — `montoTotal`
+     * suma el `souvenir_participantes.precio` REAL de cada selección (el
+     * precio de catálogo al momento de inscribirse, ya sea $0 si el ítem
+     * es `incluido=true` o el precio real si no — mismo valor que ya usa
+     * CrearInscripcionAction al crear la fila, no se recalcula acá).
+     * `costoUnitario` es el promedio (`montoTotal / cantidad`) en vez de
+     * asumir un precio fijo — si el precio del souvenir cambió durante el
+     * evento (o hay más de un souvenir `es_polera` con precios distintos
+     * mezclados en la misma talla/sexo), sigue siendo el número
+     * matemáticamente correcto en vez de mostrar "el último precio visto".
      */
     private static function agruparPoleras(Evento $evento, Collection $participantes): array
     {
@@ -150,18 +161,25 @@ class ReporteInscritosData
                     $sexo = $p->genero ?: 'Sin especificar';
                     $talla = $sp->talla;
                     $key = $sexo . '|' . $talla;
-                    $grupos[$key] ??= ['sexo' => $sexo, 'talla' => $talla, 'cantidad' => 0];
+                    $grupos[$key] ??= ['sexo' => $sexo, 'talla' => $talla, 'cantidad' => 0, 'montoTotal' => 0.0];
                     $grupos[$key]['cantidad']++;
+                    $grupos[$key]['montoTotal'] += (float) $sp->precio;
                 }
             }
         }
 
         ksort($grupos);
-        $filas = array_values($grupos);
+        $filas = array_values(array_map(function ($fila) {
+            $fila['costoUnitario'] = $fila['cantidad'] > 0 ? round($fila['montoTotal'] / $fila['cantidad'], 2) : 0.0;
+            $fila['montoTotal'] = round($fila['montoTotal'], 2);
+
+            return $fila;
+        }, $grupos));
 
         return [
             'filas' => $filas,
             'total' => array_sum(array_column($filas, 'cantidad')),
+            'totalMonto' => round(array_sum(array_column($filas, 'montoTotal')), 2),
         ];
     }
 

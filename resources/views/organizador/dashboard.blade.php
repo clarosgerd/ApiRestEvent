@@ -124,7 +124,9 @@
          ver ReporteInscritosData::agruparPoleras(). Sale del souvenir
          marcado `es_polera=true` en admin-eventos — si un evento no lo
          tiene marcado todavía, esta tabla queda vacía (no es un error, ver
-         checklist de deploy). --}}
+         checklist de deploy). Costo unitario/Total (mismo día, pedido
+         aparte) — costoUnitario es el promedio real cobrado por fila
+         (montoTotal / cantidad), no un precio fijo asumido. --}}
     <p class="section-title">Reporte de poleras</p>
     <table>
       <thead>
@@ -132,6 +134,8 @@
           <th>Sexo</th>
           <th>Talla</th>
           <th class="num">Cantidad</th>
+          <th class="num">Costo unitario</th>
+          <th class="num">Total</th>
         </tr>
       </thead>
       <tbody>
@@ -140,9 +144,11 @@
             <td>{{ $fila['sexo'] }}</td>
             <td>{{ $fila['talla'] }}</td>
             <td class="num">{{ $fila['cantidad'] }}</td>
+            <td class="num">${{ number_format($fila['costoUnitario'], 2) }}</td>
+            <td class="num">${{ number_format($fila['montoTotal'], 2) }}</td>
           </tr>
         @empty
-          <tr><td colspan="3">Nadie pagado eligió polera todavía.</td></tr>
+          <tr><td colspan="5">Nadie pagado eligió polera todavía.</td></tr>
         @endforelse
       </tbody>
       @if (count($reporteInscritos['poleras']['filas']) > 0)
@@ -150,6 +156,8 @@
         <tr>
           <td colspan="2"><strong>Total</strong></td>
           <td class="num"><strong>{{ $reporteInscritos['poleras']['total'] }}</strong></td>
+          <td class="num"></td>
+          <td class="num"><strong>${{ number_format($reporteInscritos['poleras']['totalMonto'], 2) }}</strong></td>
         </tr>
       </tfoot>
       @endif

@@ -88,7 +88,7 @@ class ReporteInscritosTest extends TestCase
         // souvenir_participantes.talla filtrado a souvenirs es_polera=true.
         // Ver ReporteInscritosData::agruparPoleras().
         $polera = Souvenir::factory()->create([
-            'form_types_id' => $individual->id, 'requiere_talla' => true, 'es_polera' => true,
+            'form_types_id' => $individual->id, 'requiere_talla' => true, 'es_polera' => true, 'price' => 45,
         ]);
 
         // 2 pagados en Individual/5K, con polera.
@@ -124,9 +124,43 @@ class ReporteInscritosTest extends TestCase
 
         // Solo 2 de los 3 pagados tienen polera cargada.
         $this->assertSame(2, $reporte['poleras']['total']);
+        // Costo unitario/Total (03/09/2026, pedido aparte) — cada fila tiene
+        // 1 sola selección a $45, así que costoUnitario == montoTotal acá.
+        $this->assertEquals(90.0, $reporte['poleras']['totalMonto']); // 45 + 45
         $poleras = collect($reporte['poleras']['filas']);
-        $this->assertTrue($poleras->contains(fn ($f) => $f['sexo'] === 'Femenino' && $f['talla'] === 'M' && $f['cantidad'] === 1));
-        $this->assertTrue($poleras->contains(fn ($f) => $f['sexo'] === 'Masculino' && $f['talla'] === 'L' && $f['cantidad'] === 1));
+        $this->assertTrue($poleras->contains(fn ($f) => $f['sexo'] === 'Femenino' && $f['talla'] === 'M' && $f['cantidad'] === 1 && (float) $f['costoUnitario'] === 45.0 && (float) $f['montoTotal'] === 45.0));
+        $this->assertTrue($poleras->contains(fn ($f) => $f['sexo'] === 'Masculino' && $f['talla'] === 'L' && $f['cantidad'] === 1 && (float) $f['costoUnitario'] === 45.0 && (float) $f['montoTotal'] === 45.0));
+    }
+
+    /**
+     * Costo unitario como PROMEDIO real cobrado (03/09/2026) — si dos
+     * participantes de la misma fila (sexo+talla) pagaron precios
+     * distintos por la polera (ej. el precio de catálogo cambió durante
+     * el evento), costoUnitario debe ser el promedio real, no "el último
+     * precio visto" ni un precio fijo asumido.
+     */
+    public function test_costo_unitario_de_poleras_es_el_promedio_real_por_fila(): void
+    {
+        $formType = FormType::factory()->create(['event_id' => $this->evento->id]);
+        $categoria = Category::factory()->create(['event_id' => $this->evento->id, 'price' => 100]);
+        $polera = Souvenir::factory()->create([
+            'form_types_id' => $formType->id, 'requiere_talla' => true, 'es_polera' => true, 'price' => 50,
+        ]);
+
+        $p1 = $this->crearInscripcion($formType, $categoria, ['genero' => 'Masculino']);
+        SouvenirParticipante::create(['participante_id' => $p1->id, 'souvenir_id' => $polera->id, 'nombre' => $polera->name, 'precio' => 40, 'talla' => 'M']);
+        $p2 = $this->crearInscripcion($formType, $categoria, ['genero' => 'Masculino']);
+        SouvenirParticipante::create(['participante_id' => $p2->id, 'souvenir_id' => $polera->id, 'nombre' => $polera->name, 'precio' => 50, 'talla' => 'M']);
+
+        $admin = $this->actingAsAdmin();
+        $admin->update(['rol' => 'admin', 'evento_id' => $this->evento->id]);
+
+        $response = $this->getJson("/api/v1/event/{$this->evento->id}/dashboard-inscripciones")->assertStatus(200);
+        $fila = collect($response->json('reporteInscritos.poleras.filas'))->first();
+
+        $this->assertSame(2, $fila['cantidad']);
+        $this->assertEquals(90.0, $fila['montoTotal']); // 40 + 50
+        $this->assertEquals(45.0, $fila['costoUnitario']); // promedio, no 40 ni 50
     }
 
     /**
