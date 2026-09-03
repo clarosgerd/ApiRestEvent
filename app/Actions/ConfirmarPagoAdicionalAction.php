@@ -57,7 +57,10 @@ class ConfirmarPagoAdicionalAction
             // requierePagoEnSitio se deja en su default (false): si
             // llegamos hasta acá es porque SIP ya confirmó el cobro
             // online — el taller nuevo no necesita cobrarse en el evento
-            // (ver reporte de talleres confiable, 27/08/2026).
+            // (ver reporte de talleres confiable, 27/08/2026). modoCategoria
+            // se deja en su default ('solo_subida', 02/09/2026) — este es el
+            // flujo de autoservicio, puede subir de categoría pero nunca
+            // bajar (ver EdicionPagadaCategoriaData).
             $result = $this->actualizarInscripcionPagada->handle(
                 $pago->registration->referencia,
                 [
@@ -65,7 +68,6 @@ class ConfirmarPagoAdicionalAction
                     'totales' => $pago->totales_payload,
                     '_usuario' => 'sip:' . $pago->referencia,
                 ],
-                permiteCambioCategoria: false,
             );
         } catch (\Throwable $e) {
             // El dinero ya lo cobró SIP en este punto — no se puede "no

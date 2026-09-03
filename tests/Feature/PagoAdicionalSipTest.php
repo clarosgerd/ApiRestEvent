@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Actions\CalcularCostoAdicionalAction;
 use App\Actions\ConfirmarPagoAdicionalAction;
 use App\Actions\CrearInscripcionAction;
 use App\Actions\ExpirarPagosAdicionalesAction;
@@ -16,6 +17,7 @@ use App\Models\Organizador;
 use App\Models\Pais;
 use App\Models\PagoAdicionalInscripcion;
 use App\Models\SesionCongreso;
+use App\Models\Souvenir;
 use App\Models\Taller;
 use App\Models\SubtipoEvento;
 use App\Models\TipoEvento;
@@ -42,9 +44,13 @@ class PagoAdicionalSipTest extends TestCase
 
     private Category $categoria;
 
+    private Category $categoriaCara;
+
     private Taller $taller;
 
     private SesionCongreso $sesion;
+
+    private Souvenir $souvenir;
 
     protected function setUp(): void
     {
@@ -80,6 +86,10 @@ class PagoAdicionalSipTest extends TestCase
             'event_id' => $this->evento->id,
             'price' => 50,
         ]);
+        $this->categoriaCara = Category::factory()->create([
+            'event_id' => $this->evento->id,
+            'price' => 120,
+        ]);
 
         $this->taller = Taller::factory()->create([
             'evento_id' => $this->evento->id,
@@ -90,6 +100,10 @@ class PagoAdicionalSipTest extends TestCase
             'evento_id' => $this->evento->id,
             'taller_id' => $this->taller->id,
             'cupo' => 1, // a propósito chico, para el test de cupo lleno
+        ]);
+        $this->souvenir = Souvenir::factory()->create([
+            'form_types_id' => $this->formType->id,
+            'price' => 20,
         ]);
     }
 
@@ -264,6 +278,78 @@ class PagoAdicionalSipTest extends TestCase
         $this->assertDatabaseHas('pagos_adicionales_inscripcion', [
             'referencia' => $response->json('referencia_adicional'),
             'monto' => 40,
+        ]);
+    }
+
+    // ── Categoría/souvenirs en la cotización del QR SIP (02/09/2026) ───
+    // CalcularCostoAdicionalAction cotiza el monto ANTES de confirmar el
+    // pago — tiene que aplicar exactamente las mismas reglas que
+    // ActualizarInscripcionPagadaAction en modo autoservicio, si no se
+    // generaría un QR por un monto que después la confirmación real
+    // rechazaría.
+
+    public function test_cotizacion_sip_incluye_subida_de_categoria(): void
+    {
+        $registration = $this->crearInscripcionPagadaSinTaller('40000020');
+
+        $monto = app(CalcularCostoAdicionalAction::class)->handle($registration, [
+            $this->participanteData('40000020', [
+                'categoria' => (string) $this->categoriaCara->id,
+                'precioCategoria' => 999,
+            ]),
+        ]);
+
+        // costo_edicion (10) + diferencia real (120 - 50 = 70) = 80.
+        $this->assertEquals(80.0, $monto);
+    }
+
+    public function test_cotizacion_sip_rechaza_bajada_de_categoria(): void
+    {
+        $registration = $this->crearInscripcionPagadaSinTaller('40000021');
+        \App\Models\Participante::where('registration_id', $registration->id)
+            ->update(['categoria' => (string) $this->categoriaCara->id, 'precio_categoria' => 120]);
+
+        $this->expectException(\DomainException::class);
+        $this->expectExceptionMessage('no se hacen devoluciones');
+
+        app(CalcularCostoAdicionalAction::class)->handle($registration, [
+            $this->participanteData('40000021', [
+                'categoria' => (string) $this->categoria->id,
+                'precioCategoria' => 50,
+            ]),
+        ]);
+    }
+
+    public function test_cotizacion_sip_incluye_souvenir_agregado(): void
+    {
+        $registration = $this->crearInscripcionPagadaSinTaller('40000022');
+
+        $monto = app(CalcularCostoAdicionalAction::class)->handle($registration, [
+            $this->participanteData('40000022', [
+                'souvenirs' => [['id' => $this->souvenir->id, 'nombre' => $this->souvenir->name, 'precio' => 1]],
+            ]),
+        ]);
+
+        // costo_edicion (10) + precio real del souvenir (20) = 30, no 11.
+        $this->assertEquals(30.0, $monto);
+    }
+
+    public function test_cotizacion_sip_rechaza_souvenir_quitado(): void
+    {
+        $registration = $this->crearInscripcionPagadaSinTaller('40000023');
+        app(\App\Actions\ActualizarInscripcionPagadaAction::class)->handle($registration->referencia, [
+            'participantes' => [$this->participanteData('40000023', [
+                'souvenirs' => [['id' => $this->souvenir->id, 'nombre' => $this->souvenir->name, 'precio' => 20]],
+            ])],
+            'totales' => $this->totalesData(['souvenirs' => 20, 'fee' => 3.5, 'grand_total' => 73.5]),
+            '_usuario' => 'test@test.net',
+        ]);
+
+        $this->expectException(\DomainException::class);
+        $this->expectExceptionMessage('No se pueden quitar souvenirs');
+
+        app(CalcularCostoAdicionalAction::class)->handle($registration->fresh(), [
+            $this->participanteData('40000023', ['souvenirs' => []]),
         ]);
     }
 

@@ -261,11 +261,13 @@ class CajaController extends Controller
     /**
      * Edita una inscripción `paid` y cobra/desembolsa el adicional real —
      * reusa ActualizarInscripcionPagadaAction tal cual, que ya calcula ese
-     * monto (costo_edicion fijo + diferencia real de talleres/categoría).
-     * A diferencia del autoservicio (RegistrationController::updatePaid()),
-     * la caja SÍ puede cambiar de categoría (permiteCambioCategoria=true)
-     * porque puede desembolsar la diferencia en efectivo ahí mismo —
-     * 25/08/2026, ver PLAN-EDICION-PAGADA-TALLERES-CATEGORIA-25082026.md.
+     * monto (costo_edicion fijo + diferencia real de talleres/categoría/
+     * souvenirs). A diferencia del autoservicio
+     * (RegistrationController::updatePaid(), 'solo_subida' — ver
+     * EdicionPagadaCategoriaData), la caja SÍ puede cambiar de categoría en
+     * cualquier dirección (modoCategoria='libre') porque puede desembolsar
+     * la diferencia en efectivo ahí mismo — 25/08/2026, ver
+     * PLAN-EDICION-PAGADA-TALLERES-CATEGORIA-25082026.md.
      */
     public function editarPagada(UpdatePaidRegistrationRequest $request, string $reference, ActualizarInscripcionPagadaAction $action): JsonResponse
     {
@@ -281,9 +283,9 @@ class CajaController extends Controller
         try {
             // requierePagoEnSitio se deja en su default (false): el
             // cajero cobra/desembolsa en efectivo en el momento, así que
-            // cualquier taller nuevo agregado acá ya está cobrado (ver
-            // ActualizarInscripcionPagadaAction::handle()).
-            $result = $action->handle($reference, $request->validated() + ['_usuario' => $admin->email], permiteCambioCategoria: true);
+            // cualquier taller/souvenir nuevo agregado acá ya está cobrado
+            // (ver ActualizarInscripcionPagadaAction::handle()).
+            $result = $action->handle($reference, $request->validated() + ['_usuario' => $admin->email], modoCategoria: 'libre');
         } catch (\DomainException $e) {
             return response()->json(['success' => false, 'error' => $e->getMessage()], 422);
         }

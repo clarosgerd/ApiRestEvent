@@ -14,6 +14,7 @@ use App\Models\Organizador;
 use App\Models\Pais;
 use App\Models\Persona;
 use App\Models\SesionCongreso;
+use App\Models\Souvenir;
 use App\Models\Taller;
 use App\Models\SubtipoEvento;
 use App\Models\TipoEvento;
@@ -49,6 +50,8 @@ class EditarInscripcionPagadaTallerCategoriaTest extends TestCase
     private Taller $taller;
 
     private SesionCongreso $sesion;
+
+    private Souvenir $souvenir;
 
     protected function setUp(): void
     {
@@ -101,6 +104,10 @@ class EditarInscripcionPagadaTallerCategoriaTest extends TestCase
             'taller_id' => $this->taller->id,
             'cupo' => 10,
         ]);
+        $this->souvenir = Souvenir::factory()->create([
+            'form_types_id' => $this->formType->id,
+            'price' => 20,
+        ]);
     }
 
     private function participanteData(string $numeroDocumento, array $overrides = []): array
@@ -145,7 +152,7 @@ class EditarInscripcionPagadaTallerCategoriaTest extends TestCase
         return $registration;
     }
 
-    // ── Autoservicio (permiteCambioCategoria=false, default) ──────────
+    // ── Autoservicio (modoCategoria='solo_subida', default) ──────────
 
     public function test_autoservicio_agrega_taller_nuevo_y_cobra_flat_mas_precio_real(): void
     {
@@ -193,7 +200,7 @@ class EditarInscripcionPagadaTallerCategoriaTest extends TestCase
 
     /**
      * Reverso del test anterior — Caja cobra en el momento
-     * (permiteCambioCategoria: true, requierePagoEnSitio en su default
+     * (modoCategoria: 'libre', requierePagoEnSitio en su default
      * false), así que el taller nuevo NO queda pendiente.
      */
     public function test_caja_agrega_taller_y_no_queda_pendiente_de_cobro(): void
@@ -206,7 +213,7 @@ class EditarInscripcionPagadaTallerCategoriaTest extends TestCase
             ])],
             'totales' => $this->totalesData(['talleres' => 30, 'fee' => 4, 'grand_total' => 84]),
             '_usuario' => 'cajero@test.net',
-        ], permiteCambioCategoria: true);
+        ], modoCategoria: 'libre');
 
         $this->assertDatabaseHas('participante_taller_sesion', [
             'sesion_congreso_id' => $this->sesion->id,
@@ -243,7 +250,7 @@ class EditarInscripcionPagadaTallerCategoriaTest extends TestCase
             ])],
             'totales' => $this->totalesData(['talleres' => 30, 'fee' => 4, 'grand_total' => 84]),
             '_usuario' => 'cajero@test.net',
-        ], permiteCambioCategoria: true);
+        ], modoCategoria: 'libre');
 
         $this->assertDatabaseHas('participante_taller_sesion', [
             'sesion_congreso_id' => $this->sesion->id,
@@ -251,19 +258,46 @@ class EditarInscripcionPagadaTallerCategoriaTest extends TestCase
         ]);
     }
 
-    public function test_autoservicio_no_puede_cambiar_categoria(): void
+    /**
+     * Autoservicio 'solo_subida' (02/09/2026, ver EdicionPagadaCategoriaData)
+     * — antes de este cambio el autoservicio nunca podía cambiar de
+     * categoría en ninguna dirección; ahora sí, pero solo hacia una de
+     * igual o mayor precio (no se hacen devoluciones).
+     */
+    public function test_autoservicio_puede_subir_de_categoria_y_cobra_diferencia_real(): void
     {
         $registration = $this->crearInscripcionPagadaSinTaller('20000002');
 
-        $this->expectException(\DomainException::class);
-        $this->expectExceptionMessage('No se puede cambiar de categoría');
-
-        app(ActualizarInscripcionPagadaAction::class)->handle($registration->referencia, [
+        // precioCategoria mandado por el cliente (999) se ignora a
+        // propósito — el delta se calcula contra el precio real de la BD.
+        $result = app(ActualizarInscripcionPagadaAction::class)->handle($registration->referencia, [
             'participantes' => [$this->participanteData('20000002', [
                 'categoria' => (string) $this->categoriaCara->id,
-                'precioCategoria' => 120,
+                'precioCategoria' => 999,
             ])],
             'totales' => $this->totalesData(['inscripcion' => 120, 'fee' => 6, 'grand_total' => 126]),
+            '_usuario' => 'participante@test.net',
+        ]);
+
+        // costo_edicion (10) + diferencia real (120 - 50 = 70) = 80.
+        $this->assertEquals(80.0, $result['costo_adicion']);
+    }
+
+    public function test_autoservicio_no_puede_bajar_de_categoria(): void
+    {
+        $registration = $this->crearInscripcionPagadaSinTaller('20000009');
+        \App\Models\Participante::where('registration_id', $registration->id)
+            ->update(['categoria' => (string) $this->categoriaCara->id, 'precio_categoria' => 120]);
+
+        $this->expectException(\DomainException::class);
+        $this->expectExceptionMessage('no se hacen devoluciones');
+
+        app(ActualizarInscripcionPagadaAction::class)->handle($registration->referencia, [
+            'participantes' => [$this->participanteData('20000009', [
+                'categoria' => (string) $this->categoria->id,
+                'precioCategoria' => 50,
+            ])],
+            'totales' => $this->totalesData(),
             '_usuario' => 'participante@test.net',
         ]);
     }
@@ -303,7 +337,83 @@ class EditarInscripcionPagadaTallerCategoriaTest extends TestCase
         $this->assertEquals(10.0, $result['costo_adicion']);
     }
 
-    // ── Caja (permiteCambioCategoria=true) ─────────────────────────────
+    // ── Souvenirs (02/09/2026, ver EdicionPagadaSouvenirsData) ─────────
+    // Antes de esto no había NINGUNA validación real del lado del backend
+    // — createParticipantFromData() recreaba los souvenirs de lo que
+    // mandara el cliente sin comparar contra lo que ya tenía ni sumar
+    // nada a costo_adicion. Mismo criterio que talleres: agregar sí,
+    // quitar lo ya pagado no.
+
+    public function test_autoservicio_agrega_souvenir_nuevo_y_cobra_precio_real(): void
+    {
+        $registration = $this->crearInscripcionPagadaSinTaller('20000015');
+
+        // precio mandado por el cliente (1) se ignora a propósito — el
+        // costo se calcula contra el precio real del catálogo (20).
+        $result = app(ActualizarInscripcionPagadaAction::class)->handle($registration->referencia, [
+            'participantes' => [$this->participanteData('20000015', [
+                'souvenirs' => [['id' => $this->souvenir->id, 'nombre' => $this->souvenir->name, 'precio' => 1]],
+            ])],
+            'totales' => $this->totalesData(['souvenirs' => 20, 'fee' => 3.5, 'grand_total' => 73.5]),
+            '_usuario' => 'participante@test.net',
+        ]);
+
+        // costo_edicion (10) + precio real del souvenir (20) = 30.
+        $this->assertEquals(30.0, $result['costo_adicion']);
+        $this->assertDatabaseHas('souvenir_participantes', [
+            'souvenir_id' => $this->souvenir->id,
+        ]);
+    }
+
+    public function test_ningun_flujo_puede_quitar_un_souvenir_ya_pagado(): void
+    {
+        $registration = $this->crearInscripcionPagadaSinTaller('20000016');
+        app(ActualizarInscripcionPagadaAction::class)->handle($registration->referencia, [
+            'participantes' => [$this->participanteData('20000016', [
+                'souvenirs' => [['id' => $this->souvenir->id, 'nombre' => $this->souvenir->name, 'precio' => 20]],
+            ])],
+            'totales' => $this->totalesData(['souvenirs' => 20, 'fee' => 3.5, 'grand_total' => 73.5]),
+            '_usuario' => 'participante@test.net',
+        ]);
+
+        $this->expectException(\DomainException::class);
+        $this->expectExceptionMessage('No se pueden quitar souvenirs');
+
+        // Reintenta editar sin mandar el souvenir que ya tenía.
+        app(ActualizarInscripcionPagadaAction::class)->handle($registration->referencia, [
+            'participantes' => [$this->participanteData('20000016', ['souvenirs' => []])],
+            'totales' => $this->totalesData(),
+            '_usuario' => 'participante@test.net',
+        ]);
+    }
+
+    /**
+     * Souvenirs invisibles para el participante (22/08/2026) — nunca
+     * viajan en el payload del cliente, así que no deben confundirse con
+     * "un souvenir que se quitó". Se auto-asignan solos en cada edición
+     * (injectSouvenirsInvisibles()), no deben bloquear ninguna edición.
+     */
+    public function test_souvenir_invisible_no_bloquea_la_edicion(): void
+    {
+        $invisible = Souvenir::factory()->create([
+            'form_types_id' => $this->formType->id,
+            'price' => 0,
+            'visible_participante' => false,
+        ]);
+        $registration = $this->crearInscripcionPagadaSinTaller('20000017');
+        $this->assertDatabaseHas('souvenir_participantes', ['souvenir_id' => $invisible->id]);
+
+        $result = app(ActualizarInscripcionPagadaAction::class)->handle($registration->referencia, [
+            'participantes' => [$this->participanteData('20000017', ['telefono' => '999999'])],
+            'totales' => $this->totalesData(),
+            '_usuario' => 'participante@test.net',
+        ]);
+
+        $this->assertEquals(10.0, $result['costo_adicion']);
+        $this->assertDatabaseHas('souvenir_participantes', ['souvenir_id' => $invisible->id]);
+    }
+
+    // ── Caja (modoCategoria='libre') ─────────────────────────────
 
     public function test_caja_puede_cambiar_a_categoria_mas_cara_y_cobra_diferencia_real(): void
     {
@@ -318,7 +428,7 @@ class EditarInscripcionPagadaTallerCategoriaTest extends TestCase
             ])],
             'totales' => $this->totalesData(['inscripcion' => 120, 'fee' => 6, 'grand_total' => 126]),
             '_usuario' => 'cajero@test.net',
-        ], permiteCambioCategoria: true);
+        ], modoCategoria: 'libre');
 
         // costo_edicion (10) + diferencia real (120 - 50 = 70) = 80.
         $this->assertEquals(80.0, $result['costo_adicion']);
@@ -338,7 +448,7 @@ class EditarInscripcionPagadaTallerCategoriaTest extends TestCase
             ])],
             'totales' => $this->totalesData(),
             '_usuario' => 'cajero@test.net',
-        ], permiteCambioCategoria: true);
+        ], modoCategoria: 'libre');
 
         // costo_edicion (10) + diferencia real (50 - 120 = -70) = -60.
         $this->assertEquals(-60.0, $result['costo_adicion']);
@@ -368,7 +478,7 @@ class EditarInscripcionPagadaTallerCategoriaTest extends TestCase
             ])],
             'totales' => $this->totalesData(),
             '_usuario' => 'cajero@test.net',
-        ], permiteCambioCategoria: true);
+        ], modoCategoria: 'libre');
     }
 
     /**
@@ -397,7 +507,7 @@ class EditarInscripcionPagadaTallerCategoriaTest extends TestCase
             ])],
             'totales' => $this->totalesData(),
             '_usuario' => 'cajero@test.net',
-        ], permiteCambioCategoria: true);
+        ], modoCategoria: 'libre');
     }
 
     public function test_caja_registra_movimiento_negativo_al_editar_pagada_con_desembolso(): void
@@ -668,5 +778,50 @@ class EditarInscripcionPagadaTallerCategoriaTest extends TestCase
         $talleresSesiones = $result['data']->participants->first()->talleresSesiones;
         $this->assertNotEmpty($talleresSesiones, 'talleresSesiones vino vacío — falta el eager-load en lookupRegistration().');
         $this->assertEquals($this->sesion->id, $talleresSesiones->first()->sesion_congreso_id);
+    }
+
+    /**
+     * Bug real 02/09/2026 (encontrado armando la edición de souvenirs en
+     * una inscripción pagada) — SouvenirParticipanteResource nunca exponía
+     * `id`/`talla`/`sexo`, solo `nombre`/`precio`. El frontend
+     * (`editParticipant()`) ya intentaba restaurar la tarjeta marcada
+     * comparando `s.id` contra el id real del souvenir — con `id` siempre
+     * ausente, reabrir CUALQUIER inscripción existente para editar (no
+     * solo pagada) nunca marcaba los souvenirs que el participante ya
+     * había elegido.
+     */
+    public function test_registrations_mine_incluye_id_talla_sexo_del_souvenir(): void
+    {
+        $persona = Persona::factory()->create(['numero_documento' => '30000003']);
+        $this->actingAsPersona($persona);
+
+        $souvenirConTalla = Souvenir::factory()->create([
+            'form_types_id' => $this->formType->id,
+            'price' => 20,
+            'requiere_talla' => true,
+        ]);
+
+        $registration = app(CrearInscripcionAction::class)->handle(RegistrationDTO::fromArray([
+            'referencia' => 'LA-TEST-' . uniqid(),
+            'fecha' => now()->toDateTimeString(),
+            'evento_id' => $this->evento->id,
+            'evento_nombre' => $this->evento->nombre,
+            'form_types_id' => $this->formType->id,
+            'tipo_pago' => 'pendiente',
+            'pago_status' => 'pending',
+            'pay_order_number' => null,
+            'totales' => $this->totalesData(['souvenirs' => 20, 'grand_total' => 72.5]),
+            'participantes' => [$this->participanteData('30000003', [
+                'souvenirs' => [['id' => $souvenirConTalla->id, 'nombre' => $souvenirConTalla->name, 'precio' => 20, 'talla' => 'M']],
+            ])],
+        ]));
+        $registration->update(['pago_status' => 'paid']);
+
+        $response = $this->getJson('/api/v1/registrations/mine')->assertOk();
+
+        $souvenirs = $response->json('data.0.participantes.0.souvenirs');
+        $this->assertNotEmpty($souvenirs, 'ParticipanteResource.souvenirs vino vacío/ausente.');
+        $this->assertEquals($souvenirConTalla->id, $souvenirs[0]['id']);
+        $this->assertEquals('M', $souvenirs[0]['talla']);
     }
 }

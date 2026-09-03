@@ -3,6 +3,8 @@
 namespace App\Actions;
 
 use App\Models\Registration;
+use App\Support\EdicionPagadaCategoriaData;
+use App\Support\EdicionPagadaSouvenirsData;
 use App\Support\Taller\ResolverPrecioTallerData;
 
 /**
@@ -17,10 +19,13 @@ use App\Support\Taller\ResolverPrecioTallerData;
  * sin duplicar esa lógica.
  *
  * Mismas validaciones que ActualizarInscripcionPagadaAction en modo
- * autoservicio (permiteCambioCategoria=false): rechaza cambio de
- * categoría y remoción de talleres ya pagados — no tiene sentido generar
- * un QR de pago para un cambio que de todos modos se va a rechazar al
- * confirmar.
+ * autoservicio ('solo_subida', 02/09/2026 — ver EdicionPagadaCategoriaData
+ * / EdicionPagadaSouvenirsData, extraídas de acá y de esa Action para no
+ * mantener la misma regla escrita dos veces): permite categoría hacia
+ * arriba, rechaza remoción de talleres/souvenirs ya pagados — no tiene
+ * sentido generar un QR de pago para un cambio que de todos modos se va a
+ * rechazar al confirmar. Esta Action SIEMPRE corre en modo autoservicio —
+ * Caja cobra en efectivo en el momento, nunca pasa por acá.
  */
 class CalcularCostoAdicionalAction
 {
@@ -51,7 +56,7 @@ class CalcularCostoAdicionalAction
         }
 
         $participantesAnteriores = $registration->participants()
-            ->with('talleresSesiones')
+            ->with('talleresSesiones', 'souvenirParticipante')
             ->orderBy('id')
             ->get();
 
@@ -62,16 +67,21 @@ class CalcularCostoAdicionalAction
         }
 
         $deltaTalleres = 0.0;
+        $deltaCategoria = 0.0;
+        $deltaSouvenirs = 0.0;
 
         foreach ($participantes as $i => $participantData) {
             $anterior = $participantesAnteriores[$i];
 
-            $categoriaNueva = (string) ($participantData['categoria'] ?? '');
-            if ($categoriaNueva !== (string) $anterior->categoria) {
-                throw new \DomainException(
-                    'No se puede cambiar de categoría desde tu cuenta — esa diferencia se resuelve en caja el día del evento.'
-                );
-            }
+            $cambioCategoria = EdicionPagadaCategoriaData::resolver(
+                categoriaAnteriorId: (string) $anterior->categoria,
+                precioAnterior: (float) $anterior->precio_categoria,
+                categoriaNuevaId: (string) ($participantData['categoria'] ?? ''),
+                eventoId: $registration->evento_id,
+                formTypesId: $registration->form_types_id,
+                modoCategoria: 'solo_subida',
+            );
+            $deltaCategoria += $cambioCategoria['delta'];
 
             $idsAnteriores = $anterior->talleresSesiones->pluck('sesion_congreso_id')->map(fn ($id) => (int) $id)->all();
             $idsNuevos = collect($participantData['talleres'] ?? [])->pluck('sesion_congreso_id')->map(fn ($id) => (int) $id)->all();
@@ -81,23 +91,26 @@ class CalcularCostoAdicionalAction
             }
 
             $idsAgregados = array_diff($idsNuevos, $idsAnteriores);
-            if (empty($idsAgregados)) {
-                continue;
-            }
+            if (! empty($idsAgregados)) {
+                $sesiones = \App\Models\SesionCongreso::with('taller')
+                    ->whereIn('id', $idsAgregados)
+                    ->where('evento_id', $registration->evento_id)
+                    ->get();
 
-            $sesiones = \App\Models\SesionCongreso::with('taller')
-                ->whereIn('id', $idsAgregados)
-                ->where('evento_id', $registration->evento_id)
-                ->get();
-
-            foreach ($sesiones as $sesion) {
-                if (! $sesion->taller) {
-                    continue;
+                foreach ($sesiones as $sesion) {
+                    if (! $sesion->taller) {
+                        continue;
+                    }
+                    $deltaTalleres += ResolverPrecioTallerData::total($sesion->taller, $sesion, $evento);
                 }
-                $deltaTalleres += ResolverPrecioTallerData::total($sesion->taller, $sesion, $evento);
             }
+
+            $souvenirIdsAnteriores = $anterior->souvenirParticipante->pluck('souvenir_id')->map(fn ($id) => (int) $id)->all();
+            $souvenirIdsNuevos = collect($participantData['souvenirs'] ?? [])->pluck('id')->map(fn ($id) => (int) $id)->all();
+            $cambioSouvenirs = EdicionPagadaSouvenirsData::resolver($registration->form_types_id, $souvenirIdsAnteriores, $souvenirIdsNuevos);
+            $deltaSouvenirs += $cambioSouvenirs['deltaSouvenirs'];
         }
 
-        return round($costoEdicion + $deltaTalleres, 2);
+        return round($costoEdicion + $deltaTalleres + $deltaCategoria + $deltaSouvenirs, 2);
     }
 }
