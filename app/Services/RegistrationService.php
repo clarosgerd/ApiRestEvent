@@ -97,6 +97,19 @@ class RegistrationService
             $reference
         )->firstOrFail();
 
+        // Idempotencia (03/09/2026) — bug real en UAT: este método nunca
+        // chequeaba si el estado YA era el que se está pidiendo, así que
+        // un webhook de pago reintentado (o el webhook + el polling del
+        // frontend detectando el mismo pago casi al mismo tiempo)
+        // disparaba notificarPagoConfirmado() de nuevo cada vez —
+        // NotificacionService ya es idempotente de verdad ahora (ver
+        // reservarNotificacion()), pero evitar el UPDATE/la llamada
+        // redundante acá también reduce la ventana de carrera en vez de
+        // depender solo de que el otro lado la resuelva.
+        if ($registration->pago_status === $status) {
+            return $this->loadRelations($registration);
+        }
+
         $registration->update([
             'pago_status' => $status
         ]);

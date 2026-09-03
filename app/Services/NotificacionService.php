@@ -103,6 +103,22 @@ class NotificacionService
             return;
         }
 
+        // Reserva atómica ANTES de mandar nada (03/09/2026 — mismo bug
+        // real que enviarEmailSiNoEnviado(), ver ahí; acá con UPDATE
+        // condicional en vez de insertOrIgnore porque la fila ya existe
+        // de antes — `pagos_adicionales_inscripcion` no tiene un UNIQUE
+        // por tipo/canal como registration_notifications). El chequeo
+        // `$pago->notificado_at !== null` de arriba sigue sirviendo para
+        // salir rápido en el caso común (ya notificado hace rato); esto
+        // cubre la ventana real entre ese chequeo en memoria y el UPDATE.
+        $reservado = PagoAdicionalInscripcion::where('id', $pago->id)
+            ->whereNull('notificado_at')
+            ->update(['notificado_at' => now()]);
+
+        if (! $reservado) {
+            return;
+        }
+
         foreach ($destinatarios as $correo) {
             try {
                 // Instancia nueva por destinatario, mismo motivo que en
@@ -113,8 +129,6 @@ class NotificacionService
                 Log::error("No se pudo enviar email (pago_adicional_confirmado) a {$correo} para {$pago->referencia}: {$e->getMessage()}");
             }
         }
-
-        $pago->update(['notificado_at' => now()]);
     }
 
     /**
@@ -172,10 +186,6 @@ class NotificacionService
 
     private function enviarEmailSiNoEnviado(Registration $registration, string $tipo, \Closure $mailableFactory): void
     {
-        if ($this->yaEnviado($registration, $tipo, 'email')) {
-            return;
-        }
-
         // formType/participants.talleresSesiones.taller (19/08/2026) — el
         // partial de participantes del email necesita `formType.tipo` para
         // ocultar "Camiseta" en congresos, y la relación real de talleres
@@ -193,6 +203,23 @@ class NotificacionService
             return;
         }
 
+        // Reserva atómica ANTES de mandar nada (03/09/2026 — bug real en
+        // UAT, registration_id 90314: "Duplicate entry ... for key
+        // registration_notifications_registration_id_tipo_canal_unique").
+        // Antes acá se chequeaba yaEnviado() y recién se registraba el
+        // envío DESPUÉS de mandar el correo — ventana de carrera real:
+        // dos requests casi simultáneos (típicamente el webhook de pago +
+        // el polling del frontend detectando el mismo pago un instante
+        // después) pasaban el chequeo LOS DOS, mandaban el correo LOS
+        // DOS, y recién el segundo INSERT crasheaba — para ese punto el
+        // correo duplicado ya se había mandado, el crash solo avisaba
+        // tarde. reservarNotificacion() usa el UNIQUE de la tabla como
+        // mutex real: si ya estaba reservado (el otro request ganó la
+        // carrera), no se manda nada acá.
+        if (! $this->reservarNotificacion($registration, $tipo, 'email')) {
+            return;
+        }
+
         foreach ($destinatarios as $correo) {
             try {
                 // Instancia nueva por destinatario: reusar la misma Mailable en
@@ -207,8 +234,6 @@ class NotificacionService
         }
 
         $this->guardarCopiaAuditoria($registration, $tipo, $mailableFactory());
-
-        $this->registrarEnvio($registration, $tipo, 'email');
     }
 
     /**
@@ -236,29 +261,28 @@ class NotificacionService
 
     private function encolarWhatsappExterno(Registration $registration, string $tipo, string $codigoTipo, \Closure $textoFactory): void
     {
-        if ($this->yaEnviado($registration, $tipo, 'whatsapp_externo')) {
+        $destinatarios = $registration->participants->filter(fn ($p) => filled($p->telefono));
+        if ($destinatarios->isEmpty()) {
             return;
         }
 
-        $texto    = $textoFactory();
-        $encolado = false;
+        // Reserva atómica ANTES de encolar nada — mismo motivo/bug real
+        // que enviarEmailSiNoEnviado() (03/09/2026, ver
+        // reservarNotificacion()); mismo UNIQUE de tabla, misma ventana
+        // de carrera posible acá aunque todavía no se haya visto en los
+        // logs.
+        if (! $this->reservarNotificacion($registration, $tipo, 'whatsapp_externo')) {
+            return;
+        }
 
-        foreach ($registration->participants as $participante) {
-            if (empty($participante->telefono)) {
-                continue;
-            }
-
+        $texto = $textoFactory();
+        foreach ($destinatarios as $participante) {
             $this->whatsappExterno->encolar(
                 $participante->telefono,
                 $texto,
                 $codigoTipo,
                 $participante->correo,
             );
-            $encolado = true;
-        }
-
-        if ($encolado) {
-            $this->registrarEnvio($registration, $tipo, 'whatsapp_externo');
         }
     }
 
@@ -269,44 +293,48 @@ class NotificacionService
      */
     private function dispatchWhatsappOpenwa(Registration $registration, string $tipo, \Closure $textoFactory): void
     {
-        if ($this->yaEnviado($registration, $tipo, 'whatsapp_openwa')) {
+        $destinatarios = $registration->participants
+            ->map(fn ($p) => preg_replace('/\D+/', '', $p->telefono ?? ''))
+            ->filter(fn ($digitos) => $digitos !== '');
+
+        if ($destinatarios->isEmpty()) {
             return;
         }
 
-        $texto      = $textoFactory();
-        $despachado = false;
+        // Reserva atómica ANTES de despachar nada — mismo motivo que
+        // encolarWhatsappExterno()/enviarEmailSiNoEnviado() arriba.
+        if (! $this->reservarNotificacion($registration, $tipo, 'whatsapp_openwa')) {
+            return;
+        }
 
-        foreach ($registration->participants as $participante) {
-            $digitos = preg_replace('/\D+/', '', $participante->telefono ?? '');
-            if ($digitos === '') {
-                continue;
-            }
-
+        $texto = $textoFactory();
+        foreach ($destinatarios as $digitos) {
             SendWhatsappMessageJob::dispatch("{$digitos}@c.us", $texto);
-            $despachado = true;
-        }
-
-        if ($despachado) {
-            $this->registrarEnvio($registration, $tipo, 'whatsapp_openwa');
         }
     }
 
-    private function yaEnviado(Registration $registration, string $tipo, string $canal): bool
+    /**
+     * Reserva atómica de un (registration_id, tipo, canal) — reemplaza al
+     * viejo par yaEnviado()+registrarEnvio() (03/09/2026, ver bug real en
+     * UAT documentado en enviarEmailSiNoEnviado()). `insertOrIgnore()`
+     * usa el UNIQUE de la tabla como mutex a nivel de BD: dos requests
+     * casi simultáneos para el mismo (registration_id, tipo, canal) — uno
+     * inserta, el otro lo pisa en silencio (0 filas afectadas) en vez de
+     * que ambos pasen un SELECT previo y after uno de los dos INSERT
+     * termine chocando después de ya haber mandado el correo/WhatsApp.
+     *
+     * @return bool true si esta llamada ganó la reserva (nadie la tenía
+     *   todavía) — el caller debe mandar la notificación. false si ya
+     *   estaba reservada — no hay que mandar nada.
+     */
+    private function reservarNotificacion(Registration $registration, string $tipo, string $canal): bool
     {
-        return RegistrationNotification::where('registration_id', $registration->id)
-            ->where('tipo', $tipo)
-            ->where('canal', $canal)
-            ->exists();
-    }
-
-    private function registrarEnvio(Registration $registration, string $tipo, string $canal): void
-    {
-        RegistrationNotification::create([
+        return (bool) RegistrationNotification::query()->insertOrIgnore([[
             'registration_id' => $registration->id,
             'tipo'            => $tipo,
             'canal'           => $canal,
             'enviado_at'      => now(),
-        ]);
+        ]]);
     }
 
     private function guardarCopiaAuditoria(Registration $registration, string $tipo, Mailable $mailable): void

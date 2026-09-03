@@ -93,6 +93,13 @@ class ConfirmarPagoAdicionalAction
         } catch (\Throwable $e) {
             Log::error("No se pudo notificar el pago adicional confirmado {$pago->referencia}: {$e->getMessage()}");
         }
+        // Reserva atómica (03/09/2026, ver reservarNotificacion()) —
+        // notificarPagoAdicionalConfirmado() ya no muta $pago en memoria
+        // directamente (usa un UPDATE condicional aparte), a diferencia de
+        // antes. Se refresca por si algo más adelante llega a depender de
+        // notificado_at (hoy no se expone en ningún Resource, pero mejor
+        // no dejar el objeto en memoria desactualizado).
+        $pago->refresh();
 
         return ['pago' => $pago, 'registration' => $result['registration']];
     }

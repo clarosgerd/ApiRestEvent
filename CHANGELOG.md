@@ -2,6 +2,43 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/).
 
+## 2026-09-03 — Incidente UAT: condición de carrera duplicaba correos de notificación
+
+Reportado por el usuario con un log real de producción: `SQLSTATE[23000]: Duplicate entry
+'90314-pago_confirmado-email' for key registration_notifications_registration_id_tipo_canal_unique`.
+
+### Root cause
+`NotificacionService::enviarEmailSiNoEnviado()` chequeaba `yaEnviado()` (SELECT) y recién
+registraba el envío (INSERT) DESPUÉS de mandar el correo. Dos requests casi simultáneos para el
+mismo (registration_id, tipo, canal) — típicamente el webhook de pago de la pasarela + el
+polling del frontend detectando el mismo pago un instante después, o un reintento de webhook —
+podían pasar el SELECT los dos ANTES de que cualquiera hiciera el INSERT: **el correo se mandaba
+dos veces** y recién el segundo INSERT crasheaba, demasiado tarde para evitar el duplicado. El
+disparador de fondo: `RegistrationService::updatePaymentStatus()` nunca chequeaba si el estado
+ya era el que se pedía, así que cualquier llamada redundante repetía todo el flujo de cero.
+
+### Fixed
+- `NotificacionService::reservarNotificacion()` — nuevo colaborador que usa `insertOrIgnore()`
+  (email/WhatsApp, tabla con UNIQUE) como mutex atómico a nivel de BD: se reserva el lugar ANTES
+  de mandar nada, no después. Reemplaza a `yaEnviado()`+`registrarEnvio()` en los 3 métodos que
+  los usaban (email, WhatsApp externo, WhatsApp OpenWA) — misma clase de bug en los tres, aunque
+  solo el de email se vio crashear en los logs.
+- `notificarPagoAdicionalConfirmado()` (feature del 02/09) — mismo criterio con un UPDATE
+  condicional (`WHERE notificado_at IS NULL`) en vez de insertOrIgnore, porque esa fila ya existe
+  de antes (no tiene un UNIQUE por tipo/canal como registration_notifications).
+- `RegistrationService::updatePaymentStatus()` — nueva guarda de idempotencia (si el estado ya es
+  el pedido, no hace nada) — reduce la ventana de carrera además de evitar trabajo redundante.
+
+### Verified
+- 3 tests nuevos (`NotificacionServiceConcurrenciaTest`) — envío normal funciona; no manda ni
+  crashea si la notificación ya estaba reservada (mismo para el correo de pago adicional).
+  **Nota honesta**: la condición de carrera real requiere 2 conexiones a BD concurrentes — no se
+  puede reproducir de forma determinística en PHPUnit (ejecución secuencial, una sola conexión),
+  así que estos tests no "fallan sin el fix" de la forma que sí lo hicieron los bugs de esta
+  semana — verifican que el mecanismo de reserva atómica es correcto (la garantía que, bajo
+  concurrencia real, evita la carrera), no reproducen la carrera en sí.
+- Suite completa de talleres/Caja/pago adicional/pendientes/purga (82 tests) sin regresiones.
+
 ## 2026-09-02 — Correo de confirmación de pago adicional (no existía)
 
 Parte 2 del incidente de UAT de hoy (ver entry anterior, "SIP cobró un pago adicional que nunca
