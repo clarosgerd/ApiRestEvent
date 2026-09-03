@@ -2,6 +2,25 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/).
 
+## 2026-09-03 — Costo unitario y Total en el Reporte de poleras
+
+Pedido del usuario: la tabla Sexo/Talla/Cantidad del Reporte de poleras (dashboard del panel
+autenticado y del link firmado del organizador) suma dos columnas nuevas.
+
+### Added
+- `ReporteInscritosData::agruparPoleras()` — `costoUnitario` (promedio real cobrado por fila,
+  `montoTotal / cantidad`, no un precio fijo asumido) y `montoTotal` (suma de
+  `souvenir_participantes.precio` real) por fila, más `totalMonto` en el resumen.
+- Actualizado en los 2 lugares que renderizan este reporte: `organizador/dashboard.blade.php`
+  (ApiRestEvent, link firmado) y `eventos/dashboard-inscripciones.blade.php` (admin-eventos,
+  panel autenticado).
+
+### Verified
+- 2 tests nuevos/extendidos (`ReporteInscritosTest`, `ConfirmarPagoSitioTest`) — incluye un caso
+  con precios distintos en la misma fila (confirma que `costoUnitario` es el promedio real, no
+  "el último precio visto"). Confirmados con `git stash` que fallan sin el fix. 35 tests de
+  archivos relacionados sin regresiones.
+
 ## 2026-09-03 — QR ilegible en el correo de pago pendiente (bug real, reportado 2 veces por WhatsApp)
 
 Un usuario mandó captura de pantalla (segunda vez que le pasaba): el QR de referencia del correo
