@@ -4,13 +4,13 @@ namespace App\Actions;
 
 use App\DTOs\RegistrationDTO;
 use App\Models\AuditLog;
-use App\Models\Category;
 use App\Models\Evento;
 use App\Models\Registration;
 use App\Models\RegistrationTotal;
 use App\Services\RegistrationService;
 use App\Support\CurrencyResolverData;
-use App\Support\PrecioVigenteData;
+use App\Support\EdicionPagadaCategoriaData;
+use App\Support\EdicionPagadaSouvenirsData;
 use App\Support\Taller\ValidarSeleccionesTallerAction;
 use Illuminate\Support\Facades\DB;
 
@@ -24,16 +24,20 @@ class ActualizarInscripcionPagadaAction
     /**
      * Actualizar inscripción pagada con costo adicional.
      *
-     * $permiteCambioCategoria distingue los 2 flujos que llaman a esta
-     * Action (25/08/2026, ver PLAN-EDICION-PAGADA-TALLERES-CATEGORIA-25082026.md):
-     * - Autoservicio (RegistrationController::updatePaid(), default false):
-     *   el participante solo puede AGREGAR talleres nuevos, nunca cambiar
-     *   de categoría — el sistema no reembolsa diferencias, se resuelve
-     *   en caja el día del evento.
-     * - Caja (CajaController::editarPagada(), true): el cajero además
-     *   puede cambiar de categoría, porque puede cobrar/desembolsar la
-     *   diferencia en efectivo ahí mismo. En ningún caso se permite QUITAR
-     *   un taller que ya estaba pagado.
+     * $modoCategoria distingue los 2 flujos que llaman a esta Action
+     * (25/08/2026, ver PLAN-EDICION-PAGADA-TALLERES-CATEGORIA-25082026.md;
+     * ampliado 02/09/2026, ver EdicionPagadaCategoriaData):
+     * - Autoservicio (RegistrationController::updatePaid() y
+     *   ConfirmarPagoAdicionalAction, default 'solo_subida'): el
+     *   participante puede AGREGAR talleres/souvenirs nuevos y cambiar de
+     *   categoría, pero solo hacia una de precio igual o mayor — el
+     *   sistema no reembolsa diferencias, eso se resuelve en caja el día
+     *   del evento.
+     * - Caja (CajaController::editarPagada(), 'libre'): el cajero además
+     *   puede cambiar de categoría en cualquier dirección, porque puede
+     *   cobrar/desembolsar la diferencia en efectivo ahí mismo. En ningún
+     *   caso (ningún modo) se permite QUITAR un taller o souvenir que ya
+     *   estaba pagado — ver EdicionPagadaSouvenirsData.
      *
      * $requierePagoEnSitio marca, en los talleres NUEVOS que agregue esta
      * llamada, si todavía falta cobrarlos en efectivo (autoservicio con
@@ -45,9 +49,9 @@ class ActualizarInscripcionPagadaAction
      *
      * @return array{registration: Registration, costo_adicion: float}
      */
-    public function handle(string $reference, array $data, bool $permiteCambioCategoria = false, bool $requierePagoEnSitio = false): array
+    public function handle(string $reference, array $data, string $modoCategoria = 'solo_subida', bool $requierePagoEnSitio = false): array
     {
-        return DB::transaction(function () use ($reference, $data, $permiteCambioCategoria, $requierePagoEnSitio) {
+        return DB::transaction(function () use ($reference, $data, $modoCategoria, $requierePagoEnSitio) {
 
             $registration = Registration::with('formType')
                 ->where('referencia', $reference)
@@ -105,7 +109,7 @@ class ActualizarInscripcionPagadaAction
             // sesiones son "previas" (no sujetas a los chequeos de
             // disponibilidad, ya que no se les puede quitar).
             $participantesAnteriores = $registration->participants()
-                ->with('talleresSesiones')
+                ->with('talleresSesiones', 'souvenirParticipante')
                 ->orderBy('id')
                 ->get();
 
@@ -128,6 +132,7 @@ class ActualizarInscripcionPagadaAction
             $tallerIdsNuevosPorIndice = [];
             $pagoPendientePorIndiceYSesion = [];
             $deltaCategoria = 0.0;
+            $deltaSouvenirs = 0.0;
 
             foreach ($data['participantes'] as $i => $participantData) {
                 $anterior = $participantesAnteriores[$i];
@@ -142,43 +147,19 @@ class ActualizarInscripcionPagadaAction
                     ->pluck('pago_pendiente', 'sesion_congreso_id')
                     ->all();
 
-                $categoriaNueva = (string) ($participantData['categoria'] ?? '');
-                if ($categoriaNueva !== (string) $anterior->categoria) {
-                    if (! $permiteCambioCategoria) {
-                        throw new \DomainException(
-                            'No se puede cambiar de categoría desde tu cuenta — esa diferencia se resuelve en caja el día del evento.'
-                        );
-                    }
-
-                    // No se confía en el precio que manda el cliente para
-                    // este cálculo (a diferencia del alta nueva, acá el
-                    // resultado puede ser un desembolso real de dinero) —
-                    // se resuelve el precio vigente real de la categoría
-                    // nueva server-side, mismo helper que ya usa el resto
-                    // del sistema para "Precios por período".
-                    //
-                    // Categorías por form_type (27/08/2026) — ver
-                    // PLAN-CATEGORIAS-POR-FORM-TYPE-27082026.md. Antes acá
-                    // se hacía `Category::findOrFail()` sin filtrar NI
-                    // SIQUIERA por evento — aceptaba la categoría de
-                    // cualquier evento del sistema. Ahora exige mismo
-                    // evento y, si la categoría tiene `formulario_id`,
-                    // mismo form_type que esta inscripción (null =
-                    // compartida, sin cambios).
-                    $categoriaModel = Category::where('id', (int) $categoriaNueva)
-                        ->where('event_id', $registration->evento_id)
-                        ->where(fn ($q) => $q->whereNull('formulario_id')->orWhere('formulario_id', $registration->form_types_id))
-                        ->first();
-
-                    if (!$categoriaModel) {
-                        throw new \DomainException(
-                            "La categoría '{$categoriaNueva}' no es válida para este evento/tipo de formulario."
-                        );
-                    }
-
-                    $precioNuevo = PrecioVigenteData::paraCategoria($categoriaModel)['precio'];
-                    $deltaCategoria += $precioNuevo - (float) $anterior->precio_categoria;
-                }
+                // Cambio de categoría (25/08/2026, ampliado 02/09/2026 —
+                // ver EdicionPagadaCategoriaData). $modoCategoria distingue
+                // autoservicio ('solo_subida': solo hacia una más cara o
+                // igual) de Caja ('libre': cualquier dirección).
+                $cambioCategoria = EdicionPagadaCategoriaData::resolver(
+                    categoriaAnteriorId: (string) $anterior->categoria,
+                    precioAnterior: (float) $anterior->precio_categoria,
+                    categoriaNuevaId: (string) ($participantData['categoria'] ?? ''),
+                    eventoId: $registration->evento_id,
+                    formTypesId: $registration->form_types_id,
+                    modoCategoria: $modoCategoria,
+                );
+                $deltaCategoria += $cambioCategoria['delta'];
 
                 $idsAnteriores = $anterior->talleresSesiones->pluck('sesion_congreso_id')->map(fn ($id) => (int) $id)->all();
                 $idsNuevos = collect($participantData['talleres'] ?? [])->pluck('sesion_congreso_id')->map(fn ($id) => (int) $id)->all();
@@ -188,6 +169,16 @@ class ActualizarInscripcionPagadaAction
                 }
 
                 $tallerIdsNuevosPorIndice[$i] = array_diff($idsNuevos, $idsAnteriores);
+
+                // Souvenirs (02/09/2026 — ver EdicionPagadaSouvenirsData):
+                // mismo criterio que talleres, lo ya pagado no se puede
+                // quitar, pero sí se pueden agregar ítems nuevos. El precio
+                // de los agregados se resuelve contra el catálogo real, no
+                // contra lo que mande el cliente.
+                $souvenirIdsAnteriores = $anterior->souvenirParticipante->pluck('souvenir_id')->map(fn ($id) => (int) $id)->all();
+                $souvenirIdsNuevos = collect($participantData['souvenirs'] ?? [])->pluck('id')->map(fn ($id) => (int) $id)->all();
+                $cambioSouvenirs = EdicionPagadaSouvenirsData::resolver($registration->form_types_id, $souvenirIdsAnteriores, $souvenirIdsNuevos);
+                $deltaSouvenirs += $cambioSouvenirs['deltaSouvenirs'];
             }
 
             $registration->participants()->delete();
@@ -292,14 +283,17 @@ class ActualizarInscripcionPagadaAction
 
             $this->registrationService->syncPersonas($registration);
 
-            // Monto real a cobrar/desembolsar (25/08/2026) — el cargo fijo
-            // de siempre (costo_edicion) más la diferencia real de
-            // categoría (0 si no cambió, o si el autoservicio la bloqueó
-            // arriba) y el precio real de los talleres agregados. Puede
-            // quedar negativo si el cambio de categoría es una devolución
-            // mayor que el resto — ver CajaController::editarPagada(), que
-            // ahora también registra un CajaMovimiento cuando es negativo.
-            $costoAdicion = (float) $costoEdicion + $deltaTalleres + $deltaCategoria;
+            // Monto real a cobrar/desembolsar (25/08/2026, ampliado
+            // 02/09/2026 con souvenirs) — el cargo fijo de siempre
+            // (costo_edicion) más la diferencia real de categoría (0 si no
+            // cambió, o si el modo actual no permite bajar), el precio
+            // real de los talleres agregados y el precio real de los
+            // souvenirs agregados. Puede quedar negativo solo por el lado
+            // de categoría con modoCategoria='libre' (Caja) — talleres y
+            // souvenirs nunca restan, solo se pueden agregar. Ver
+            // CajaController::editarPagada(), que registra un
+            // CajaMovimiento cuando el total es negativo.
+            $costoAdicion = (float) $costoEdicion + $deltaTalleres + $deltaCategoria + $deltaSouvenirs;
 
             AuditLog::create([
                 'registration_id' => $registration->id,
