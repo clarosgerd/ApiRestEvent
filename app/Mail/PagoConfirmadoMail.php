@@ -43,6 +43,10 @@ class PagoConfirmadoMail extends Mailable
             'evento'       => $evento,
             'payLabel'     => $payLabel,
             'qrImage'      => $qrImage,
+            'pdfTitle'     => 'Entrada electrónica',
+            'statusLabel'  => '✓ Pagado',
+            'statusColor'  => '#258f36',
+            'pdfFooterMsg' => 'Guarda esta entrada como comprobante de pago',
         ]);
 
         return $mail->attachData(
