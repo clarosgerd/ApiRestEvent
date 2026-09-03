@@ -82,8 +82,15 @@
             <td>{{ $p->telefono }}</td>
             <td>
               {{ $p->categoria }}
-              @if ($p->polera && $p->polera !== 'No shirt')
-                · Polera {{ $p->polera }}
+              {{-- Talla real de la polera (03/09/2026) — ver
+                   TallaPoleraData. Antes esto se ocultaba entero para
+                   eventos con la polera modelada como souvenir (el campo
+                   legacy quedaba en 'No shirt', el @if de abajo lo
+                   filtraba) — no mostraba dato incorrecto, pero tampoco el
+                   real. --}}
+              @php($tallaPolera = \App\Support\TallaPoleraData::resolver($p, $souvenirIdsPolera))
+              @if ($tallaPolera && $tallaPolera !== 'No shirt')
+                · Polera {{ $tallaPolera }}
               @endif
               @if ($p->souvenirParticipante->isNotEmpty())
                 <br><span class="muted">{{ $p->souvenirParticipante->pluck('nombre')->implode(', ') }}</span>

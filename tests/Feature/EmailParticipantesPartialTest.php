@@ -165,4 +165,44 @@ class EmailParticipantesPartialTest extends TestCase
 
         $this->assertStringContainsString('Souvenirs: <strong>Mochila (Bs30.00)</strong>', $html);
     }
+
+    /**
+     * Talla real de la polera (03/09/2026) — este correo mostraba
+     * "Camiseta: No shirt" a cualquier participante de un evento con la
+     * polera modelada como souvenir normal (`participantes.polera` es un
+     * campo legacy que queda siempre en ese sentinel para esos eventos).
+     * Ver App\Support\TallaPoleraData — mismo colaborador usado por el
+     * Reporte de poleras del dashboard, el CSV/JSON de delivery, y el CSV
+     * del organizador.
+     */
+    public function test_deportivo_muestra_la_talla_real_del_souvenir_marcado_es_polera(): void
+    {
+        [$evento, $formType, $categoria] = $this->crearEvento('deportivo');
+        $registration = $this->crearRegistration($evento, $formType);
+
+        $polera = \App\Models\Souvenir::factory()->create([
+            'form_types_id' => $formType->id, 'requiere_talla' => true, 'es_polera' => true,
+        ]);
+
+        $participante = Participante::create([
+            'registration_id' => $registration->id,
+            'nombre' => 'Ana', 'apellido' => 'Prueba', 'alias' => 'ana', 'genero' => 'Femenino',
+            'tipo_documento' => 'DNI', 'numero_documento' => '99887766',
+            'fecha_nacimiento' => '1995-01-01', 'edad' => 31,
+            'correo' => 'ana3@test.net', 'direccion' => 'x', 'ciudad' => 'x', 'telefono' => '123',
+            'categoria' => $categoria->id, 'precio_categoria' => 100, 'subtotal' => 100,
+            // Sentinel legacy — el fix no debe leer esto cuando hay un
+            // souvenir es_polera marcado.
+            'polera' => 'No shirt',
+        ]);
+        \App\Models\SouvenirParticipante::create([
+            'participante_id' => $participante->id, 'souvenir_id' => $polera->id,
+            'nombre' => $polera->name, 'precio' => $polera->price, 'talla' => 'XL',
+        ]);
+
+        $html = $this->renderCorreo($registration);
+
+        $this->assertStringContainsString('Camiseta: <strong>XL</strong>', $html);
+        $this->assertStringNotContainsString('Camiseta: <strong>No shirt</strong>', $html);
+    }
 }

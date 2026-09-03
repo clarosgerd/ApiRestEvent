@@ -8,6 +8,7 @@ use App\Services\RegistrationService;
 use App\Support\BalanceEventoData;
 use App\Support\DashboardInscripcionesData;
 use App\Support\ReporteInscritosData;
+use App\Support\TallaPoleraData;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
@@ -83,7 +84,13 @@ class OrganizadorDashboardController extends Controller
         // propio nombre en este campo, no un ID — ya es legible tal cual.
         $nombresCategorias = $evento->categories()->pluck('name', 'id');
 
-        return response()->streamDownload(function () use ($participantes, $evento, $nombresCategorias) {
+        // Talla real de la polera (03/09/2026) — ver TallaPoleraData: esta
+        // columna leía directo `participantes.polera` (legacy), que queda
+        // siempre en el sentinel 'No shirt' para eventos que ya modelan la
+        // polera como un souvenir normal.
+        $souvenirIdsPolera = TallaPoleraData::souvenirIdsPolera($evento->formTypes()->pluck('id')->all());
+
+        return response()->streamDownload(function () use ($participantes, $evento, $nombresCategorias, $souvenirIdsPolera) {
             $out = fopen('php://output', 'w');
             fputcsv($out, [
                 // 'Monto categoría'/'Monto souvenir' (02/09/2026) — pedido
@@ -113,6 +120,8 @@ class OrganizadorDashboardController extends Controller
                     && $formType
                     && ! $formType->requiere_categoria;
 
+                $tallaPolera = TallaPoleraData::resolver($p, $souvenirIdsPolera);
+
                 fputcsv($out, [
                     $p->nombre,
                     $p->apellido,
@@ -120,7 +129,7 @@ class OrganizadorDashboardController extends Controller
                     $nombresCategorias[$p->categoria] ?? $p->categoria,
                     $p->precio_categoria,
                     optional($formType)->name,
-                    $p->polera,
+                    $tallaPolera,
                     $p->souvenirParticipante->pluck('nombre')->implode(', '),
                     // number_format explícito: sum() no pasa por el cast
                     // decimal:2 del modelo (a diferencia de precio_categoria

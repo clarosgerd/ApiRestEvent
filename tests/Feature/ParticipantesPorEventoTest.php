@@ -12,6 +12,8 @@ use App\Models\Participante;
 use App\Models\ParticipanteTallerSesion;
 use App\Models\Registration;
 use App\Models\SesionCongreso;
+use App\Models\Souvenir;
+use App\Models\SouvenirParticipante;
 use App\Models\SubtipoEvento;
 use App\Models\Taller;
 use App\Models\TipoEvento;
@@ -211,5 +213,52 @@ class ParticipantesPorEventoTest extends TestCase
         $admin->update(['rol' => 'admin', 'evento_id' => $otroEvento->id]);
 
         $this->getJson("/api/v1/event/{$this->evento->id}/participantes")->assertStatus(403);
+    }
+
+    /**
+     * Talla real de la polera (03/09/2026) — "Detalle de inscritos" leía
+     * directo `participantes.polera`, el mismo campo legacy que queda
+     * siempre en el sentinel 'No shirt' para eventos con la polera modelada
+     * como souvenir normal (ver App\Support\TallaPoleraData). El bug lo
+     * encontró el usuario en el Reporte de poleras del dashboard, pero esta
+     * pantalla lee el mismo campo con el mismo problema.
+     */
+    public function test_muestra_la_talla_real_del_souvenir_marcado_es_polera(): void
+    {
+        $polera = Souvenir::factory()->create([
+            'form_types_id' => $this->formType->id, 'requiere_talla' => true, 'es_polera' => true,
+        ]);
+        $p = $this->crearInscripcion(['polera' => 'No shirt']);
+        SouvenirParticipante::create([
+            'participante_id' => $p->id, 'souvenir_id' => $polera->id,
+            'nombre' => $polera->name, 'precio' => $polera->price, 'talla' => 'M',
+        ]);
+
+        $admin = $this->actingAsAdmin();
+        $admin->update(['rol' => 'admin', 'evento_id' => $this->evento->id]);
+
+        $response = $this->getJson("/api/v1/event/{$this->evento->id}/participantes")
+            ->assertStatus(200);
+
+        $this->assertSame('M', $response->json('participantes.0.polera'));
+    }
+
+    /**
+     * Sin ningún souvenir marcado es_polera=true (evento con el flujo
+     * legacy, `form_types.hasshirt=true`), el fallback sigue leyendo
+     * `participantes.polera` como siempre — no debe romperse por la
+     * presencia de TallaPoleraData.
+     */
+    public function test_sin_souvenir_es_polera_cae_al_campo_legacy(): void
+    {
+        $this->crearInscripcion(['polera' => 'L']);
+
+        $admin = $this->actingAsAdmin();
+        $admin->update(['rol' => 'admin', 'evento_id' => $this->evento->id]);
+
+        $response = $this->getJson("/api/v1/event/{$this->evento->id}/participantes")
+            ->assertStatus(200);
+
+        $this->assertSame('L', $response->json('participantes.0.polera'));
     }
 }
