@@ -120,6 +120,41 @@
       @endif
     </table>
 
+    {{-- Reporte de poleras (03/09/2026) — pedido del usuario: faltaba acá,
+         ver ReporteInscritosData::agruparPoleras(). Sale del souvenir
+         marcado `es_polera=true` en admin-eventos — si un evento no lo
+         tiene marcado todavía, esta tabla queda vacía (no es un error, ver
+         checklist de deploy). --}}
+    <p class="section-title">Reporte de poleras</p>
+    <table>
+      <thead>
+        <tr>
+          <th>Sexo</th>
+          <th>Talla</th>
+          <th class="num">Cantidad</th>
+        </tr>
+      </thead>
+      <tbody>
+        @forelse ($reporteInscritos['poleras']['filas'] as $fila)
+          <tr>
+            <td>{{ $fila['sexo'] }}</td>
+            <td>{{ $fila['talla'] }}</td>
+            <td class="num">{{ $fila['cantidad'] }}</td>
+          </tr>
+        @empty
+          <tr><td colspan="3">Nadie pagado eligió polera todavía.</td></tr>
+        @endforelse
+      </tbody>
+      @if (count($reporteInscritos['poleras']['filas']) > 0)
+      <tfoot>
+        <tr>
+          <td colspan="2"><strong>Total</strong></td>
+          <td class="num"><strong>{{ $reporteInscritos['poleras']['total'] }}</strong></td>
+        </tr>
+      </tfoot>
+      @endif
+    </table>
+
     <p class="section-title">Por tipo de formulario</p>
     <table>
       <thead>

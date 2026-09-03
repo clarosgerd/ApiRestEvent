@@ -11,6 +11,8 @@ use App\Models\FormType;
 use App\Models\Organizador;
 use App\Models\Pais;
 use App\Models\Registration;
+use App\Models\Souvenir;
+use App\Models\SouvenirParticipante;
 use App\Models\SubtipoEvento;
 use App\Models\TipoEvento;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -331,5 +333,33 @@ class ConfirmarPagoSitioTest extends TestCase
         $response->assertSee('Inscritos por categoría / distancia');
         $response->assertSee('15K');
         $response->assertSee('100.00');
+    }
+
+    /**
+     * Reporte de poleras (03/09/2026) — pedido del usuario: faltaba en
+     * esta misma página, ver ReporteInscritosData::agruparPoleras().
+     */
+    public function test_dashboard_incluye_reporte_de_poleras(): void
+    {
+        $formType = FormType::factory()->create(['event_id' => $this->evento->id, 'requiere_categoria' => true]);
+        $categoria = Category::factory()->create(['event_id' => $this->evento->id, 'price' => 100]);
+        $polera = Souvenir::factory()->create([
+            'form_types_id' => $formType->id, 'requiere_talla' => true, 'es_polera' => true,
+        ]);
+
+        $registration = $this->crearInscripcionPendiente($formType, 100, '70707070', (string) $categoria->id);
+        $registration->update(['pago_status' => 'paid']);
+        $participante = $registration->participants()->first();
+        SouvenirParticipante::create([
+            'participante_id' => $participante->id, 'souvenir_id' => $polera->id,
+            'nombre' => $polera->name, 'precio' => $polera->price, 'talla' => 'M',
+        ]);
+
+        $url = URL::signedRoute('organizador.dashboard', ['evento' => $this->evento->id]);
+        $response = $this->get($url)->assertOk();
+
+        $response->assertSee('Reporte de poleras');
+        $response->assertSee('Femenino');
+        $response->assertSee('M');
     }
 }
