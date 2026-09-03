@@ -2,6 +2,33 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/).
 
+## 2026-09-03 — QR ilegible en el correo de pago pendiente (bug real, reportado 2 veces por WhatsApp)
+
+Un usuario mandó captura de pantalla (segunda vez que le pasaba): el QR de referencia del correo
+de "Registro recibido — Pago pendiente" le llegaba como imagen rota, sin poder leerlo.
+
+### Root cause
+`InscripcionPendienteMail` embebía el QR únicamente como `data:` URI en el `<img>` del cuerpo
+HTML del correo, sin ningún PDF adjunto de respaldo. Muchos clientes de correo (Gmail web,
+Outlook, varios webmail/gateways corporativos) bloquean imágenes `data:` por defecto — el QR
+queda invisible/roto, sin ningún fallback disponible. `PagoConfirmadoMail` (pago YA confirmado)
+sí adjuntaba un PDF con el mismo QR desde antes — dompdf no depende del bloqueo de imágenes del
+cliente de correo, es confiable — pero `InscripcionPendienteMail` (pago pendiente) nunca lo tuvo.
+
+### Fixed
+- `resources/views/tickets/eticket.blade.php` parametrizado (`pdfTitle`/`statusLabel`/
+  `statusColor`/`pdfFooterMsg`, default = el texto de siempre) para poder reusarlo en un
+  comprobante de pago **pendiente** sin decir "✓ Pagado"/"Entrada electrónica" de algo que
+  todavía no se pagó.
+- `InscripcionPendienteMail` ahora adjunta el mismo PDF (`comprobante-{referencia}.pdf`), con
+  estado "⏳ Pendiente". `PagoConfirmadoMail` sin cambio de comportamiento, solo pasa los
+  parámetros nuevos explícitos.
+
+### Verified
+- 3 tests nuevos (`InscripcionPendienteMailQrPdfTest`) — confirmados con `git stash` que fallan
+  sin el fix. 36 tests de archivos relacionados (correos, pago adicional, notificaciones, cobro
+  en sitio) sin regresiones.
+
 ## 2026-09-03 — `tipos_evento.id`/`subtipos_evento.id` desbordaban `tinyint` en corridas completas de test
 
 Encontrado mientras se verificaba el fix de arriba ("Mismo bug de talla..."): la nota "aparte" de
