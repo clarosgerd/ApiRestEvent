@@ -12,6 +12,8 @@ use App\Models\Participante;
 use App\Models\ParticipanteTallerSesion;
 use App\Models\Registration;
 use App\Models\SesionCongreso;
+use App\Models\Souvenir;
+use App\Models\SouvenirParticipante;
 use App\Models\SubtipoEvento;
 use App\Models\Taller;
 use App\Models\TipoEvento;
@@ -81,9 +83,19 @@ class ReporteInscritosTest extends TestCase
         $cinco_k = Category::factory()->create(['event_id' => $this->evento->id, 'name' => '5K', 'price' => 50]);
         $diez_k = Category::factory()->create(['event_id' => $this->evento->id, 'name' => '10K', 'price' => 80]);
 
+        // Reporte de poleras (03/09/2026) — ya no sale de participantes.polera
+        // (siempre queda en el sentinel 'No shirt' del frontend), sale de
+        // souvenir_participantes.talla filtrado a souvenirs es_polera=true.
+        // Ver ReporteInscritosData::agruparPoleras().
+        $polera = Souvenir::factory()->create([
+            'form_types_id' => $individual->id, 'requiere_talla' => true, 'es_polera' => true,
+        ]);
+
         // 2 pagados en Individual/5K, con polera.
-        $this->crearInscripcion($individual, $cinco_k, ['genero' => 'Femenino', 'polera' => 'M']);
-        $this->crearInscripcion($individual, $cinco_k, ['genero' => 'Masculino', 'polera' => 'L']);
+        $p1 = $this->crearInscripcion($individual, $cinco_k, ['genero' => 'Femenino']);
+        SouvenirParticipante::create(['participante_id' => $p1->id, 'souvenir_id' => $polera->id, 'nombre' => $polera->name, 'precio' => $polera->price, 'talla' => 'M']);
+        $p2 = $this->crearInscripcion($individual, $cinco_k, ['genero' => 'Masculino']);
+        SouvenirParticipante::create(['participante_id' => $p2->id, 'souvenir_id' => $polera->id, 'nombre' => $polera->name, 'precio' => $polera->price, 'talla' => 'L']);
         // 1 pagado en Grupal/10K, sin polera.
         $this->crearInscripcion($grupal, $diez_k, ['subtotal' => 80, 'precio_categoria' => 80]);
         // 1 pendiente — no debe contarse en ninguna tabla (solo se cuenta lo pagado).
@@ -115,6 +127,66 @@ class ReporteInscritosTest extends TestCase
         $poleras = collect($reporte['poleras']['filas']);
         $this->assertTrue($poleras->contains(fn ($f) => $f['sexo'] === 'Femenino' && $f['talla'] === 'M' && $f['cantidad'] === 1));
         $this->assertTrue($poleras->contains(fn ($f) => $f['sexo'] === 'Masculino' && $f['talla'] === 'L' && $f['cantidad'] === 1));
+    }
+
+    /**
+     * Bug real 03/09/2026 — antes de este fix, el reporte de poleras leía
+     * `participantes.polera`, que queda siempre en el string sentinel
+     * 'No shirt' para form_types que modelan la polera como un souvenir
+     * normal (sin el flujo legacy hasshirt). Este test reproduce
+     * exactamente ese escenario: un souvenir con talla marcado como la
+     * polera, y confirma que el 'No shirt' legacy no contamina el
+     * reporte.
+     */
+    public function test_no_confunde_el_sentinel_no_shirt_legacy_con_talla_real(): void
+    {
+        $formType = FormType::factory()->create(['event_id' => $this->evento->id]);
+        $categoria = Category::factory()->create(['event_id' => $this->evento->id, 'price' => 100]);
+        $polera = Souvenir::factory()->create([
+            'form_types_id' => $formType->id, 'requiere_talla' => true, 'es_polera' => true,
+        ]);
+
+        // Mismo dato que manda el frontend real cuando el flujo legacy no
+        // aplica (index.php: polera === 'con' ? shirtSize : 'No shirt').
+        $p = $this->crearInscripcion($formType, $categoria, ['polera' => 'No shirt']);
+        SouvenirParticipante::create(['participante_id' => $p->id, 'souvenir_id' => $polera->id, 'nombre' => $polera->name, 'precio' => $polera->price, 'talla' => 'S']);
+
+        $admin = $this->actingAsAdmin();
+        $admin->update(['rol' => 'admin', 'evento_id' => $this->evento->id]);
+
+        $response = $this->getJson("/api/v1/event/{$this->evento->id}/dashboard-inscripciones")
+            ->assertStatus(200);
+
+        $poleras = $response->json('reporteInscritos.poleras');
+        $this->assertSame(1, $poleras['total']);
+        $this->assertSame('S', $poleras['filas'][0]['talla']);
+        $this->assertNotContains('No shirt', array_column($poleras['filas'], 'talla'));
+    }
+
+    /**
+     * Un form_type puede tener otro souvenir con talla (ej. una mochila)
+     * que NO está marcado es_polera — no debe mezclarse en el reporte.
+     */
+    public function test_souvenir_con_talla_que_no_es_la_polera_no_aparece_en_el_reporte(): void
+    {
+        $formType = FormType::factory()->create(['event_id' => $this->evento->id]);
+        $categoria = Category::factory()->create(['event_id' => $this->evento->id, 'price' => 100]);
+        $mochila = Souvenir::factory()->create([
+            'form_types_id' => $formType->id, 'requiere_talla' => true, 'es_polera' => false, 'name' => 'Mochila',
+        ]);
+
+        $p = $this->crearInscripcion($formType, $categoria);
+        SouvenirParticipante::create(['participante_id' => $p->id, 'souvenir_id' => $mochila->id, 'nombre' => $mochila->name, 'precio' => $mochila->price, 'talla' => 'Única']);
+
+        $admin = $this->actingAsAdmin();
+        $admin->update(['rol' => 'admin', 'evento_id' => $this->evento->id]);
+
+        $response = $this->getJson("/api/v1/event/{$this->evento->id}/dashboard-inscripciones")
+            ->assertStatus(200);
+
+        $poleras = $response->json('reporteInscritos.poleras');
+        $this->assertSame(0, $poleras['total']);
+        $this->assertEmpty($poleras['filas']);
     }
 
     /**

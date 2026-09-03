@@ -7,6 +7,7 @@ use App\Models\Participante;
 use App\Services\RegistrationService;
 use App\Support\BalanceEventoData;
 use App\Support\DashboardInscripcionesData;
+use App\Support\ReporteInscritosData;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
@@ -29,6 +30,14 @@ class OrganizadorDashboardController extends Controller
             DashboardInscripcionesData::paraEvento($evento),
             [
                 'balance' => BalanceEventoData::paraEvento($evento),
+                // Inscritos por categoría/distancia con recaudación
+                // (03/09/2026, pedido del usuario) — distinto de
+                // $porCategoria de arriba (DashboardInscripcionesData: cuenta
+                // por estado de pago, sin dinero). Reusa ReporteInscritosData
+                // tal cual, mismo cálculo que ya usa el panel autenticado
+                // (EventoController::dashboardInscripciones) — solo cuenta
+                // `paid`, "Recaudación" es dinero efectivamente cobrado.
+                'reporteInscritos' => ReporteInscritosData::paraEvento($evento),
                 // Firma cubre solo `evento` (los filtros se ignoran al validar
                 // en exportCsv) — la vista arma los links filtrados agregando
                 // &categoria=/&form_type_id=/&pago_status= a esta misma URL base.

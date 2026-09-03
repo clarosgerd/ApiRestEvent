@@ -30,6 +30,12 @@ class Souvenir extends Model
         // add_texto_promocional_to_souvenirs_table. Puramente de
         // marketing, no afecta precio ni disponibilidad.
         'texto_promocional',
+        // Reporte de poleras (03/09/2026) — ver migración
+        // add_es_polera_to_souvenirs_table. Flag opt-in para que
+        // ReporteInscritosData::agruparPoleras() sepa cuál ítem del kit
+        // (si un form_type tiene varios con talla) es la polera de
+        // verdad. No afecta precio/disponibilidad/formulario público.
+        'es_polera',
     ];
 
     protected $casts = [
@@ -38,6 +44,7 @@ class Souvenir extends Model
         'requiere_sexo'          => 'boolean',
         'visible_participante'   => 'boolean',
         'aplica_cargo_servicio'  => 'boolean',
+        'es_polera'              => 'boolean',
     ];
 
 

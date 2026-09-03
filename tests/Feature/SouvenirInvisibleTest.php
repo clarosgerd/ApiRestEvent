@@ -139,6 +139,54 @@ class SouvenirInvisibleTest extends TestCase
         ])->assertStatus(422)->assertJsonValidationErrors(['visible_participante']);
     }
 
+    // ── Reporte de poleras (03/09/2026) — ver ReporteInscritosData ──
+
+    public function test_crea_souvenir_marcado_como_la_polera(): void
+    {
+        $admin = $this->actingAsAdmin();
+        $admin->update(['rol' => 'super_admin']);
+
+        $this->postJson('/api/v1/souvenir', [
+            'form_types_id' => $this->formType->id,
+            'name' => 'Poleras',
+            'price' => 150,
+            'icon' => '👕',
+            'requiere_talla' => true,
+            'es_polera' => true,
+        ])->assertCreated()
+            ->assertJsonPath('souvenir.es_polera', true);
+
+        $this->assertDatabaseHas('souvenirs', ['name' => 'Poleras', 'es_polera' => true]);
+    }
+
+    public function test_rechaza_marcar_es_polera_sin_requiere_talla(): void
+    {
+        $admin = $this->actingAsAdmin();
+        $admin->update(['rol' => 'super_admin']);
+
+        $this->postJson('/api/v1/souvenir', [
+            'form_types_id' => $this->formType->id,
+            'name' => 'Poleras',
+            'price' => 150,
+            'es_polera' => true,
+        ])->assertStatus(422)->assertJsonValidationErrors(['es_polera']);
+    }
+
+    public function test_rechaza_actualizar_a_es_polera_un_souvenir_sin_requiere_talla(): void
+    {
+        $admin = $this->actingAsAdmin();
+        $admin->update(['rol' => 'super_admin']);
+
+        $souvenir = Souvenir::factory()->create([
+            'form_types_id' => $this->formType->id,
+            'requiere_talla' => false,
+        ]);
+
+        $this->putJson('/api/v1/souvenir/'.$souvenir->id, [
+            'es_polera' => true,
+        ])->assertStatus(422)->assertJsonValidationErrors(['es_polera']);
+    }
+
     // ── Filtro público vs admin en EventoController ─────────
 
     public function test_publico_no_ve_souvenirs_invisibles(): void

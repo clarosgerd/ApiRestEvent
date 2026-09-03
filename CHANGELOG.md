@@ -2,6 +2,43 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/).
 
+## 2026-09-03 — Reporte de poleras mostraba "No shirt" + dashboard del organizador
+
+Reportado por el usuario con capturas del dashboard: la columna "Talla" del Reporte de poleras
+mostraba siempre "No shirt" en vez de las tallas reales.
+
+### Root cause
+`ReporteInscritosData::agruparPoleras()` leía la talla de `participantes.polera`, un campo
+legacy — se eligió esa fuente el 15/08/2026 porque en ese momento tenía datos reales y el
+sistema de souvenirs casi no se usaba. Esa base quedó obsoleta: eventos como el que motivó el
+reporte ya modelan la polera como un souvenir normal (`requiere_talla=true`), y
+`participantes.polera` queda siempre en el string sentinel `'No shirt'` que manda el frontend
+(elascenso/event) cuando el flujo legacy no aplica. Las tallas reales viven en
+`souvenir_participantes.talla`.
+
+### Added / Fixed
+- `souvenirs.es_polera` (boolean, default false) — flag opt-in por ítem: no hay forma de saber
+  cuál souvenir es "la polera" cuando un form_type tiene más de un ítem con talla (ej. una
+  mochila), así que el organizador lo marca a mano en admin-eventos. Requiere
+  `requiere_talla=true` (validado en Store/UpdateSouvenirRequest).
+- `ReporteInscritosData::agruparPoleras()` reescrito — ahora agrupa por
+  `souvenir_participantes.talla` de los souvenirs `es_polera=true`, sexo sigue siendo
+  `participantes.genero` (ese campo sí sigue poblado siempre).
+- Dashboard del organizador (link firmado, sin login,
+  `OrganizadorDashboardController::show()`) — pedido del usuario: ahora también muestra
+  "Inscritos por categoría / distancia" con recaudación (`ReporteInscritosData::agruparPorCategoria()`),
+  reusando el mismo reporte que ya existía en el panel autenticado. Distinto del "Por
+  categoría" que ya tenía esa página (ese cuenta por estado de pago, sin dinero) — quedan las
+  dos tablas, no se reemplaza ninguna.
+
+### Verified
+- 6 tests nuevos entre `ReporteInscritosTest`, `SouvenirInvisibleTest` y `ConfirmarPagoSitioTest`
+  — reproduce el bug exacto (sentinel 'No shirt' no contamina el reporte), un souvenir con
+  talla que no es la polera no aparece, validación cruzada `es_polera` requiere
+  `requiere_talla`, el dashboard del organizador incluye la tabla nueva. Confirmado que fallan
+  sin cada fix (`git stash`), incluida la reproducción exacta del bug real reportado. Suite
+  completa de souvenirs/kit/stock/reporte (40 tests) sin regresiones.
+
 ## 2026-09-03 — Incidente UAT: condición de carrera duplicaba correos de notificación
 
 Reportado por el usuario con un log real de producción: `SQLSTATE[23000]: Duplicate entry

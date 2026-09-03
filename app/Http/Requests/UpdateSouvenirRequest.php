@@ -41,6 +41,9 @@ class UpdateSouvenirRequest extends FormRequest
             // Texto promocional por souvenir (02/09/2026) — ver migración
             // add_texto_promocional_to_souvenirs_table.
             'texto_promocional' => 'sometimes|nullable|string|max:500',
+            // Reporte de poleras (03/09/2026) — ver migración
+            // add_es_polera_to_souvenirs_table.
+            'es_polera' => 'sometimes|boolean',
         ];
     }
 
@@ -64,11 +67,24 @@ class UpdateSouvenirRequest extends FormRequest
             $requiereSexo = $this->has('requiere_sexo')
                 ? $this->boolean('requiere_sexo')
                 : (bool) ($souvenir->requiere_sexo ?? false);
+            $esPolera = $this->has('es_polera')
+                ? $this->boolean('es_polera')
+                : (bool) ($souvenir->es_polera ?? false);
 
             if (! $visible && ($requiereTalla || $requiereSexo)) {
                 $validator->errors()->add(
                     'visible_participante',
                     'Un souvenir invisible para el participante no puede requerir talla/sexo — nunca hay quién los elija.'
+                );
+            }
+
+            // Reporte de poleras (03/09/2026) — sin requiere_talla, la
+            // talla del participante siempre queda null y el ítem no
+            // aportaría nada útil al reporte.
+            if ($esPolera && ! $requiereTalla) {
+                $validator->errors()->add(
+                    'es_polera',
+                    'Un souvenir marcado como "es la polera" tiene que requerir talla — si no, el reporte no tendría de dónde sacarla.'
                 );
             }
         });
