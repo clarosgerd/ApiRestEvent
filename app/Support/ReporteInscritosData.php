@@ -35,11 +35,20 @@ use Illuminate\Support\Collection;
  *   distancia en los eventos reales ("5K", "10K", "21K", "7K"...) —
  *   confirmado contra datos reales, no es una convención nueva. No se
  *   duplica la tabla.
- * - "Reporte de Poleras" (sexo+talla) sale de los campos legacy
- *   `participantes.genero`/`polera` (los que de verdad tienen datos hoy:
- *   52/52 poblados en la BD real), no del sistema nuevo de souvenirs con
- *   talla/sexo genérico (casi sin uso real todavía — 2 filas, ninguna con
- *   talla cargada al momento de este reporte).
+ * - "Reporte de Poleras" (sexo+talla) — DECISIÓN REVERTIDA el 03/09/2026
+ *   (bug real reportado por el usuario: la columna Talla siempre mostraba
+ *   "No shirt"). En 15/08 se eligió leer los campos legacy
+ *   `participantes.genero`/`polera` porque en ese momento tenían datos
+ *   reales y el sistema de souvenirs casi no se usaba — esa base quedó
+ *   obsoleta: eventos como los que motivaron el reporte ya modelan la
+ *   polera como un souvenir normal (`requiere_talla=true`), y
+ *   `participantes.polera` queda siempre en el string sentinel 'No shirt'
+ *   que manda el frontend cuando el flujo legacy no aplica. Ahora sale de
+ *   `souvenir_participantes.talla`, filtrado a los souvenirs marcados
+ *   `es_polera=true` (flag nuevo, opt-in por ítem — un form_type puede
+ *   tener más de un souvenir con talla, ej. una mochila, y no hay otra
+ *   forma de saber cuál es la polera de verdad). `genero` sigue siendo el
+ *   de `participantes` (eso sí sigue poblado siempre, sin cambios).
  */
 class ReporteInscritosData
 {
@@ -52,7 +61,9 @@ class ReporteInscritosData
             // Reporte de talleres (19/08/2026) — eager-cargado para no hacer
             // N+1 al armar porTaller() más abajo. Vacío para eventos sin
             // talleres (relación vacía, no rompe nada).
-            ->with(['registration', 'talleresSesiones.taller', 'talleresSesiones.sesionCongreso'])
+            // souvenirParticipante (03/09/2026) — para agruparPoleras(), ver
+            // docblock de la clase.
+            ->with(['registration', 'talleresSesiones.taller', 'talleresSesiones.sesionCongreso', 'souvenirParticipante'])
             ->get();
 
         // Cupo de talleres (31/08/2026) — universo aparte, VIGENTES (paid +
@@ -80,7 +91,7 @@ class ReporteInscritosData
         return [
             'porModalidad' => self::agruparPorFormulario($evento, $participantesPagados),
             'porCategoria' => self::agruparPorCategoria($evento, $participantesPagados),
-            'poleras' => self::agruparPoleras($participantesPagados),
+            'poleras' => self::agruparPoleras($evento, $participantesPagados),
             'porTaller' => $porTaller,
         ];
     }
@@ -115,19 +126,37 @@ class ReporteInscritosData
         return self::totalizar($grupos);
     }
 
-    private static function agruparPoleras(Collection $participantes): array
+    /**
+     * Bug real 03/09/2026 — ver docblock de la clase. `souvenirIdsPolera`
+     * puede tener 0, 1 o varios ids (varios solo si el organizador marcó
+     * más de un ítem como "es la polera" — ej. corte hombre/mujer como
+     * catálogo separado); se cuenta cada SELECCIÓN que matchea, mismo
+     * criterio que agruparPorTaller() (por selección, no por participante
+     * único) — un participante sin ninguna selección marcada simplemente
+     * no aporta ninguna fila.
+     */
+    private static function agruparPoleras(Evento $evento, Collection $participantes): array
     {
+        $souvenirIdsPolera = \App\Models\Souvenir::whereIn('form_types_id', $evento->formTypes()->pluck('id'))
+            ->where('es_polera', true)
+            ->pluck('id')
+            ->all();
+
         $grupos = [];
 
-        foreach ($participantes as $p) {
-            if (!$p->polera) {
-                continue;
+        if (!empty($souvenirIdsPolera)) {
+            foreach ($participantes as $p) {
+                foreach ($p->souvenirParticipante as $sp) {
+                    if (!in_array($sp->souvenir_id, $souvenirIdsPolera, true) || !$sp->talla) {
+                        continue;
+                    }
+                    $sexo = $p->genero ?: 'Sin especificar';
+                    $talla = $sp->talla;
+                    $key = $sexo . '|' . $talla;
+                    $grupos[$key] ??= ['sexo' => $sexo, 'talla' => $talla, 'cantidad' => 0];
+                    $grupos[$key]['cantidad']++;
+                }
             }
-            $sexo = $p->genero ?: 'Sin especificar';
-            $talla = $p->polera;
-            $key = $sexo . '|' . $talla;
-            $grupos[$key] ??= ['sexo' => $sexo, 'talla' => $talla, 'cantidad' => 0];
-            $grupos[$key]['cantidad']++;
         }
 
         ksort($grupos);

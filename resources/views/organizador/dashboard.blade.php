@@ -84,6 +84,42 @@
       </tbody>
     </table>
 
+    {{-- Inscritos por categoría/distancia con recaudación (03/09/2026,
+         pedido del usuario) — distinto de "Por categoría" de arriba (esa
+         cuenta por estado de pago, sin dinero). Acá solo cuenta lo `paid`,
+         "Recaudación" es dinero efectivamente cobrado — mismo reporte que
+         ya existe en el panel autenticado (admin-eventos → Dashboard). --}}
+    <p class="section-title">Inscritos por categoría / distancia</p>
+    <table>
+      <thead>
+        <tr>
+          <th>Categoría</th>
+          <th class="num">Cantidad</th>
+          <th class="num">Recaudación</th>
+        </tr>
+      </thead>
+      <tbody>
+        @forelse ($reporteInscritos['porCategoria']['filas'] as $fila)
+          <tr>
+            <td>{{ $fila['nombre'] }}</td>
+            <td class="num">{{ $fila['cantidad'] }}</td>
+            <td class="num">${{ number_format($fila['recaudacion'], 2) }}</td>
+          </tr>
+        @empty
+          <tr><td colspan="3">Todavía no hay inscripciones pagadas.</td></tr>
+        @endforelse
+      </tbody>
+      @if (count($reporteInscritos['porCategoria']['filas']) > 0)
+      <tfoot>
+        <tr>
+          <td><strong>Total</strong></td>
+          <td class="num"><strong>{{ $reporteInscritos['porCategoria']['totalCantidad'] }}</strong></td>
+          <td class="num"><strong>${{ number_format($reporteInscritos['porCategoria']['totalRecaudacion'], 2) }}</strong></td>
+        </tr>
+      </tfoot>
+      @endif
+    </table>
+
     <p class="section-title">Por tipo de formulario</p>
     <table>
       <thead>

@@ -307,4 +307,29 @@ class ConfirmarPagoSitioTest extends TestCase
         $this->assertEquals('100.00', $fila[$montoCatIdx]);
         $this->assertEquals('40.00', $fila[$montoSvIdx]);
     }
+
+    /**
+     * Inscritos por categoría/distancia con recaudación (03/09/2026,
+     * pedido del usuario) — el dashboard del organizador (link firmado,
+     * sin login) ahora también muestra este reporte, antes solo vivía en
+     * el panel autenticado (EventoController::dashboardInscripciones).
+     * Distinto del "Por categoría" ya existente en esta misma página (ese
+     * cuenta por estado de pago, sin dinero) — ver
+     * ReporteInscritosData::agruparPorCategoria().
+     */
+    public function test_dashboard_incluye_reporte_de_categoria_con_recaudacion(): void
+    {
+        $formType = FormType::factory()->create(['event_id' => $this->evento->id, 'requiere_categoria' => true]);
+        $categoria = Category::factory()->create(['event_id' => $this->evento->id, 'name' => '15K', 'price' => 100]);
+
+        $registration = $this->crearInscripcionPendiente($formType, 100, '60606060', (string) $categoria->id);
+        $registration->update(['pago_status' => 'paid']);
+
+        $url = URL::signedRoute('organizador.dashboard', ['evento' => $this->evento->id]);
+        $response = $this->get($url)->assertOk();
+
+        $response->assertSee('Inscritos por categoría / distancia');
+        $response->assertSee('15K');
+        $response->assertSee('100.00');
+    }
 }

@@ -48,6 +48,12 @@ class SouvenirResource extends JsonResource
             // (ej. "La mejor Coca-Cola bien fría"). Puramente de
             // marketing, null si no se cargó nada.
             'texto_promocional' => $this->texto_promocional,
+            // Reporte de poleras (03/09/2026) — marca cuál souvenir es la
+            // polera de verdad, para que ReporteInscritosData::agruparPoleras()
+            // sepa de dónde sacar la talla cuando un form_type tiene más de
+            // un ítem con requiere_talla. Se expone acá para que
+            // admin-eventos pueda mostrar/editar el checkbox.
+            'es_polera' => (bool) $this->es_polera,
             // Array vacío = disponibilidad no controlada (sin filas de
             // stock cargadas) — no significa "agotado", ver
             // DisponibilidadItemData.
