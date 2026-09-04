@@ -35,6 +35,10 @@ class PersonaResource extends JsonResource
             'ciudad' => $this->ciudad,
             'telefono' => $this->telefono,
             'celular' => $this->celular,
+            // Pantalla de admin "Personas" (03/09/2026, admin-eventos) —
+            // faltaba para poder mostrar el valor real en el form de
+            // editar en vez de asumir siempre el default.
+            'acepta_marketing' => (bool) $this->acepta_marketing,
             'contacto_emergencia' => [
                 'nombre' => optional($this->contactoEmergencia)->nombre,
                 'celular' => optional($this->contactoEmergencia)->celular,
