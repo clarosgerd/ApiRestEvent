@@ -56,6 +56,15 @@ Schedule::command('notificaciones:expirar-pagos-adicionales')->everyFiveMinutes(
 // ── Recordatorio de KIT para pagados (§4 fase 5) ────────────────────────
 Schedule::command('notificaciones:recordatorio-kit')->daily()->appendOutputTo($schedulerLog);
 
+// ── Reconciliación de correo de pago confirmado faltante (04/09/2026) ───
+// Diagnóstico real en UAT: 55 inscripciones `paid` sin el correo, evento
+// pagado vía Multipago cuyo proveedor actualiza `pago_status` con un
+// UPDATE SQL directo (no pasa por RegistrationService::updatePaymentStatus(),
+// el único lugar que dispara el correo) — un flujo externo que sigue activo,
+// no un caso aislado. Diario alcanza (no es urgente en minutos como el QR
+// pendiente); idempotente, correrlo de más nunca duplica nada.
+Schedule::command('notificaciones:pago-confirmado-faltante')->daily()->appendOutputTo($schedulerLog);
+
 // ── WhatsApp OpenWA (§2.5 fase 7) ────────────────────────────────────────
 // SendWhatsappMessageJob es ShouldQueue (QUEUE_CONNECTION=database) — sin un
 // worker corriendo, los jobs se acumulan en la tabla `jobs` sin procesarse.
