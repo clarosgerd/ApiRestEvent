@@ -46,6 +46,11 @@ class CategoryResource extends JsonResource
             'priceUsd'                    => $this->price_usd,
             'description'                 => $this->description,
             'color'                       => $this->color,
+            // Deshabilitar una categoría sin ocultarla (04/09/2026) — mismo
+            // patrón/nombre de campo que TallerResource::permiteInscripcion.
+            // false = sigue visible en elascenso/event, pero no se puede
+            // elegir. Ver migración add_permite_inscripcion_to_categories_table.
+            'permiteInscripcion'         => (bool) $this->permite_inscripcion,
             'precio_vigente'              => $vigente['precio'],
             // Precio USD fijo por período (20/08/2026) — mismo criterio
             // que precio_vigente, ver PrecioVigenteData. El frontend de

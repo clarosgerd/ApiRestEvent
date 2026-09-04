@@ -8,6 +8,7 @@ use App\Models\Evento;
 use App\Models\Registration;
 use App\Models\RegistrationTotal;
 use App\Services\RegistrationService;
+use App\Support\Categoria\ValidarCategoriaAction;
 use App\Support\CurrencyResolverData;
 use App\Support\Taller\ValidarSeleccionesTallerAction;
 use Illuminate\Support\Facades\DB;
@@ -61,6 +62,20 @@ class ActualizarInscripcionAction
                 'fecha'          => $registration->fecha?->toDateTimeString() ?? now()->toDateTimeString(),
                 'form_types_id'  => $registration->form_types_id,
             ]));
+
+            // Categoría (04/09/2026) — antes esta edición no revalidaba
+            // categoría en absoluto (ni existencia ni precio), a diferencia
+            // del alta (CrearInscripcionAction) y de la edición pagada
+            // (EdicionPagadaCategoriaData). Cerrado acá con el mismo
+            // criterio "sin grandfather" que ya usan los talleres en este
+            // mismo flujo (ver ValidarSeleccionesTallerAction::run() más
+            // abajo, sin $sesionIdsPreviasPorIndice) — incluye el chequeo
+            // nuevo de `permite_inscripcion`. Ver
+            // App\Support\Categoria\ValidarCategoriaAction.
+            foreach ($registrationDto->participants as $participant) {
+                ValidarCategoriaAction::run($registrationDto, $participant);
+            }
+
             ValidarSeleccionesTallerAction::run($registrationDto);
             ValidarSeleccionesTallerAction::runCapacidad($registrationDto, $registration->id);
 

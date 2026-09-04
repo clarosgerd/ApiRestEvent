@@ -346,6 +346,34 @@ class RegistrationTest extends TestCase
             ->assertJsonPath('success', true);
     }
 
+    /**
+     * Deshabilitar una categoría sin ocultarla (04/09/2026) — ver
+     * App\Support\Categoria\ValidarCategoriaAction, mismo criterio que
+     * talleres.permite_inscripcion. La categoría existe y el precio
+     * coincide (por eso NO es el mismo error que
+     * "no es válida para este evento") — el rechazo es específico de
+     * disponibilidad.
+     */
+    public function test_create_registration_rejects_categoria_con_permite_inscripcion_false(): void
+    {
+        $categoriaDeshabilitada = Category::factory()->create([
+            'event_id' => $this->event->id,
+            'price' => 100,
+            'permite_inscripcion' => false,
+        ]);
+
+        $payload = $this->validPayload([
+            'categoria' => $categoriaDeshabilitada->id,
+            'precioCategoria' => 100,
+        ]);
+
+        $this->postJson('/api/v1/registrations', $payload)
+            ->assertUnprocessable()
+            ->assertJsonPath('error', "La categoría '{$categoriaDeshabilitada->name}' no está disponible para inscripción en este momento.");
+
+        $this->assertDatabaseCount('registrations', 0);
+    }
+
     public function test_create_registration_rejects_empty_participants(): void
     {
         $payload = $this->validPayload();

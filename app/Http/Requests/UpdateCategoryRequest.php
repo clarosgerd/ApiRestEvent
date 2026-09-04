@@ -45,6 +45,9 @@ class UpdateCategoryRequest extends FormRequest
             'edad_min'        => 'sometimes|nullable|integer|min:0',
             'edad_max'        => 'sometimes|nullable|integer|min:0',
             'calculo_edad_id' => 'sometimes|nullable|integer',
+            // Deshabilitar una categoría sin ocultarla (04/09/2026) — ver
+            // migración add_permite_inscripcion_to_categories_table.
+            'permite_inscripcion' => 'sometimes|nullable|boolean',
         ];
     }
 }

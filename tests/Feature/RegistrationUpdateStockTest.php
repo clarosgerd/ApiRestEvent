@@ -194,4 +194,59 @@ class RegistrationUpdateStockTest extends TestCase
             [['id' => $this->souvenir->id, 'nombre' => $this->souvenir->name, 'precio' => 0, 'talla' => null, 'sexo' => null]]
         ) + ['_usuario' => 'test@test.net']);
     }
+
+    /**
+     * Deshabilitar una categoría sin ocultarla (04/09/2026) — antes de este
+     * cambio, ActualizarInscripcionAction no revalidaba categoría en
+     * absoluto (ni existencia ni precio, ver
+     * App\Support\Categoria\ValidarCategoriaAction). Editar hacia una
+     * categoría deshabilitada debe rechazarse igual que al dar de alta.
+     */
+    public function test_editar_inscripcion_pendiente_rechaza_categoria_deshabilitada(): void
+    {
+        $registration = app(CrearInscripcionAction::class)->handle($this->dtoParaParticipante([]));
+
+        $categoriaDeshabilitada = Category::factory()->create([
+            'event_id' => $this->evento->id,
+            'price' => 80,
+            'permite_inscripcion' => false,
+        ]);
+
+        $datos = $this->datosParaEditar($registration->participants->first()->numero_documento);
+        $datos['participantes'][0]['categoria'] = (string) $categoriaDeshabilitada->id;
+        $datos['participantes'][0]['precioCategoria'] = 80;
+        $datos['totales']['inscripcion'] = 80;
+        $datos['totales']['grand_total'] = 84;
+
+        $this->expectException(\DomainException::class);
+        $this->expectExceptionMessage("La categoría '{$categoriaDeshabilitada->name}' no está disponible para inscripción en este momento.");
+
+        app(ActualizarInscripcionAction::class)->handle($registration->referencia, $datos);
+    }
+
+    /**
+     * Sin "grandfather clause" en edición pendiente (04/09/2026) — a
+     * diferencia de la edición YA PAGADA (EdicionPagadaCategoriaData, que sí
+     * exime "sin cambios"), acá se revalida completo, mismo criterio que ya
+     * usan los talleres en este mismo flujo
+     * (ValidarSeleccionesTallerAction::run() sin exenciones). Si el
+     * organizador deshabilita la categoría que el participante ya tenía
+     * mientras la inscripción sigue pendiente (nada pagado todavía), la
+     * edición se rechaza igual y el participante tiene que elegir otra.
+     */
+    public function test_editar_inscripcion_pendiente_rechaza_mantener_categoria_que_se_deshabilito(): void
+    {
+        $registration = app(CrearInscripcionAction::class)->handle($this->dtoParaParticipante([]));
+
+        $this->categoria->update(['permite_inscripcion' => false]);
+
+        $datos = $this->datosParaEditar($registration->participants->first()->numero_documento);
+        // Mismo dato personal (ej. teléfono) sin tocar la categoría.
+        $datos['participantes'][0]['telefono'] = '999';
+
+        $this->expectException(\DomainException::class);
+        $this->expectExceptionMessage("La categoría '{$this->categoria->name}' no está disponible para inscripción en este momento.");
+
+        app(ActualizarInscripcionAction::class)->handle($registration->referencia, $datos);
+    }
 }

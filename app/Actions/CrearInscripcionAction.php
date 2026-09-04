@@ -5,7 +5,6 @@ namespace App\Actions;
 use App\DTOs\ParticipantDTO;
 use App\DTOs\RegistrationDTO;
 use App\Models\Answer;
-use App\Models\Category;
 use App\Models\ContactoEmergenciaParticipante;
 use App\Models\Equipo;
 use App\Models\Evento;
@@ -18,8 +17,8 @@ use App\Models\SouvenirParticipante;
 use App\Services\NotificacionService;
 use App\Services\RegistrationService;
 use App\Support\DisponibilidadItemData;
-use App\Support\PrecioVigenteData;
 use App\Support\CurrencyResolverData;
+use App\Support\Categoria\ValidarCategoriaAction;
 use App\Support\Taller\ResolverPrecioTallerData;
 use App\Support\Taller\ValidarSeleccionesTallerAction;
 use Illuminate\Support\Facades\DB;
@@ -95,7 +94,7 @@ class CrearInscripcionAction
 
             foreach ($dto->participants as $participant) {
                 $this->validateParticipantRegistration($dto, $participant);
-                $this->validatePrecioCategoria($dto, $participant);
+                ValidarCategoriaAction::run($dto, $participant);
                 $this->validateEquipo($dto, $participant);
                 $this->validateDelivery($dto, $participant);
                 // Congresos con talleres (18/08/2026) — pertenencia,
@@ -521,67 +520,6 @@ class CrearInscripcionAction
                     $participantDTO->documentType,
                     $registrationDTO->eventId
                 )
-            );
-        }
-    }
-
-    /**
-     * Precios por período (12/08/2026) — ver PRD-precios-periodos-fechas.md,
-     * Hallazgo #2 y sección 0. Antes ApiRestEvent guardaba
-     * `precio_categoria` tal cual llegaba en el request, confiando
-     * ciegamente en el proxy (`elascenso/event`) — cerrado acá, mismo
-     * criterio que `validateFeePct()`. Ramifica por
-     * `formType.requiere_categoria`:
-     * - true: el precio esperado es el vigente de la categoría (períodos
-     *   o `categories.price`, ver PrecioVigenteData::paraCategoria()).
-     * - false: no hay categoría real que resolver — el precio esperado
-     *   es `form_types.precio_base` directo.
-     * Aplica siempre, con o sin períodos configurados — defensa en
-     * profundidad real, no placebo.
-     */
-    private function validatePrecioCategoria(
-        RegistrationDTO $registrationDTO,
-        ParticipantDTO $participantDTO
-    ): void {
-        $formType = FormType::find($registrationDTO->formId);
-        if (!$formType) {
-            return; // ya se validó que el form_type existe antes de llegar acá
-        }
-
-        if ($formType->requiere_categoria) {
-            // Categorías por form_type (27/08/2026) — ver
-            // PLAN-CATEGORIAS-POR-FORM-TYPE-27082026.md. `formulario_id`
-            // null = categoría compartida por todos los form_types del
-            // evento (comportamiento previo, sin cambios); si tiene un
-            // valor, solo es válida para ESE form_type. Antes de este
-            // cambio, el server solo chequeaba `event_id` — una categoría
-            // pensada para el form_type "10K" se aceptaba igual al
-            // inscribirse por "5K" del mismo evento.
-            $category = Category::where('id', $participantDTO->category)
-                ->where('event_id', $registrationDTO->eventId)
-                ->where(fn ($q) => $q->whereNull('formulario_id')->orWhere('formulario_id', $registrationDTO->formId))
-                ->first();
-
-            if (!$category) {
-                throw new \DomainException(
-                    "La categoría '{$participantDTO->category}' no es válida para este evento."
-                );
-            }
-
-            $precioVigente = PrecioVigenteData::paraCategoria($category)['precio'];
-
-            if (abs($precioVigente - $participantDTO->categoryPrice) > 0.01) {
-                throw new \DomainException(
-                    'El precio de la categoría no coincide con el vigente. Recargá la página e intentá de nuevo.'
-                );
-            }
-
-            return;
-        }
-
-        if (abs((float) $formType->precio_base - $participantDTO->categoryPrice) > 0.01) {
-            throw new \DomainException(
-                'El precio de inscripción no coincide con el vigente. Recargá la página e intentá de nuevo.'
             );
         }
     }

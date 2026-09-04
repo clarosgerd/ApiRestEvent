@@ -104,4 +104,60 @@ class CategoryTest extends TestCase
             ->assertOk()
             ->assertJsonPath('category.formulario_id', $formType->id);
     }
+
+    /**
+     * Deshabilitar una categoría sin ocultarla (04/09/2026) — ver
+     * App\Support\Categoria\ValidarCategoriaAction. Mismo patrón que
+     * TallerCrudTest para `permite_inscripcion`.
+     */
+    public function test_store_sin_permite_inscripcion_default_true(): void
+    {
+        $this->actingAsAdmin();
+        $evento = Evento::factory()->create();
+
+        $this->postJson('/api/v1/category', [
+            'event_id' => $evento->id,
+            'name'     => 'General',
+            'price'    => 50,
+        ])
+            ->assertCreated()
+            ->assertJsonPath('category.permiteInscripcion', true);
+
+        $this->assertDatabaseHas('categories', [
+            'event_id'            => $evento->id,
+            'permite_inscripcion' => 1,
+        ]);
+    }
+
+    public function test_store_acepta_permite_inscripcion_false(): void
+    {
+        $this->actingAsAdmin();
+        $evento = Evento::factory()->create();
+
+        $this->postJson('/api/v1/category', [
+            'event_id'             => $evento->id,
+            'name'                 => 'Elite',
+            'price'                => 150,
+            'permite_inscripcion'  => false,
+        ])
+            ->assertCreated()
+            ->assertJsonPath('category.permiteInscripcion', false);
+    }
+
+    public function test_update_puede_deshabilitar_y_rehabilitar_permite_inscripcion(): void
+    {
+        $this->actingAsAdmin();
+        $evento = Evento::factory()->create();
+        $categoria = Category::factory()->create(['event_id' => $evento->id, 'permite_inscripcion' => true]);
+
+        $this->putJson("/api/v1/category/{$categoria->id}", ['permite_inscripcion' => false])
+            ->assertOk()
+            ->assertJsonPath('category.permiteInscripcion', false);
+        $this->assertDatabaseHas('categories', ['id' => $categoria->id, 'permite_inscripcion' => 0]);
+
+        $this->putJson("/api/v1/category/{$categoria->id}", ['permite_inscripcion' => true])
+            ->assertOk()
+            ->assertJsonPath('category.permiteInscripcion', true);
+        $this->assertDatabaseHas('categories', ['id' => $categoria->id, 'permite_inscripcion' => 1]);
+    }
 }
