@@ -54,6 +54,15 @@ class CategoryController extends Controller
             return response()->json(['success' => false, 'error' => $e->getMessage()], 422);
         }
 
+        // Deshabilitar una categoría sin ocultarla (04/09/2026) — la
+        // columna tiene default `true` a nivel de esquema, pero
+        // Category::create() no vuelve a leer de la BD después del
+        // INSERT: si el caller no manda el campo, el modelo en memoria
+        // queda con el atributo ausente (=> null => `(bool) null` es
+        // `false` en CategoryResource), aunque la fila real haya quedado
+        // en `true`. Mismo fix explícito que ya usa TallerController::store().
+        $data['permite_inscripcion'] = $data['permite_inscripcion'] ?? true;
+
         $category = Category::create($data);
 
         AdminAuditLogger::log('create', 'categoria', $category->id, (int) $category->event_id, null, $category->toArray());

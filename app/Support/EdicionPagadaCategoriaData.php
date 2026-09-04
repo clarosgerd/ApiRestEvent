@@ -69,6 +69,17 @@ class EdicionPagadaCategoriaData
             );
         }
 
+        // Deshabilitar una categoría sin ocultarla (04/09/2026) — solo
+        // aplica acá porque ES un cambio real (el early return de arriba ya
+        // eximió el caso "misma categoría de antes", igual que talleres
+        // exime lo ya pagado). Mismo mensaje/criterio que
+        // App\Support\Categoria\ValidarCategoriaAction.
+        if (! $categoriaModel->permite_inscripcion) {
+            throw new \DomainException(
+                "La categoría '{$categoriaModel->name}' no está disponible para inscripción en este momento."
+            );
+        }
+
         $precioNuevo = PrecioVigenteData::paraCategoria($categoriaModel)['precio'];
 
         if ($modoCategoria === 'solo_subida' && $precioNuevo < $precioAnterior) {

@@ -302,6 +302,57 @@ class EditarInscripcionPagadaTallerCategoriaTest extends TestCase
         ]);
     }
 
+    /**
+     * Deshabilitar una categoría sin ocultarla (04/09/2026) — ver
+     * EdicionPagadaCategoriaData::resolver(). El chequeo corre ANTES de la
+     * regla de "no se hacen devoluciones" (categoriaCara tiene precio
+     * mayor, así que si no fuera por esto pasaría esa regla igual) —
+     * aísla que el rechazo es por disponibilidad, no por dirección de
+     * precio.
+     */
+    public function test_autoservicio_no_puede_cambiar_a_categoria_deshabilitada(): void
+    {
+        $registration = $this->crearInscripcionPagadaSinTaller('20000018');
+        $this->categoriaCara->update(['permite_inscripcion' => false]);
+
+        $this->expectException(\DomainException::class);
+        $this->expectExceptionMessage("La categoría '{$this->categoriaCara->name}' no está disponible para inscripción en este momento.");
+
+        app(ActualizarInscripcionPagadaAction::class)->handle($registration->referencia, [
+            'participantes' => [$this->participanteData('20000018', [
+                'categoria' => (string) $this->categoriaCara->id,
+                'precioCategoria' => 999,
+            ])],
+            'totales' => $this->totalesData(['inscripcion' => 120, 'fee' => 6, 'grand_total' => 126]),
+            '_usuario' => 'participante@test.net',
+        ]);
+    }
+
+    /**
+     * Grandfather clause (04/09/2026) — a diferencia de la edición
+     * PENDIENTE (que revalida completo, ver
+     * RegistrationUpdateStockTest::test_editar_inscripcion_pendiente_rechaza_mantener_categoria_que_se_deshabilito),
+     * la edición PAGADA exime "sin cambios" desde antes de este cambio
+     * (EdicionPagadaCategoriaData, early return por
+     * categoriaNuevaId === categoriaAnteriorId) — el chequeo nuevo de
+     * `permite_inscripcion` se agregó DESPUÉS de ese early return, así que
+     * no lo rompe: mantener la categoría ya pagada sigue andando aunque el
+     * organizador la haya deshabilitado mientras tanto.
+     */
+    public function test_edicion_pagada_sin_cambio_de_categoria_sigue_funcionando_aunque_este_deshabilitada(): void
+    {
+        $registration = $this->crearInscripcionPagadaSinTaller('20000019');
+        $this->categoria->update(['permite_inscripcion' => false]);
+
+        $result = app(ActualizarInscripcionPagadaAction::class)->handle($registration->referencia, [
+            'participantes' => [$this->participanteData('20000019', ['telefono' => '999999'])],
+            'totales' => $this->totalesData(),
+            '_usuario' => 'participante@test.net',
+        ]);
+
+        $this->assertEquals(10.0, $result['costo_adicion']);
+    }
+
     public function test_ningun_flujo_puede_quitar_un_taller_ya_pagado(): void
     {
         $registration = $this->crearInscripcionPagadaSinTaller('20000003');
@@ -452,6 +503,30 @@ class EditarInscripcionPagadaTallerCategoriaTest extends TestCase
 
         // costo_edicion (10) + diferencia real (50 - 120 = -70) = -60.
         $this->assertEquals(-60.0, $result['costo_adicion']);
+    }
+
+    /**
+     * Deshabilitar una categoría sin ocultarla (04/09/2026) — aplica igual
+     * en Caja ('libre') que en autoservicio: `permite_inscripcion=false`
+     * no es una cuestión de dirección de precio, así que Caja tampoco
+     * puede saltearlo.
+     */
+    public function test_caja_no_puede_cambiar_a_categoria_deshabilitada(): void
+    {
+        $registration = $this->crearInscripcionPagadaSinTaller('20000020');
+        $this->categoriaCara->update(['permite_inscripcion' => false]);
+
+        $this->expectException(\DomainException::class);
+        $this->expectExceptionMessage("La categoría '{$this->categoriaCara->name}' no está disponible para inscripción en este momento.");
+
+        app(ActualizarInscripcionPagadaAction::class)->handle($registration->referencia, [
+            'participantes' => [$this->participanteData('20000020', [
+                'categoria' => (string) $this->categoriaCara->id,
+                'precioCategoria' => 999,
+            ])],
+            'totales' => $this->totalesData(['inscripcion' => 120, 'fee' => 6, 'grand_total' => 126]),
+            '_usuario' => 'cajero@test.net',
+        ], modoCategoria: 'libre');
     }
 
     /**

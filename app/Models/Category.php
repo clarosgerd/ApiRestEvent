@@ -27,6 +27,11 @@ class Category extends Model
       'edad_min',
       'edad_max',
       'calculo_edad_id',
+      // Deshabilitar una categoría sin ocultarla (04/09/2026) — ver
+      // migración add_permite_inscripcion_to_categories_table. Mismo
+      // patrón que Taller::permite_inscripcion: visible en
+      // elascenso/event, pero no seleccionable.
+      'permite_inscripcion',
     ];
 
     // price_usd (19/08/2026): la columna es DECIMAL, PDO la devuelve como
