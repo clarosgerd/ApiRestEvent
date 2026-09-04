@@ -111,6 +111,23 @@ class PersonaCrudTest extends TestCase
         $this->getJson('/api/v1/persona?search=Ana')->assertStatus(403);
     }
 
+    /**
+     * `acepta_marketing` faltaba en PersonaResource (03/09/2026) — sin
+     * esto, el form de editar de la pantalla nueva de admin-eventos no
+     * podía mostrar el valor real, solo asumir un default siempre.
+     */
+    public function test_show_expone_acepta_marketing(): void
+    {
+        $admin = $this->actingAsAdmin();
+        $admin->update(['rol' => 'super_admin']);
+
+        $persona = Persona::factory()->create(['acepta_marketing' => false]);
+
+        $this->getJson("/api/v1/persona/{$persona->id}")
+            ->assertOk()
+            ->assertJsonPath('persona.acepta_marketing', false);
+    }
+
     public function test_admin_scoped_no_puede_listar_personas(): void
     {
         $admin = $this->actingAsAdmin();
