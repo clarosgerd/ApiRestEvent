@@ -47,8 +47,26 @@ class PersonaController extends Controller
       $filter = new PersonaFilter();
         $filterItems = $filter->transform($request); // [['column','operator','value']]
         $persona = Persona::where($filterItems);
+
+        // Búsqueda de texto libre (03/09/2026) — pantalla nueva de admin en
+        // admin-eventos (Personas, ver PLAN-... en brain/). PersonaFilter
+        // solo soporta igualdad exacta por columna (ej. id[eq]=5), no sirve
+        // para que un super_admin busque por nombre/documento/correo desde
+        // un cuadro de búsqueda. No se toca PersonaFilter — sigue
+        // disponible tal cual para cualquier otro uso.
+        if ($request->filled('search')) {
+            $term = '%'.$request->query('search').'%';
+            $persona->where(function ($q) use ($term) {
+                $q->where('nombre', 'like', $term)
+                    ->orWhere('apellido', 'like', $term)
+                    ->orWhere('numero_documento', 'like', $term)
+                    ->orWhere('correo', 'like', $term)
+                    ->orWhere('alias', 'like', $term);
+            });
+        }
+
         $persona = $persona->with('contactoEmergencia');
-        $persona = $persona->paginate()->appends($request->query());
+        $persona = $persona->paginate($request->integer('per_page') ?: 15)->appends($request->query());
         $collection = PersonaResource::collection($persona);
             return response()->json([
                 'success' => true,

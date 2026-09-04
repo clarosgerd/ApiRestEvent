@@ -48,6 +48,69 @@ class PersonaCrudTest extends TestCase
             ->assertJsonCount(2, 'persona');
     }
 
+    /**
+     * Búsqueda de texto libre (03/09/2026) — pantalla nueva de admin en
+     * admin-eventos (Personas). `search` matchea por nombre, apellido,
+     * numero_documento, correo o alias — no hace falta el string exacto.
+     */
+    public function test_super_admin_puede_buscar_personas_por_texto_libre(): void
+    {
+        $admin = $this->actingAsAdmin();
+        $admin->update(['rol' => 'super_admin']);
+
+        Persona::factory()->create(['nombre' => 'Estefany', 'apellido' => 'Centellas', 'numero_documento' => '111', 'correo' => 'estefany@test.net']);
+        Persona::factory()->create(['nombre' => 'Roberto', 'apellido' => 'Gómez', 'numero_documento' => '222', 'correo' => 'roberto@test.net']);
+        Persona::factory()->create(['nombre' => 'Ana', 'apellido' => 'Prueba', 'alias' => 'estefi99', 'numero_documento' => '333', 'correo' => 'ana@test.net']);
+
+        // Por nombre parcial — matchea "Estefany" (nombre) y "estefi99" (alias).
+        $this->getJson('/api/v1/persona?search=estef')
+            ->assertOk()
+            ->assertJsonCount(2, 'persona');
+
+        // Por número de documento exacto.
+        $this->getJson('/api/v1/persona?search=222')
+            ->assertOk()
+            ->assertJsonCount(1, 'persona')
+            ->assertJsonPath('persona.0.nombre', 'Roberto');
+
+        // Por correo parcial.
+        $this->getJson('/api/v1/persona?search=roberto@')
+            ->assertOk()
+            ->assertJsonCount(1, 'persona');
+    }
+
+    public function test_buscar_personas_sin_termino_devuelve_todo(): void
+    {
+        $admin = $this->actingAsAdmin();
+        $admin->update(['rol' => 'super_admin']);
+
+        Persona::factory()->count(3)->create();
+
+        $this->getJson('/api/v1/persona')
+            ->assertOk()
+            ->assertJsonCount(3, 'persona');
+    }
+
+    public function test_buscar_personas_sin_resultados_devuelve_lista_vacia(): void
+    {
+        $admin = $this->actingAsAdmin();
+        $admin->update(['rol' => 'super_admin']);
+
+        Persona::factory()->create(['nombre' => 'Ana']);
+
+        $this->getJson('/api/v1/persona?search=NoExiste')
+            ->assertOk()
+            ->assertJsonCount(0, 'persona');
+    }
+
+    public function test_admin_scoped_no_puede_buscar_personas(): void
+    {
+        $admin = $this->actingAsAdmin();
+        $admin->update(['rol' => 'admin']);
+
+        $this->getJson('/api/v1/persona?search=Ana')->assertStatus(403);
+    }
+
     public function test_admin_scoped_no_puede_listar_personas(): void
     {
         $admin = $this->actingAsAdmin();
