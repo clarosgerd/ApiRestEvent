@@ -64,4 +64,16 @@ class Registration extends Model
     {
         return $this->hasMany(AuditLog::class);
     }
+
+    // Diagnóstico correo de pago confirmado faltante (04/09/2026) — ver
+    // App\Console\Commands\ReenviarPagoConfirmadoFaltante. No existía
+    // ninguna relación inversa hacia registration_notifications todavía.
+    // Nombrada distinto de `notifications()` a propósito: ese nombre ya
+    // lo define el trait `Notifiable` (usado arriba) para el sistema de
+    // notificaciones nativo de Laravel — sobrescribirlo sería una colisión
+    // silenciosa con algo no relacionado a `registration_notifications`.
+    public function registrationNotifications(): HasMany
+    {
+        return $this->hasMany(RegistrationNotification::class);
+    }
 }
