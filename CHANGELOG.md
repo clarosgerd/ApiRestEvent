@@ -2,6 +2,30 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/).
 
+## 2026-09-03 — Pantalla "Personas" en admin-eventos (solo super_admin)
+
+Pedido del usuario: preguntó por qué no había una vista de Personas en Catálogos. Respuesta: no
+es un catálogo (config global fija) — son datos reales de participantes, potencialmente miles de
+filas. El CRUD completo ya existía en ApiRestEvent (`PersonaController`, 21/08/2026) sin ninguna
+pantalla en `admin-eventos` que lo usara.
+
+### Added
+- `PersonaController::index()` (ApiRestEvent) — soporte de `?search=` (LIKE por nombre, apellido,
+  numero_documento, correo, alias). `PersonaFilter` (solo igualdad exacta por columna) queda
+  intacto para cualquier otro uso.
+- `PersonaResource` — expone `acepta_marketing` (faltaba, encontrado armando el form de editar).
+- `admin-eventos`: pantalla nueva completa (`PersonaController` proxy, rutas bajo
+  `admin.superadmin`, vistas `personas/index|create|edit|_form`, link "Personas" en el menú,
+  visible solo para super_admin).
+
+### Verified
+- 5 tests nuevos/extendidos en `PersonaCrudTest` (búsqueda + `acepta_marketing`), confirmados con
+  `git stash` que fallan sin el fix. Suite de `PersonaCrudTest`/`PurgarDatosPersonaCanceladaTest`
+  (23+ tests) sin regresiones.
+- `admin-eventos`: `php -l` + `Blade::compileString()` en todos los archivos tocados,
+  `route:list` confirma las 6 rutas registradas. Sin test framework de frontend — falta la
+  pasada manual en browser.
+
 ## 2026-09-03 — Costo unitario y Total en el Reporte de poleras
 
 Pedido del usuario: la tabla Sexo/Talla/Cantidad del Reporte de poleras (dashboard del panel
