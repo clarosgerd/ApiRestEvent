@@ -63,6 +63,8 @@ class StoreFormTypeRequest extends FormRequest
             // formulario (01/09/2026) — ver PLAN-OCULTAR-CAMPOS-FORM-TYPE-01092026.md.
             'campos_ocultos'             => 'nullable|array',
             'campos_ocultos.*'           => 'string|in:direccion,ciudad,telefono,alias',
+            // Edición restringida a solo souvenirs/talleres (04/09/2026).
+            'edicion_solo_extras'        => 'nullable|boolean',
 
             'souvenirs'                  => 'nullable|array',
             'souvenirs.*.name'           => 'required_with:souvenirs|string|max:255',

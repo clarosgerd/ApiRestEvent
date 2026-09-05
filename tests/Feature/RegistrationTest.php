@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Mail\PagoConfirmadoMail;
 use App\Models\Category;
 use App\Models\Evento;
 use App\Models\FormType;
@@ -11,6 +12,7 @@ use App\Models\Participante;
 use App\Models\RegistrationTotal;
 use App\Models\ContactoEmergenciaParticipante;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
@@ -112,6 +114,70 @@ class RegistrationTest extends TestCase
             ->assertCreated()
             ->assertJsonPath('success', true)
             ->assertJsonStructure(['success', 'message', 'data']);
+    }
+
+    /**
+     * Auto-confirmar inscripciones en $0 (04/09/2026) — pedido: formulario
+     * de ponente/staff sin costo. Antes de esto, TODA inscripción nacía
+     * 'pending' sin importar el total, sin importar lo que mandara el
+     * cliente en `pago_status` — acá se prueba justamente eso: el cliente
+     * manda 'pending' (como siempre) y el backend lo pisa a 'paid' porque
+     * el total es 0. También dispara el correo de confirmación, porque
+     * este flujo nunca pasa por RegistrationService::updatePaymentStatus()
+     * (el único otro lugar que lo dispara).
+     */
+    public function test_create_registration_con_total_cero_se_autoconfirma_como_paid(): void
+    {
+        Mail::fake();
+
+        $formTypeGratis = FormType::factory()->create([
+            'event_id' => $this->event->id,
+            'requiere_categoria' => false,
+            'precio_base' => 0,
+        ]);
+
+        $payload = $this->validPayload([
+            'categoria' => (string) $formTypeGratis->id,
+            'precioCategoria' => 0,
+            'subtotal' => 0,
+        ]);
+        $payload[0]['form_types_id'] = $formTypeGratis->id;
+        $payload[0]['tipo_pago'] = 'gratis';
+        $payload[0]['pago_status'] = 'pending';
+        $payload[0]['totales'] = [
+            'inscripcion' => 0, 'donacion' => 0, 'souvenirs' => 0,
+            'fee' => 0, 'descuento' => 0, 'grand_total' => 0,
+        ];
+
+        $reference = $payload[0]['referencia'];
+
+        $this->postJson('/api/v1/registrations', $payload)
+            ->assertCreated()
+            ->assertJsonPath('success', true);
+
+        $this->assertDatabaseHas('registrations', [
+            'referencia' => $reference,
+            'pago_status' => 'paid',
+            'tipo_pago' => 'gratis',
+        ]);
+        Mail::assertSent(PagoConfirmadoMail::class);
+    }
+
+    /**
+     * Sin regresión: un total > 0 sigue quedando 'pending' como siempre —
+     * el auto-confirm solo aplica cuando grand_total <= 0.
+     */
+    public function test_create_registration_con_total_mayor_a_cero_sigue_quedando_pending(): void
+    {
+        $payload = $this->validPayload();
+        $reference = $payload[0]['referencia'];
+
+        $this->postJson('/api/v1/registrations', $payload)->assertCreated();
+
+        $this->assertDatabaseHas('registrations', [
+            'referencia' => $reference,
+            'pago_status' => 'pending',
+        ]);
     }
 
     /**

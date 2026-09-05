@@ -55,6 +55,8 @@ class FormTypeResource extends JsonResource
             // formulario (01/09/2026) — array de strings, nunca null (el
             // frontend siempre puede hacer .includes() sin chequear antes).
             'camposOcultos'              => $this->campos_ocultos ?? [],
+            // Edición restringida a solo souvenirs/talleres (04/09/2026).
+            'edicionSoloExtras'          => (bool) $this->edicion_solo_extras,
             'max_integrantes_grupo'      => (int) $this->max_integrantes_grupo,
             'descuento_registrante_pct'  => (float) $this->descuento_registrante_pct,
             // Bug real encontrado 24/08/2026: este resource nunca expuso

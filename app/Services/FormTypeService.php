@@ -60,6 +60,8 @@ class FormTypeService
                 // formulario (01/09/2026) — ver
                 // PLAN-OCULTAR-CAMPOS-FORM-TYPE-01092026.md.
                 'campos_ocultos'             => $data['campos_ocultos'] ?? [],
+                // Edición restringida a solo souvenirs/talleres (04/09/2026).
+                'edicion_solo_extras'        => $data['edicion_solo_extras'] ?? false,
             ]);
 
             $this->createSouvenirs($formType, $data['souvenirs'] ?? []);

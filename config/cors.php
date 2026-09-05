@@ -18,7 +18,7 @@ return [
     'allowed_methods' => ['*'],
 
     'allowed_origins' => [
-        'https://events.inscrito.net',   // frontend de producción (Pass2Go)
+        'https://events.inscrito.net',   // frontend de producción (Inscrito)
         'http://localhost',              // frontend en XAMPP durante desarrollo local
     ],
 
