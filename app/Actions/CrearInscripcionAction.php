@@ -60,6 +60,16 @@ class CrearInscripcionAction
         // de SMTP no debe revertir el registro ya guardado.
         if ($registration->pago_status === 'pending') {
             $this->notificaciones->notificarInscripcionPendiente($registration);
+        } elseif ($registration->pago_status === 'paid') {
+            // Auto-confirmación en $0 (04/09/2026, ver más arriba) — nace
+            // 'paid' directo, nunca pasa por
+            // RegistrationService::updatePaymentStatus() (el único lugar
+            // que normalmente dispara este correo) — sin este aviso, un
+            // ponente que se registra gratis no recibiría ningún correo en
+            // absoluto. notificarPagoConfirmado() ya es idempotente, así
+            // que no hay riesgo de duplicar si alguna vez este flujo
+            // también pasara por ese otro método.
+            $this->notificaciones->notificarPagoConfirmado($registration);
         }
 
         return $registration;
@@ -91,6 +101,18 @@ class CrearInscripcionAction
             // Si la moneda es BOB simplemente se ignora el snapshot y se
             // persiste null (default legacy).
             $this->validateMonedaPago($dto);
+
+            // Auto-confirmar inscripciones en $0 (04/09/2026) — pedido:
+            // formulario de ponente/staff sin costo. Antes de esto, TODA
+            // inscripción nacía 'pending' sin importar el total — no tenía
+            // sentido pedirle a alguien que "pague" un total de $0, así que
+            // se confirma sola, sin pasar por ningún gateway. `paymentType`
+            // se pisa a 'gratis' para que quede identificable en reportes
+            // (tipo_pago es un string libre, no un enum de BD).
+            if ($dto->totals->grandTotal <= 0.0) {
+                $dto->paymentStatus = 'paid';
+                $dto->paymentType = 'gratis';
+            }
 
             foreach ($dto->participants as $participant) {
                 $this->validateParticipantRegistration($dto, $participant);

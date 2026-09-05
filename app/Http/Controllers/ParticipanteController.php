@@ -85,8 +85,10 @@ class ParticipanteController extends Controller
      * en UpdateParticipanteRequest::rules()) más la talla de camiseta,
      * únicamente si el participante ya tiene una asignada. Nunca toca
      * categoria/precio/souvenirs/donacion/promo/equipo/delivery/subtotal
-     * ni numero_corredor/chip (esos tienen su propio flujo dedicado) ni
-     * numero_documento (identidad, anti-fraude).
+     * ni numero_corredor/chip (esos tienen su propio flujo dedicado).
+     * `numero_documento` SÍ se puede corregir desde acá (04/09/2026, ver
+     * UpdateParticipanteRequest) — queda auditado como cualquier otro
+     * cambio, vía AdminAuditLogger más abajo.
      */
     public function update(UpdateParticipanteRequest $request, Participante $participante): JsonResponse
     {

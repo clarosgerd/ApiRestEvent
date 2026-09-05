@@ -460,7 +460,7 @@ return response()->json([
         // automáticamente a partir de la zona horaria que ya traen los
         // Carbon de cada VEVENT (ver $tz más abajo, pasado a Carbon::parse).
         $calendar = Calendar::create($event->nombre)
-            ->productIdentifier('-//Pass2Go//Agenda de eventos//ES');
+            ->productIdentifier('-//Inscrito//Agenda de eventos//ES');
 
         $items = $event->agendaItems->sortBy([
             ['fecha', 'asc'],

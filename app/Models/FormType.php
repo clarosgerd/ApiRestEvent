@@ -42,6 +42,12 @@ class FormType extends Model
         // Ocultar Dirección/Ciudad/Teléfono/Alias por tipo de formulario
         // (01/09/2026) — array de strings entre direccion/ciudad/telefono/alias.
         'campos_ocultos',
+        // Edición restringida a solo souvenirs/talleres (04/09/2026) — ver
+        // migración add_edicion_solo_extras_to_form_types_table. Con esto en
+        // true, el participante no puede tocar sus datos personales ni la
+        // categoría al editar su inscripción (pendiente o pagada) — solo
+        // puede agregar souvenirs/talleres.
+        'edicion_solo_extras',
         'max_integrantes_grupo',
         'descuento_registrante_pct',
         'hasQuestion',
@@ -61,6 +67,7 @@ class FormType extends Model
         'es_ponente'                    => 'boolean',
         'requiere_contacto_emergencia'  => 'boolean',
         'campos_ocultos'                => 'array',
+        'edicion_solo_extras'           => 'boolean',
         // Bug real (19/08/2026) — mismo patrón ya visto antes con
         // evento_id (memoria: "403 falso solo en UAT por driver PDO
         // devolviendo string"): sin cast, PDO en el hosting real devuelve

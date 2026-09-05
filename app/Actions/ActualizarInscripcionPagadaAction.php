@@ -11,6 +11,7 @@ use App\Services\RegistrationService;
 use App\Support\CurrencyResolverData;
 use App\Support\EdicionPagadaCategoriaData;
 use App\Support\EdicionPagadaSouvenirsData;
+use App\Support\EdicionSoloExtrasData;
 use App\Support\Taller\ValidarSeleccionesTallerAction;
 use Illuminate\Support\Facades\DB;
 
@@ -69,6 +70,41 @@ class ActualizarInscripcionPagadaAction
 
             $this->registrationService->releasePromoCodes($registration->id);
 
+            // Agregar talleres a una inscripción pagada (25/08/2026) — ver
+            // PLAN-EDICION-PAGADA-TALLERES-CATEGORIA-25082026.md. Snapshot
+            // del estado ANTERIOR (categoría/talleres), tomado antes del
+            // delete de abajo — se correlaciona con $data['participantes']
+            // por POSICIÓN (mismo criterio que ya asume el resto de esta
+            // Action: no se agregan ni quitan personas en esta operación,
+            // solo se modifican las que ya existen).
+            //
+            // Movido ANTES de construir $registrationDto (04/09/2026, ver
+            // App\Support\EdicionSoloExtrasData más abajo) — necesita el
+            // snapshot para poder bloquear datos personales/categoría ANTES
+            // de que $registrationDto se arme a partir de $data, así el
+            // resto del método ni se entera de que hubo un intento de
+            // cambio en un campo bloqueado.
+            $participantesAnteriores = $registration->participants()
+                ->with('talleresSesiones', 'souvenirParticipante', 'contactoEmergenciaParticipante')
+                ->orderBy('id')
+                ->get();
+
+            if ($participantesAnteriores->count() !== count($data['participantes'])) {
+                throw new \DomainException(
+                    'Esta operación no permite agregar ni quitar participantes, solo modificar los existentes.'
+                );
+            }
+
+            // Edición restringida a solo souvenirs/talleres (04/09/2026) —
+            // ver App\Support\EdicionSoloExtrasData. Mismo criterio que
+            // ActualizarInscripcionAction (edición pendiente).
+            if ($registration->formType->edicion_solo_extras) {
+                foreach ($data['participantes'] as $i => &$participantData) {
+                    $participantData = EdicionSoloExtrasData::aplicar($participantData, $participantesAnteriores[$i]);
+                }
+                unset($participantData);
+            }
+
             // Congresos con talleres (18/08/2026) — ver
             // brain/PLAN-CONGRESOS-TALLERES-HORARIOS-IMPLEMENTACION.md.
             // Mismo orden que ActualizarInscripcionAction: validación
@@ -86,12 +122,7 @@ class ActualizarInscripcionPagadaAction
             ]));
 
             // Agregar talleres a una inscripción pagada (25/08/2026) — ver
-            // PLAN-EDICION-PAGADA-TALLERES-CATEGORIA-25082026.md. Snapshot
-            // del estado ANTERIOR (categoría/talleres), tomado antes del
-            // delete de abajo — se correlaciona con $data['participantes']
-            // por POSICIÓN (mismo criterio que ya asume el resto de esta
-            // Action: no se agregan ni quitan personas en esta operación,
-            // solo se modifican las que ya existen).
+            // PLAN-EDICION-PAGADA-TALLERES-CATEGORIA-25082026.md.
             //
             // Movido ANTES de ValidarSeleccionesTallerAction (02/09/2026) —
             // bug real en UAT: SIP cobró un pago adicional real (agregar un
@@ -104,21 +135,10 @@ class ActualizarInscripcionPagadaAction
             // el chequeo un poco más abajo), revalidar su disponibilidad
             // actual en cada edición posterior era una contradicción sin
             // salida — el dinero ya cobrado por SIP quedaba en 'error' sin
-            // poder aplicarse nunca. Ahora se arma acá arriba para pasarle a
+            // poder aplicarse nunca. Ahora se pasa a
             // ValidarSeleccionesTallerAction::run()/runCapacidad() qué
             // sesiones son "previas" (no sujetas a los chequeos de
             // disponibilidad, ya que no se les puede quitar).
-            $participantesAnteriores = $registration->participants()
-                ->with('talleresSesiones', 'souvenirParticipante')
-                ->orderBy('id')
-                ->get();
-
-            if ($participantesAnteriores->count() !== count($data['participantes'])) {
-                throw new \DomainException(
-                    'Esta operación no permite agregar ni quitar participantes, solo modificar los existentes.'
-                );
-            }
-
             $sesionIdsPreviasPorIndice = $participantesAnteriores
                 ->map(fn ($anterior) => $anterior->talleresSesiones
                     ->pluck('sesion_congreso_id')

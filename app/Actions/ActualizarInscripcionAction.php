@@ -10,6 +10,7 @@ use App\Models\RegistrationTotal;
 use App\Services\RegistrationService;
 use App\Support\Categoria\ValidarCategoriaAction;
 use App\Support\CurrencyResolverData;
+use App\Support\EdicionSoloExtrasData;
 use App\Support\Taller\ValidarSeleccionesTallerAction;
 use Illuminate\Support\Facades\DB;
 
@@ -27,7 +28,7 @@ class ActualizarInscripcionAction
     {
         return DB::transaction(function () use ($reference, $data) {
 
-            $registration = Registration::where('referencia', $reference)->firstOrFail();
+            $registration = Registration::with('formType')->where('referencia', $reference)->firstOrFail();
 
             if (in_array($registration->pago_status, ['paid', 'cancelled'], true)) {
                 throw new \DomainException(
@@ -35,6 +36,30 @@ class ActualizarInscripcionAction
                         ? 'No se puede modificar una inscripción ya pagada.'
                         : 'No se puede modificar una inscripción cancelada.'
                 );
+            }
+
+            // Edición restringida a solo souvenirs/talleres (04/09/2026) —
+            // ver App\Support\EdicionSoloExtrasData. Se aplica ACÁ, antes de
+            // construir $registrationDto y de cualquier otra validación —
+            // así el resto del método (categoría, moneda, etc.) ve los
+            // datos ya "bloqueados" como si el cliente los hubiera mandado
+            // sin cambios, sin necesitar ningún chequeo especial más abajo.
+            if ($registration->formType->edicion_solo_extras) {
+                $participantesAnteriores = $registration->participants()
+                    ->with('contactoEmergenciaParticipante')
+                    ->orderBy('id')
+                    ->get();
+
+                if ($participantesAnteriores->count() !== count($data['participantes'])) {
+                    throw new \DomainException(
+                        'Esta operación no permite agregar ni quitar participantes, solo agregar souvenirs/talleres.'
+                    );
+                }
+
+                foreach ($data['participantes'] as $i => &$participantData) {
+                    $participantData = EdicionSoloExtrasData::aplicar($participantData, $participantesAnteriores[$i]);
+                }
+                unset($participantData);
             }
 
             $this->registrationService->validateDuplicateParticipantsFromData($data);
