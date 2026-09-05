@@ -186,4 +186,89 @@ class PresupuestoEventoTest extends TestCase
         $this->assertEquals(175.0, $balance['ingresosTotales']); // 125 + 50
         $this->assertEquals(145.0, $balance['utilidadNeta']); // 175 - 30
     }
+
+    /**
+     * Bug real encontrado el 04/09/2026: el SUM de "Ingreso por
+     * inscripciones" no incluía `talleres` (columna agregada 18/08/2026
+     * para congresos con talleres) — todo evento con talleres subestimaba
+     * su recaudación real.
+     */
+    public function test_balance_incluye_talleres_en_ingreso_por_inscripciones(): void
+    {
+        $formType = FormType::factory()->create(['event_id' => $this->evento->id]);
+        $registration = Registration::factory()->create([
+            'evento_id' => $this->evento->id,
+            'form_types_id' => $formType->id,
+            'referencia' => 'LA-PRES-'.uniqid(),
+            'fecha' => now(),
+            'evento_nombre' => $this->evento->nombre,
+            'tipo_pago' => 'pendiente',
+            'pago_status' => 'paid',
+        ]);
+        RegistrationTotal::create([
+            'registration_id' => $registration->id,
+            'inscripcion' => 100,
+            'donacion' => 0,
+            'souvenirs' => 0,
+            'talleres' => 30,
+            'fee' => 6.5,
+            'descuento' => 0,
+            'descuento_registrante' => 0,
+            'grand_total' => 136.5,
+        ]);
+
+        $admin = $this->actingAsAdmin();
+        $admin->update(['rol' => 'super_admin']);
+
+        $balance = $this->getJson("/api/v1/event/{$this->evento->id}/dashboard-inscripciones")
+            ->json('balance');
+
+        $this->assertEquals(130.0, $balance['ingresosInscripciones']); // 100 + 30 talleres
+    }
+
+    /**
+     * Ingresos por ediciones de inscripciones pagadas (04/09/2026) — pedido
+     * del usuario: el dashboard no mostraba nada del dinero cobrado al
+     * editar una inscripción ya pagada. Solo se suma `costo_edicion_acumulado`
+     * (el cargo fijo) — NO el costo_adicion completo, que duplicaría la
+     * diferencia de precio ya contada en `ingresosInscripciones`.
+     */
+    public function test_balance_suma_ingresos_por_ediciones_sin_duplicar(): void
+    {
+        $formType = FormType::factory()->create(['event_id' => $this->evento->id]);
+        $registration = Registration::factory()->create([
+            'evento_id' => $this->evento->id,
+            'form_types_id' => $formType->id,
+            'referencia' => 'LA-PRES-'.uniqid(),
+            'fecha' => now(),
+            'evento_nombre' => $this->evento->nombre,
+            'tipo_pago' => 'pendiente',
+            'pago_status' => 'paid',
+        ]);
+        // Simula el estado post-edición: la categoría subió de 100 a 150
+        // (ya reflejado acá, como haría ActualizarInscripcionPagadaAction),
+        // más 10 de cargo fijo acumulado por esa edición.
+        RegistrationTotal::create([
+            'registration_id' => $registration->id,
+            'inscripcion' => 150,
+            'donacion' => 0,
+            'souvenirs' => 0,
+            'talleres' => 0,
+            'fee' => 7.5,
+            'descuento' => 0,
+            'descuento_registrante' => 0,
+            'grand_total' => 167.5, // 150 + 7.5 fee + 10 costo_edicion
+            'costo_edicion_acumulado' => 10,
+        ]);
+
+        $admin = $this->actingAsAdmin();
+        $admin->update(['rol' => 'super_admin']);
+
+        $balance = $this->getJson("/api/v1/event/{$this->evento->id}/dashboard-inscripciones")
+            ->json('balance');
+
+        $this->assertEquals(150.0, $balance['ingresosInscripciones']);
+        $this->assertEquals(10.0, $balance['ingresosEdiciones']);
+        $this->assertEquals(160.0, $balance['ingresosTotales']); // 150 + 10, no 150+10+150
+    }
 }

@@ -25,12 +25,33 @@ class BalanceEventoData
 {
     public static function paraEvento(Evento $evento): array
     {
+        // Bug real encontrado el 04/09/2026: no sumaba `talleres` — todo
+        // evento con talleres subestimaba su recaudación real. `talleres`
+        // se agregó a `registration_totals` el 18/08/2026 (congresos con
+        // talleres) sin actualizar este SUM.
         $ingresosInscripciones = round((float) Registration::query()
             ->join('registration_totals', 'registration_totals.registration_id', '=', 'registrations.id')
             ->where('registrations.evento_id', $evento->id)
             ->where('registrations.pago_status', 'paid')
-            ->selectRaw('SUM(inscripcion + donacion + souvenirs - descuento - descuento_registrante) as neto')
+            ->selectRaw('SUM(inscripcion + donacion + souvenirs + talleres - descuento - descuento_registrante) as neto')
             ->value('neto'), 2);
+
+        // Ingresos por ediciones de inscripciones pagadas (04/09/2026) —
+        // pedido del usuario: "no tenemos información... por cambios de
+        // inscripción". Solo el cargo FIJO de edición (costo_edicion,
+        // acumulado en registration_totals.costo_edicion_acumulado) — la
+        // diferencia de precio de la edición (categoría/souvenirs/talleres)
+        // YA está contada arriba, porque esas columnas reflejan el estado
+        // ACTUAL (post-edición). Sumar el costo_adicion completo (como
+        // vive en CajaMovimiento/PagoAdicionalInscripcion) duplicaría esa
+        // diferencia — por eso se usa esta columna dedicada, no esas
+        // tablas. Ediciones anteriores a este cambio quedan en 0 (no se
+        // pueden reconstruir con precisión) — limitación conocida, no bug.
+        $ingresosEdiciones = round((float) Registration::query()
+            ->join('registration_totals', 'registration_totals.registration_id', '=', 'registrations.id')
+            ->where('registrations.evento_id', $evento->id)
+            ->where('registrations.pago_status', 'paid')
+            ->sum('registration_totals.costo_edicion_acumulado'), 2);
 
         $ingresosManuales = round((float) PresupuestoEvento::where('evento_id', $evento->id)
             ->where('tipo', 'ingreso')
@@ -40,10 +61,11 @@ class BalanceEventoData
             ->where('tipo', 'gasto')
             ->sum('monto'), 2);
 
-        $ingresosTotales = round($ingresosInscripciones + $ingresosManuales, 2);
+        $ingresosTotales = round($ingresosInscripciones + $ingresosEdiciones + $ingresosManuales, 2);
 
         return [
             'ingresosInscripciones' => $ingresosInscripciones,
+            'ingresosEdiciones' => $ingresosEdiciones,
             'ingresosManuales' => $ingresosManuales,
             'gastosManuales' => $gastosManuales,
             'ingresosTotales' => $ingresosTotales,

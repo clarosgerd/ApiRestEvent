@@ -201,6 +201,13 @@ class ActualizarInscripcionPagadaAction
                 $deltaSouvenirs += $cambioSouvenirs['deltaSouvenirs'];
             }
 
+            // Ingresos por ediciones (04/09/2026) — el cargo fijo de esta
+            // edición se acumula sobre lo que ya se hubiera cobrado en
+            // ediciones previas de esta misma inscripción (ver migración
+            // add_costo_edicion_acumulado_to_registration_totals_table).
+            // Se lee ANTES del delete de abajo, que borra la fila vieja.
+            $costoEdicionAcumuladoAnterior = (float) ($registration->totals?->costo_edicion_acumulado ?? 0);
+
             $registration->participants()->delete();
             $registration->totals()->delete();
 
@@ -299,6 +306,11 @@ class ActualizarInscripcionPagadaAction
                 'descuento'       => $data['totales']['descuento'],
                 'descuento_registrante' => $data['totales']['descuento_registrante'] ?? 0,
                 'grand_total'     => $data['totales']['grand_total'],
+                // Ingresos por ediciones (04/09/2026) — acumula el cargo
+                // fijo de esta edición ($costoEdicion, calculado al
+                // principio del método) sobre lo ya cobrado en ediciones
+                // previas de esta misma inscripción.
+                'costo_edicion_acumulado' => round($costoEdicionAcumuladoAnterior + $costoEdicion, 2),
             ]);
 
             $this->registrationService->syncPersonas($registration);
