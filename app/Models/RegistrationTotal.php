@@ -19,6 +19,9 @@ class RegistrationTotal extends Model
         'descuento',
         'descuento_registrante',
         'grand_total',
+        // Ingresos por ediciones de inscripciones pagadas (04/09/2026) —
+        // ver migración add_costo_edicion_acumulado_to_registration_totals_table.
+        'costo_edicion_acumulado',
     ];
 
     protected $casts = [
@@ -30,6 +33,7 @@ class RegistrationTotal extends Model
         'descuento' => 'decimal:2',
         'descuento_registrante' => 'decimal:2',
         'grand_total' => 'decimal:2',
+        'costo_edicion_acumulado' => 'decimal:2',
     ];
 
     public function registration(): BelongsTo

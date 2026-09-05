@@ -388,6 +388,56 @@ class EditarInscripcionPagadaTallerCategoriaTest extends TestCase
         $this->assertEquals(10.0, $result['costo_adicion']);
     }
 
+    /**
+     * Ingresos por ediciones de inscripciones pagadas (04/09/2026) — el
+     * cargo fijo (costo_edicion) queda acumulado en
+     * registration_totals.costo_edicion_acumulado, sumable en el dashboard
+     * (BalanceEventoData) sin duplicar la diferencia de precio, que ya
+     * queda reflejada en `inscripcion`/`talleres`/`souvenirs`.
+     */
+    public function test_costo_edicion_queda_acumulado_en_registration_totals(): void
+    {
+        $registration = $this->crearInscripcionPagadaSinTaller('20000021');
+
+        app(ActualizarInscripcionPagadaAction::class)->handle($registration->referencia, [
+            'participantes' => [$this->participanteData('20000021', ['telefono' => '999999'])],
+            'totales' => $this->totalesData(),
+            '_usuario' => 'participante@test.net',
+        ]);
+
+        $this->assertDatabaseHas('registration_totals', [
+            'registration_id' => $registration->id,
+            'costo_edicion_acumulado' => 10.0, // solo costo_edicion, sin cambios de por medio
+        ]);
+    }
+
+    /**
+     * Una segunda edición ACUMULA sobre el cargo fijo ya cobrado en la
+     * primera — no lo reemplaza. `registration_totals` se borra y se
+     * recrea en cada edición (ver Action), así que sin este acumulado
+     * explícito la segunda edición perdería el registro de la primera.
+     */
+    public function test_costo_edicion_se_acumula_a_traves_de_varias_ediciones(): void
+    {
+        $registration = $this->crearInscripcionPagadaSinTaller('20000022');
+
+        app(ActualizarInscripcionPagadaAction::class)->handle($registration->referencia, [
+            'participantes' => [$this->participanteData('20000022', ['telefono' => '111111'])],
+            'totales' => $this->totalesData(),
+            '_usuario' => 'participante@test.net',
+        ]);
+        app(ActualizarInscripcionPagadaAction::class)->handle($registration->referencia, [
+            'participantes' => [$this->participanteData('20000022', ['telefono' => '222222'])],
+            'totales' => $this->totalesData(),
+            '_usuario' => 'participante@test.net',
+        ]);
+
+        $this->assertDatabaseHas('registration_totals', [
+            'registration_id' => $registration->id,
+            'costo_edicion_acumulado' => 20.0, // 10 + 10, dos ediciones
+        ]);
+    }
+
     // ── Souvenirs (02/09/2026, ver EdicionPagadaSouvenirsData) ─────────
     // Antes de esto no había NINGUNA validación real del lado del backend
     // — createParticipantFromData() recreaba los souvenirs de lo que
