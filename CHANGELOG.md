@@ -2,6 +2,26 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/).
 
+## 2026-09-07 — Buscador en "Detalle de inscritos" (dashboard del organizador)
+
+Pedido del usuario: agregar un buscador al hacer clic en la tarjeta "Pagados" (u otro estado) del
+dashboard, por número de documento, nombre/apellido y correo electrónico.
+
+### Added
+- `ParticipanteController::porEvento()` — soporte de `?search=` (LIKE OR por nombre, apellido,
+  numero_documento, correo), mismo criterio que ya usa `PersonaController::index()`. Filtra
+  server-side antes de paginar (a diferencia del buscador client-side de `eventos/participantes.blade.php`,
+  necesario acá porque esta pantalla sí pagina).
+- `admin-eventos`: input de búsqueda en `participantes-detalle.blade.php`, propagado a la
+  paginación y a la descarga CSV.
+
+### Verified
+- 4 tests nuevos en `ParticipantesPorEventoTest` (documento, apellido, correo, búsqueda vacía no
+  filtra), confirmados con `git stash` que fallan sin el fix. Suite
+  `Participante|Numeracion|Persona` (74 tests) sin regresiones.
+- `admin-eventos`: `php -l` + `Blade::compileString()`. Sin test framework de frontend — falta la
+  pasada manual en browser.
+
 ## 2026-09-03 — Pantalla "Personas" en admin-eventos (solo super_admin)
 
 Pedido del usuario: preguntó por qué no había una vista de Personas en Catálogos. Respuesta: no

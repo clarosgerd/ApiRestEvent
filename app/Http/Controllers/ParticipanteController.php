@@ -203,6 +203,12 @@ class ParticipanteController extends Controller
             // ParticipantesController (admin-eventos), que no lo mandan.
             'per_page' => ['nullable', 'integer', 'min:1', 'max:200'],
             'page' => ['nullable', 'integer', 'min:1'],
+            // Buscador de "Detalle de inscritos" (07/09/2026, pedido del
+            // usuario: buscar desde la tarjeta "Pagados" del dashboard por
+            // documento/nombre/apellido/correo) — mismo criterio que ya usa
+            // PersonaController::index() para el buscador de la pantalla
+            // "Personas" (LIKE OR sobre esas mismas columnas).
+            'search' => ['nullable', 'string', 'max:255'],
         ]);
 
         $query = Participante::whereHas('registration', function ($q) use ($event, $data) {
@@ -222,6 +228,15 @@ class ParticipanteController extends Controller
             // resolver la talla real de la polera sin N+1.
             ->with(['registration:id,referencia,pago_status,fecha,tipo_pago,moneda_pago', 'talleresSesiones.sesionCongreso', 'talleresSesiones.taller', 'souvenirParticipante'])
             ->when($data['categoria'] ?? null, fn ($q, $categoria) => $q->where('categoria', $categoria))
+            ->when($data['search'] ?? null, function ($q, $term) {
+                $like = '%' . $term . '%';
+                $q->where(function ($q2) use ($like) {
+                    $q2->where('nombre', 'like', $like)
+                        ->orWhere('apellido', 'like', $like)
+                        ->orWhere('numero_documento', 'like', $like)
+                        ->orWhere('correo', 'like', $like);
+                });
+            })
             ->orderBy('categoria')
             ->orderBy('apellido');
 
