@@ -200,6 +200,75 @@ class ParticipantesPorEventoTest extends TestCase
         $this->assertSame(5, $response->json('meta.total'));
     }
 
+    /**
+     * Buscador de "Detalle de inscritos" (07/09/2026, pedido del usuario:
+     * buscar desde la tarjeta "Pagados" del dashboard por
+     * documento/nombre/apellido/correo) — mismo criterio que el buscador de
+     * "Personas" (LIKE OR sobre esas columnas, case-insensitive por collation
+     * de MySQL).
+     */
+    public function test_busca_por_numero_documento(): void
+    {
+        $this->crearInscripcion(['numero_documento' => '12345678']);
+        $this->crearInscripcion(['numero_documento' => '99999999']);
+
+        $admin = $this->actingAsAdmin();
+        $admin->update(['rol' => 'admin', 'evento_id' => $this->evento->id]);
+
+        $response = $this->getJson("/api/v1/event/{$this->evento->id}/participantes?search=1234")
+            ->assertStatus(200);
+
+        $participantes = $response->json('participantes');
+        $this->assertCount(1, $participantes);
+        $this->assertSame('12345678', $participantes[0]['numeroDocumento']);
+    }
+
+    public function test_busca_por_apellido(): void
+    {
+        $this->crearInscripcion(['apellido' => 'Gutierrez']);
+        $this->crearInscripcion(['apellido' => 'Fernandez']);
+
+        $admin = $this->actingAsAdmin();
+        $admin->update(['rol' => 'admin', 'evento_id' => $this->evento->id]);
+
+        $response = $this->getJson("/api/v1/event/{$this->evento->id}/participantes?search=gutier")
+            ->assertStatus(200);
+
+        $participantes = $response->json('participantes');
+        $this->assertCount(1, $participantes);
+        $this->assertSame('Gutierrez', $participantes[0]['apellido']);
+    }
+
+    public function test_busca_por_correo(): void
+    {
+        $this->crearInscripcion(['correo' => 'unico-buscable@test.net']);
+        $this->crearInscripcion(['correo' => 'otro@test.net']);
+
+        $admin = $this->actingAsAdmin();
+        $admin->update(['rol' => 'admin', 'evento_id' => $this->evento->id]);
+
+        $response = $this->getJson("/api/v1/event/{$this->evento->id}/participantes?search=unico-buscable")
+            ->assertStatus(200);
+
+        $participantes = $response->json('participantes');
+        $this->assertCount(1, $participantes);
+        $this->assertSame('unico-buscable@test.net', $participantes[0]['correo']);
+    }
+
+    public function test_search_vacio_no_filtra(): void
+    {
+        $this->crearInscripcion();
+        $this->crearInscripcion();
+
+        $admin = $this->actingAsAdmin();
+        $admin->update(['rol' => 'admin', 'evento_id' => $this->evento->id]);
+
+        $response = $this->getJson("/api/v1/event/{$this->evento->id}/participantes")
+            ->assertStatus(200);
+
+        $this->assertCount(2, $response->json('participantes'));
+    }
+
     public function test_admin_de_otro_evento_no_ve_los_participantes(): void
     {
         $otroEvento = Evento::factory()->create([
