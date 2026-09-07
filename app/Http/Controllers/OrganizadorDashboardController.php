@@ -43,8 +43,75 @@ class OrganizadorDashboardController extends Controller
                 // en exportCsv) — la vista arma los links filtrados agregando
                 // &categoria=/&form_type_id=/&pago_status= a esta misma URL base.
                 'exportBaseUrl' => URL::signedRoute('organizador.dashboard.export', ['evento' => $evento->id]),
+                // Detalle de inscritos con buscador (07/09/2026, pedido del
+                // usuario: poder buscar al hacer clic en "Pagados") — mismo
+                // patrón que exportBaseUrl, la firma solo cubre `evento`.
+                'detalleBaseUrl' => URL::signedRoute('organizador.dashboard.detalle', ['evento' => $evento->id]),
             ]
         ));
+    }
+
+    /**
+     * Detalle de inscritos fila-por-fila, con buscador (07/09/2026, pedido
+     * del usuario: al hacer clic en la tarjeta "Pagados" — u otro estado —
+     * del dashboard público, ver un listado filtrable por documento,
+     * nombre/apellido o correo). Mismo patrón que exportCsv(): la firma
+     * cubre solo `evento`, ignorando categoria/pago_status/search/page para
+     * que un único link sirva con cualquier combinación de filtros.
+     *
+     * A propósito una pantalla nueva (no reutiliza participantes-detalle de
+     * admin-eventos, que requiere login) — este dashboard es sin login,
+     * accedido solo por link firmado.
+     */
+    public function detalle(Evento $evento, Request $request)
+    {
+        abort_unless(
+            $request->hasValidSignatureWhileIgnoring(['categoria', 'pago_status', 'search', 'page']),
+            403
+        );
+
+        $categoria = $request->query('categoria', '');
+        $pagoStatus = $request->query('pago_status', '');
+        $search = trim((string) $request->query('search', ''));
+        $page = max((int) $request->query('page', 1), 1);
+        $perPage = 50;
+
+        $query = DashboardInscripcionesData::participantesDelEvento($evento);
+
+        if ($categoria !== '') {
+            $query->where('categoria', $categoria);
+        }
+        if ($pagoStatus !== '') {
+            $query->whereHas('registration', fn (Builder $q) => $q->where('pago_status', $pagoStatus));
+        }
+        // Buscador — mismo criterio que ParticipanteController::porEvento()
+        // (LIKE OR sobre nombre/apellido/numero_documento/correo).
+        if ($search !== '') {
+            $like = '%' . $search . '%';
+            $query->where(function (Builder $q) use ($like) {
+                $q->where('nombre', 'like', $like)
+                    ->orWhere('apellido', 'like', $like)
+                    ->orWhere('numero_documento', 'like', $like)
+                    ->orWhere('correo', 'like', $like);
+            });
+        }
+
+        $paginador = $query->orderBy('apellido')->paginate($perPage, ['*'], 'page', $page);
+
+        return view('organizador.dashboard-detalle', [
+            'evento' => $evento,
+            'participantes' => $paginador,
+            'nombresCategorias' => $evento->categories()->pluck('name', 'id'),
+            'categoriaSeleccionada' => $categoria,
+            'pagoStatusSeleccionado' => $pagoStatus,
+            'searchSeleccionado' => $search,
+            'baseUrl' => URL::signedRoute('organizador.dashboard.detalle', ['evento' => $evento->id]),
+            'dashboardUrl' => URL::signedRoute('organizador.dashboard', ['evento' => $evento->id]),
+            // Para el <form method="GET">: el navegador descarta la query
+            // string de `action` al armar el submit, así que la firma viaja
+            // como campo oculto (ver dashboard-detalle.blade.php).
+            'signature' => $request->query('signature'),
+        ]);
     }
 
     /**

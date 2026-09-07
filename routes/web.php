@@ -29,6 +29,13 @@ Route::get('/organizador/evento/{evento}/dashboard', [OrganizadorDashboardContro
 Route::get('/organizador/evento/{evento}/participantes.csv', [OrganizadorDashboardController::class, 'exportCsv'])
     ->name('organizador.dashboard.export');
 
+// Detalle de inscritos con buscador (07/09/2026) — mismo patrón que la
+// descarga CSV de arriba: firma cubre solo `evento`, validada a mano
+// (ignorando categoria/pago_status/search/page) para que un solo link
+// sirva con cualquier combinación de filtros/paginación.
+Route::get('/organizador/evento/{evento}/detalle', [OrganizadorDashboardController::class, 'detalle'])
+    ->name('organizador.dashboard.detalle');
+
 // Dashboard de delivery de kits — mismo patrón sin login que el dashboard
 // del organizador. El link se genera con `php artisan delivery:generar-link
 // {evento}` y se puede pasar tal cual a la empresa de delivery.

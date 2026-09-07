@@ -2,6 +2,29 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/).
 
+## 2026-09-07 — Buscador en el dashboard público del organizador (sin login)
+
+Seguimiento del mismo pedido del usuario, ahora aplicado al dashboard público (link firmado, sin
+login) — hasta ahora las tarjetas de totales (Pagados/Pendientes/etc.) no eran clicables ahí.
+
+### Added
+- `OrganizadorDashboardController::detalle()` — pantalla nueva de detalle fila-por-fila con
+  buscador (documento/nombre/apellido/correo) y filtro por categoría/estado, paginada. Firma
+  cubre solo `evento` (mismo patrón que `exportCsv()`), ignorando los filtros — un solo link
+  sirve para cualquier combinación.
+- Las 5 tarjetas del dashboard (`organizador/dashboard.blade.php`) ahora son links a esta pantalla
+  con su filtro de estado correspondiente.
+- Vista nueva `organizador/dashboard-detalle.blade.php`.
+
+### Verified
+- 8 tests nuevos en `OrganizadorDashboardDetalleTest` (firma inválida, sin filtros, por estado,
+  búsqueda por documento/apellido/correo, firma ignora filtros, el dashboard enlaza a "Pagados"),
+  confirmados con `git stash` que fallan sin el fix (7/8, la de firma inválida sigue siendo cierta
+  sin el feature). Suite `OrganizadorDashboard|ConfirmarPagoSitio|Participante` (56 tests) sin
+  regresiones.
+- `php -l` + `Blade::compileString()` en los 2 archivos de vista tocados/nuevos.
+- **Pendiente**: pasada manual en browser contra el link firmado real de un evento.
+
 ## 2026-09-07 — Buscador en "Detalle de inscritos" (dashboard del organizador)
 
 Pedido del usuario: agregar un buscador al hacer clic en la tarjeta "Pagados" (u otro estado) del
