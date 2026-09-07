@@ -13,6 +13,8 @@
     .subtitle { color: var(--muted); font-size: 14px; margin: 0 0 24px; }
     .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 14px; margin-bottom: 28px; }
     .card { background: #fff; border-radius: 10px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,.08); text-align: center; }
+    a.card { display: block; text-decoration: none; transition: box-shadow .15s; }
+    a.card:hover { box-shadow: 0 2px 8px rgba(0,0,0,.14); }
     .card .num { font-size: 26px; font-weight: 700; color: var(--secondary); }
     .card .label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; margin-top: 4px; }
     .card.paid .num { color: var(--success); }
@@ -42,12 +44,16 @@
     <h1>{{ $evento->nombre }}</h1>
     <p class="subtitle">Dashboard de inscripciones · {{ $evento->direccion }} · {{ $evento->fecha_inicio }}</p>
 
+    {{-- Tarjetas clicables (07/09/2026, pedido del usuario) — llevan al
+         detalle fila-por-fila con buscador, mismo patrón que ya existía en
+         el panel autenticado de admin-eventos (ver
+         project_detalle_inscritos_drilldown_dashboard). --}}
     <div class="cards">
-      <div class="card"><div class="num">{{ $totalGeneral['total'] }}</div><div class="label">Total inscritos</div></div>
-      <div class="card paid"><div class="num">{{ $totalGeneral['paid'] }}</div><div class="label">Pagados</div></div>
-      <div class="card pending"><div class="num">{{ $totalGeneral['pending'] }}</div><div class="label">Pendientes</div></div>
-      <div class="card cancelled"><div class="num">{{ $totalGeneral['cancelled'] }}</div><div class="label">Cancelados</div></div>
-      <div class="card failed"><div class="num">{{ $totalGeneral['failed'] }}</div><div class="label">Fallidos</div></div>
+      <a class="card" href="{{ $detalleBaseUrl }}"><div class="num">{{ $totalGeneral['total'] }}</div><div class="label">Total inscritos</div></a>
+      <a class="card paid" href="{{ $detalleBaseUrl }}&pago_status=paid"><div class="num">{{ $totalGeneral['paid'] }}</div><div class="label">Pagados</div></a>
+      <a class="card pending" href="{{ $detalleBaseUrl }}&pago_status=pending"><div class="num">{{ $totalGeneral['pending'] }}</div><div class="label">Pendientes</div></a>
+      <a class="card cancelled" href="{{ $detalleBaseUrl }}&pago_status=cancelled"><div class="num">{{ $totalGeneral['cancelled'] }}</div><div class="label">Cancelados</div></a>
+      <a class="card failed" href="{{ $detalleBaseUrl }}&pago_status=failed"><div class="num">{{ $totalGeneral['failed'] }}</div><div class="label">Fallidos</div></a>
     </div>
 
     <p class="section-title">Balance del evento</p>
