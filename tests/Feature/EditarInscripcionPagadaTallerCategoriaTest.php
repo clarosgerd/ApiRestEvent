@@ -7,6 +7,7 @@ use App\Actions\CrearInscripcionAction;
 use App\DTOs\RegistrationDTO;
 use App\Models\CajaMovimiento;
 use App\Models\Category;
+use App\Models\CategoryPricePeriod;
 use App\Models\Ciudad;
 use App\Models\Evento;
 use App\Models\FormType;
@@ -19,6 +20,7 @@ use App\Models\Taller;
 use App\Models\SubtipoEvento;
 use App\Models\TipoEvento;
 use App\Services\RegistrationService;
+use App\Support\PrecioVigenteData;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
 use Tests\TestCase;
@@ -385,6 +387,85 @@ class EditarInscripcionPagadaTallerCategoriaTest extends TestCase
             '_usuario' => 'participante@test.net',
         ]);
 
+        $this->assertEquals(10.0, $result['costo_adicion']);
+    }
+
+    /**
+     * Precios por período (07/09/2026) — bug real reportado por el usuario:
+     * agregar una polera/souvenir sin cambiar de categoría no debe cobrar
+     * la diferencia aunque el precio VIGENTE de esa categoría haya subido
+     * desde que se pagó (un período nuevo entró en vigencia). El bug real
+     * vivía 100% en el frontend (elascenso/event/index.php,
+     * saveParticipant() releía siempre el precio vigente de la tarjeta en
+     * vez de preservar el ya pagado) — este test confirma que
+     * ActualizarInscripcionPagadaAction/EdicionPagadaCategoriaData ya
+     * ignoran el precio vigente cuando la categoría no cambia, incluso con
+     * períodos configurados (no solo con precio plano, como el test de
+     * arriba) — queda como regresión explícita para no perder esa garantía
+     * a futuro.
+     */
+    public function test_categoria_sin_cambios_no_cobra_diferencia_aunque_el_periodo_vigente_haya_subido_de_precio(): void
+    {
+        $categoriaConPeriodos = Category::factory()->create([
+            'event_id' => $this->evento->id,
+            'price' => 50,
+        ]);
+        // Período "Preventa" vigente al momento de registrarse — la
+        // inscripción se crea con este precio (50), como una inscripción
+        // real hecha durante la preventa.
+        $preventa = CategoryPricePeriod::create([
+            'category_id' => $categoriaConPeriodos->id,
+            'nombre' => 'Preventa',
+            'price' => 50,
+            'fecha_desde' => now()->subDays(30),
+            'fecha_hasta' => now()->addDays(5),
+        ]);
+
+        $registration = app(CrearInscripcionAction::class)->handle(RegistrationDTO::fromArray([
+            'referencia' => 'LA-TEST-' . uniqid(),
+            'fecha' => now()->toDateTimeString(),
+            'evento_id' => $this->evento->id,
+            'evento_nombre' => $this->evento->nombre,
+            'form_types_id' => $this->formType->id,
+            'tipo_pago' => 'pendiente',
+            'pago_status' => 'pending',
+            'pay_order_number' => null,
+            'totales' => $this->totalesData(),
+            'participantes' => [$this->participanteData('20000099', [
+                'categoria' => (string) $categoriaConPeriodos->id,
+                'precioCategoria' => 50,
+            ])],
+        ]));
+        $registration->update(['pago_status' => 'paid']);
+
+        // Simula el paso del tiempo: la preventa vence y arranca el precio
+        // regular, más caro — el participante ya pagó, no vuelve a pasar
+        // por el gate de creación.
+        $preventa->update(['fecha_hasta' => now()->subDay()]);
+        CategoryPricePeriod::create([
+            'category_id' => $categoriaConPeriodos->id,
+            'nombre' => 'Precio regular',
+            'price' => 80,
+            'fecha_desde' => now(),
+            'fecha_hasta' => now()->addDays(30),
+        ]);
+
+        // Confirmar que el precio vigente HOY es efectivamente más caro que
+        // lo que se pagó — si no, el test no probaría nada.
+        $this->assertEquals(80.0, PrecioVigenteData::paraCategoria($categoriaConPeriodos->fresh())['precio']);
+
+        $result = app(ActualizarInscripcionPagadaAction::class)->handle($registration->referencia, [
+            'participantes' => [$this->participanteData('20000099', [
+                'categoria' => (string) $categoriaConPeriodos->id,
+                'precioCategoria' => 50, // sin cambios respecto a lo ya pagado
+                'telefono' => '999999',
+            ])],
+            'totales' => $this->totalesData(),
+            '_usuario' => 'participante@test.net',
+        ]);
+
+        // Solo el cargo fijo de edición — nada de la diferencia 80-50=30,
+        // aunque el período vigente hoy sea más caro.
         $this->assertEquals(10.0, $result['costo_adicion']);
     }
 
