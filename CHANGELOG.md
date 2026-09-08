@@ -2,6 +2,46 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/).
 
+## 2026-09-07 — Sync de congresos externos (kit + acreditación, sin balance)
+
+Primer caso: COLABIOCLI 2026 gestiona sus propias inscripciones en un Google Sheet propio, fuera
+de nuestro sistema. Pedido: sincronizar esos datos solo para poder usar nuestra infraestructura de
+entrega de kit/acreditación — no es consolidación de balance (el dinero ya se cobró en la
+plataforma del organizador).
+
+### Added
+- `App\Actions\SincronizarParticipanteExternoAction` — inserta/actualiza `Registration`+
+  `Participante`+`RegistrationTotal` DIRECTO, sin pasar por `CrearInscripcionAction` (esa valida
+  precio/stock/promo/moneda, nada de lo cual aplica acá). Usa el **correo** como
+  `numero_documento` (el formulario del congreso no pide documento de identidad) — upsert por
+  `(evento_id, correo)`, idempotente: reenviar el sheet completo no duplica.
+- `POST /internal/event/{event}/participantes-externos/sync` — nuevo, protegido por
+  `RequiresExternalSyncSecret` (secreto `EXTERNAL_SYNC_SECRET`, DISTINTO del
+  `INTERNAL_API_SECRET` que ya usan `elascenso/event`↔`ApiRestEvent`) — lo llama el Google Apps
+  Script del organizador externo, nunca nuestro propio backend. Exige que el evento tenga
+  exactamente 1 `form_type` (422 si no). Procesa fila por fila (una fila con datos sucios no tumba
+  el resto), responde `{creados, actualizados, omitidos}`.
+- `.gs` listo para pegar en el Apps Script del organizador —
+  `brain/api_rest_event/colabiocli-2026/sync-apps-script.gs` — nosotros lo armamos, ellos solo
+  pegan y ajustan nombres de columna.
+
+### Fixed
+- **Bug real encontrado de paso**: `Middleware::alias()` de Laravel **reemplaza** el array de
+  alias en cada llamada, no lo mergea — una segunda llamada a `$middleware->alias([...])` en
+  `bootstrap/app.php` (para registrar el alias nuevo) estaba borrando silenciosamente el alias
+  `internal.secret` ya existente (SIP multi-banco), rompiendo esos endpoints. Encontrado por la
+  suite de tests (`SipBancoTest` empezó a fallar), corregido combinando ambos alias en una sola
+  llamada.
+
+### Verified
+- 10 tests nuevos en `SyncParticipanteExternoTest` (auth, creación, idempotencia, filas
+  inválidas/omitidas, validación de form_type único, 404 de evento, e integración con el CSV que
+  consume Retiro en sitio), confirmados con `git stash` que fallan sin el fix (9/10 — la de
+  "rechaza sin secreto" sigue pasando porque la ruta ya no existe). Suite `SipBanco|
+  SyncParticipanteExterno` (24 tests) sin regresiones tras el fix del bug de `alias()`.
+- **Pendiente**: encabezados de columna reales del Sheet del organizador (para terminar el `.gs`
+  final), y la pasada manual end-to-end una vez configurado el evento real en UAT.
+
 ## 2026-09-07 — Buscador en el dashboard público del organizador (sin login)
 
 Seguimiento del mismo pedido del usuario, ahora aplicado al dashboard público (link firmado, sin

@@ -101,6 +101,15 @@ Route::group(['prefix' => 'v1','namespace' => 'App\Http\Controllers'], function 
         Route::get('/sip-bancos/callback-credenciales', [\App\Http\Controllers\Internal\SipBancoInternalController::class, 'callbackCredenciales']);
     });
 
+    // Sync de congresos externos (07/09/2026) — secreto DISTINTO del de
+    // arriba (EXTERNAL_SYNC_SECRET, ver RequiresExternalSyncSecret): lo
+    // llama el Google Apps Script de un organizador externo (ej. COLABIOCLI
+    // 2026), no nuestro propio backend. Ver
+    // brain/PLAN-SYNC-CONGRESO-EXTERNO-07092026.md.
+    Route::middleware('external.sync.secret')->prefix('internal')->group(function () {
+        Route::post('/event/{event}/participantes-externos/sync', [\App\Http\Controllers\Internal\SyncExternoController::class, 'sync']);
+    });
+
     // Escritura — panel de administración de eventos (ver
     // brain/PLAN-PANEL-ADMIN-EVENTOS-02082026.md), protegido con guard
     // `admins` (super_admin ve todo, admin scoped a un evento — el scoping
