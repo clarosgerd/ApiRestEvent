@@ -61,4 +61,13 @@ return [
         'secret' => env('INTERNAL_API_SECRET'),
     ],
 
+    // Sync de congresos externos (07/09/2026) — secreto DISTINTO del de
+    // arriba, para el endpoint que llama un Google Apps Script de un
+    // organizador externo (ej. COLABIOCLI 2026), no nuestro propio
+    // backend. Ver Http/Middleware/RequiresExternalSyncSecret y
+    // brain/PLAN-SYNC-CONGRESO-EXTERNO-07092026.md.
+    'external_sync' => [
+        'secret' => env('EXTERNAL_SYNC_SECRET'),
+    ],
+
 ];
