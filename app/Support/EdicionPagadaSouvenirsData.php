@@ -30,7 +30,7 @@ class EdicionPagadaSouvenirsData
      * @param int[] $idsAnteriores souvenir_id que el participante ya tenía
      *   (incluye los invisibles — se filtran acá adentro)
      * @param int[] $idsNuevos souvenir_id que manda el cliente ahora
-     * @return array{deltaSouvenirs: float, idsAgregados: int[]}
+     * @return array{deltaSouvenirs: float, deltaSouvenirsConCargo: float, idsAgregados: int[]}
      *
      * @throws \DomainException
      */
@@ -56,17 +56,27 @@ class EdicionPagadaSouvenirsData
         $idsAgregados = array_values(array_diff($idsNuevos, $idsAnteriores));
 
         if (empty($idsAgregados)) {
-            return ['deltaSouvenirs' => 0.0, 'idsAgregados' => []];
+            return ['deltaSouvenirs' => 0.0, 'deltaSouvenirsConCargo' => 0.0, 'idsAgregados' => []];
         }
 
         // whereIn + scoped a este form_type: si el cliente manda un id que
         // no pertenece al catálogo de este form_type, simplemente no suma
         // nada — la revalidación de "pertenece al evento" real ya la hace
         // el proxy de elascenso/event antes de llegar acá.
-        $deltaSouvenirs = (float) Souvenir::where('form_types_id', $formTypesId)
+        //
+        // Cargo de servicio (07/09/2026) — deltaSouvenirsConCargo es el
+        // subconjunto de lo agregado con `aplica_cargo_servicio=true`,
+        // mismo criterio que ya usa CrearInscripcionAction::validateFeePct()
+        // para el alta normal. Se pide el modelo completo (antes solo se
+        // pedía el sum) para no duplicar la query.
+        $souvenirsAgregados = Souvenir::where('form_types_id', $formTypesId)
             ->whereIn('id', $idsAgregados)
-            ->sum('price');
+            ->get(['id', 'price', 'aplica_cargo_servicio']);
 
-        return ['deltaSouvenirs' => $deltaSouvenirs, 'idsAgregados' => $idsAgregados];
+        return [
+            'deltaSouvenirs' => (float) $souvenirsAgregados->sum('price'),
+            'deltaSouvenirsConCargo' => (float) $souvenirsAgregados->where('aplica_cargo_servicio', true)->sum('price'),
+            'idsAgregados' => $souvenirsAgregados->pluck('id')->map(fn ($id) => (int) $id)->all(),
+        ];
     }
 }

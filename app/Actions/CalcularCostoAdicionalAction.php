@@ -4,6 +4,7 @@ namespace App\Actions;
 
 use App\Models\Registration;
 use App\Support\EdicionPagadaCategoriaData;
+use App\Support\EdicionPagadaFeeData;
 use App\Support\EdicionPagadaSouvenirsData;
 use App\Support\Taller\ResolverPrecioTallerData;
 
@@ -69,6 +70,7 @@ class CalcularCostoAdicionalAction
         $deltaTalleres = 0.0;
         $deltaCategoria = 0.0;
         $deltaSouvenirs = 0.0;
+        $deltaSouvenirsConCargo = 0.0;
 
         foreach ($participantes as $i => $participantData) {
             $anterior = $participantesAnteriores[$i];
@@ -109,8 +111,16 @@ class CalcularCostoAdicionalAction
             $souvenirIdsNuevos = collect($participantData['souvenirs'] ?? [])->pluck('id')->map(fn ($id) => (int) $id)->all();
             $cambioSouvenirs = EdicionPagadaSouvenirsData::resolver($registration->form_types_id, $souvenirIdsAnteriores, $souvenirIdsNuevos);
             $deltaSouvenirs += $cambioSouvenirs['deltaSouvenirs'];
+            $deltaSouvenirsConCargo += $cambioSouvenirs['deltaSouvenirsConCargo'];
         }
 
-        return round($costoEdicion + $deltaTalleres + $deltaCategoria + $deltaSouvenirs, 2);
+        // Cargo de servicio (07/09/2026) — mismo cálculo, mismo helper, que
+        // ActualizarInscripcionPagadaAction (la aplicación real al
+        // confirmar) — tienen que dar el mismo número o la cotización SIP
+        // y el cobro real divergen. `modoCategoria: 'solo_subida'` (arriba)
+        // ya garantiza que $deltaCategoria nunca es negativo acá.
+        $feeAdicional = EdicionPagadaFeeData::calcular($evento, $deltaCategoria, $deltaSouvenirsConCargo, $deltaTalleres);
+
+        return round($costoEdicion + $deltaTalleres + $deltaCategoria + $deltaSouvenirs + $feeAdicional, 2);
     }
 }

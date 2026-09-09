@@ -168,8 +168,9 @@ class EditarInscripcionPagadaTallerCategoriaTest extends TestCase
             '_usuario' => 'participante@test.net',
         ]);
 
-        // costo_edicion (10) + precio real del taller (30) = 40.
-        $this->assertEquals(40.0, $result['costo_adicion']);
+        // costo_edicion (10) + precio real del taller (30) + cargo de
+        // servicio (07/09/2026, fee_incluye_talleres default true: 30*5%=1.5) = 41.5.
+        $this->assertEquals(41.5, $result['costo_adicion']);
         $this->assertDatabaseHas('participante_taller_sesion', [
             'sesion_congreso_id' => $this->sesion->id,
         ]);
@@ -281,8 +282,9 @@ class EditarInscripcionPagadaTallerCategoriaTest extends TestCase
             '_usuario' => 'participante@test.net',
         ]);
 
-        // costo_edicion (10) + diferencia real (120 - 50 = 70) = 80.
-        $this->assertEquals(80.0, $result['costo_adicion']);
+        // costo_edicion (10) + diferencia real (120 - 50 = 70) + cargo de
+        // servicio (07/09/2026, categoría siempre: 70*5%=3.5) = 83.5.
+        $this->assertEquals(83.5, $result['costo_adicion']);
     }
 
     public function test_autoservicio_no_puede_bajar_de_categoria(): void
@@ -540,11 +542,65 @@ class EditarInscripcionPagadaTallerCategoriaTest extends TestCase
             '_usuario' => 'participante@test.net',
         ]);
 
-        // costo_edicion (10) + precio real del souvenir (20) = 30.
+        // costo_edicion (10) + precio real del souvenir (20) = 30. Sin
+        // cargo de servicio: este souvenir fixture tiene
+        // aplica_cargo_servicio=false (default) — ver el test de abajo
+        // para el caso con cargo.
         $this->assertEquals(30.0, $result['costo_adicion']);
         $this->assertDatabaseHas('souvenir_participantes', [
             'souvenir_id' => $this->souvenir->id,
         ]);
+    }
+
+    /**
+     * Cargo de servicio en ediciones pagadas (07/09/2026) — pedido del
+     * usuario: hasta ahora ninguna edición pagada cobraba cargo de
+     * servicio, ni siquiera cuando el ítem agregado lo tenía tildado. Ver
+     * App\Support\EdicionPagadaFeeData.
+     */
+    public function test_autoservicio_agrega_souvenir_con_cargo_de_servicio_y_lo_cobra(): void
+    {
+        $souvenirConCargo = Souvenir::factory()->create([
+            'form_types_id' => $this->formType->id,
+            'price' => 20,
+            'aplica_cargo_servicio' => true,
+        ]);
+        $registration = $this->crearInscripcionPagadaSinTaller('20000098');
+
+        $result = app(ActualizarInscripcionPagadaAction::class)->handle($registration->referencia, [
+            'participantes' => [$this->participanteData('20000098', [
+                'souvenirs' => [['id' => $souvenirConCargo->id, 'nombre' => $souvenirConCargo->name, 'precio' => 1]],
+            ])],
+            'totales' => $this->totalesData(['souvenirs' => 20, 'fee' => 3.5, 'grand_total' => 73.5]),
+            '_usuario' => 'participante@test.net',
+        ]);
+
+        // costo_edicion (10) + precio real del souvenir (20) + cargo de
+        // servicio (20*5%=1) = 31.
+        $this->assertEquals(31.0, $result['costo_adicion']);
+    }
+
+    /**
+     * evento.fee_incluye_talleres=false — el taller agregado no debe
+     * sumar cargo de servicio (mismo criterio que el alta normal,
+     * CrearInscripcionAction::validateFeePct()).
+     */
+    public function test_autoservicio_agrega_taller_sin_fee_incluye_talleres_no_cobra_cargo(): void
+    {
+        $this->evento->update(['fee_incluye_talleres' => false]);
+        $registration = $this->crearInscripcionPagadaSinTaller('20000097');
+
+        $result = app(ActualizarInscripcionPagadaAction::class)->handle($registration->referencia, [
+            'participantes' => [$this->participanteData('20000097', [
+                'talleres' => [['taller_id' => $this->taller->id, 'sesion_congreso_id' => $this->sesion->id]],
+            ])],
+            'totales' => $this->totalesData(['talleres' => 30, 'fee' => 2.5, 'grand_total' => 82.5]),
+            '_usuario' => 'participante@test.net',
+        ]);
+
+        // costo_edicion (10) + precio real del taller (30), SIN cargo de
+        // servicio (evento.fee_incluye_talleres=false) = 40.
+        $this->assertEquals(40.0, $result['costo_adicion']);
     }
 
     public function test_ningun_flujo_puede_quitar_un_souvenir_ya_pagado(): void
@@ -612,8 +668,9 @@ class EditarInscripcionPagadaTallerCategoriaTest extends TestCase
             '_usuario' => 'cajero@test.net',
         ], modoCategoria: 'libre');
 
-        // costo_edicion (10) + diferencia real (120 - 50 = 70) = 80.
-        $this->assertEquals(80.0, $result['costo_adicion']);
+        // costo_edicion (10) + diferencia real (120 - 50 = 70) + cargo de
+        // servicio (07/09/2026, categoría siempre: 70*5%=3.5) = 83.5.
+        $this->assertEquals(83.5, $result['costo_adicion']);
     }
 
     public function test_caja_puede_cambiar_a_categoria_mas_barata_y_da_costo_adicion_negativo(): void
@@ -632,7 +689,10 @@ class EditarInscripcionPagadaTallerCategoriaTest extends TestCase
             '_usuario' => 'cajero@test.net',
         ], modoCategoria: 'libre');
 
-        // costo_edicion (10) + diferencia real (50 - 120 = -70) = -60.
+        // costo_edicion (10) + diferencia real (50 - 120 = -70) = -60. Sin
+        // cargo de servicio (07/09/2026): el fee nunca se reduce en una
+        // bajada — la comisión de la pasarela sobre el cobro original ya se
+        // pagó y no se recupera (ver EdicionPagadaFeeData).
         $this->assertEquals(-60.0, $result['costo_adicion']);
     }
 
@@ -794,8 +854,9 @@ class EditarInscripcionPagadaTallerCategoriaTest extends TestCase
             '_usuario' => 'sip:AD-TEST',
         ]);
 
-        // costo_edicion (10) + precio real del taller nuevo (15) = 25.
-        $this->assertEquals(25.0, $result['costo_adicion']);
+        // costo_edicion (10) + precio real del taller nuevo (15) + cargo de
+        // servicio (07/09/2026, fee_incluye_talleres default true: 15*5%=0.75) = 25.75.
+        $this->assertEquals(25.75, $result['costo_adicion']);
         $this->assertDatabaseHas('participante_taller_sesion', ['sesion_congreso_id' => $this->sesion->id]);
         $this->assertDatabaseHas('participante_taller_sesion', ['sesion_congreso_id' => $sesionNueva->id]);
     }
