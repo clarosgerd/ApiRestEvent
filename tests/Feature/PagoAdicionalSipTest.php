@@ -273,11 +273,12 @@ class PagoAdicionalSipTest extends TestCase
             'monto' => 1,
         ])->assertCreated();
 
-        // costo_edicion (10) + precio real del taller (30) = 40, no 1.
-        $this->assertEquals(40.0, (float) $response->json('monto'));
+        // costo_edicion (10) + precio real del taller (30) + cargo de
+        // servicio (07/09/2026, fee_incluye_talleres default true: 30*5%=1.5) = 41.5, no 1.
+        $this->assertEquals(41.5, (float) $response->json('monto'));
         $this->assertDatabaseHas('pagos_adicionales_inscripcion', [
             'referencia' => $response->json('referencia_adicional'),
-            'monto' => 40,
+            'monto' => 41.5,
         ]);
     }
 
@@ -299,8 +300,9 @@ class PagoAdicionalSipTest extends TestCase
             ]),
         ]);
 
-        // costo_edicion (10) + diferencia real (120 - 50 = 70) = 80.
-        $this->assertEquals(80.0, $monto);
+        // costo_edicion (10) + diferencia real (120 - 50 = 70) + cargo de
+        // servicio (07/09/2026, categoría siempre: 70*5%=3.5) = 83.5.
+        $this->assertEquals(83.5, $monto);
     }
 
     public function test_cotizacion_sip_rechaza_bajada_de_categoria(): void
@@ -331,7 +333,37 @@ class PagoAdicionalSipTest extends TestCase
         ]);
 
         // costo_edicion (10) + precio real del souvenir (20) = 30, no 11.
+        // Sin cargo de servicio: este souvenir fixture tiene
+        // aplica_cargo_servicio=false (default).
         $this->assertEquals(30.0, $monto);
+    }
+
+    /**
+     * Cargo de servicio en la cotización SIP (07/09/2026) — tiene que
+     * coincidir con lo que después aplica ActualizarInscripcionPagadaAction
+     * al confirmar (EditarInscripcionPagadaTallerCategoriaTest::
+     * test_autoservicio_agrega_souvenir_con_cargo_de_servicio_y_lo_cobra),
+     * mismo helper (EdicionPagadaFeeData) — si no coincidieran, el QR
+     * cobraría de menos y no habría forma de reclamar la diferencia.
+     */
+    public function test_cotizacion_sip_incluye_cargo_de_servicio_de_souvenir(): void
+    {
+        $souvenirConCargo = Souvenir::factory()->create([
+            'form_types_id' => $this->formType->id,
+            'price' => 20,
+            'aplica_cargo_servicio' => true,
+        ]);
+        $registration = $this->crearInscripcionPagadaSinTaller('40000023');
+
+        $monto = app(CalcularCostoAdicionalAction::class)->handle($registration, [
+            $this->participanteData('40000023', [
+                'souvenirs' => [['id' => $souvenirConCargo->id, 'nombre' => $souvenirConCargo->name, 'precio' => 1]],
+            ]),
+        ]);
+
+        // costo_edicion (10) + precio real del souvenir (20) + cargo de
+        // servicio (20*5%=1) = 31.
+        $this->assertEquals(31.0, $monto);
     }
 
     public function test_cotizacion_sip_rechaza_souvenir_quitado(): void

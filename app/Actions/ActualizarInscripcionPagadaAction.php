@@ -10,6 +10,7 @@ use App\Models\RegistrationTotal;
 use App\Services\RegistrationService;
 use App\Support\CurrencyResolverData;
 use App\Support\EdicionPagadaCategoriaData;
+use App\Support\EdicionPagadaFeeData;
 use App\Support\EdicionPagadaSouvenirsData;
 use App\Support\EdicionSoloExtrasData;
 use App\Support\Taller\ValidarSeleccionesTallerAction;
@@ -153,6 +154,7 @@ class ActualizarInscripcionPagadaAction
             $pagoPendientePorIndiceYSesion = [];
             $deltaCategoria = 0.0;
             $deltaSouvenirs = 0.0;
+            $deltaSouvenirsConCargo = 0.0;
 
             foreach ($data['participantes'] as $i => $participantData) {
                 $anterior = $participantesAnteriores[$i];
@@ -199,6 +201,7 @@ class ActualizarInscripcionPagadaAction
                 $souvenirIdsNuevos = collect($participantData['souvenirs'] ?? [])->pluck('id')->map(fn ($id) => (int) $id)->all();
                 $cambioSouvenirs = EdicionPagadaSouvenirsData::resolver($registration->form_types_id, $souvenirIdsAnteriores, $souvenirIdsNuevos);
                 $deltaSouvenirs += $cambioSouvenirs['deltaSouvenirs'];
+                $deltaSouvenirsConCargo += $cambioSouvenirs['deltaSouvenirsConCargo'];
             }
 
             // Ingresos por ediciones (04/09/2026) — el cargo fijo de esta
@@ -316,16 +319,22 @@ class ActualizarInscripcionPagadaAction
             $this->registrationService->syncPersonas($registration);
 
             // Monto real a cobrar/desembolsar (25/08/2026, ampliado
-            // 02/09/2026 con souvenirs) — el cargo fijo de siempre
-            // (costo_edicion) más la diferencia real de categoría (0 si no
-            // cambió, o si el modo actual no permite bajar), el precio
-            // real de los talleres agregados y el precio real de los
-            // souvenirs agregados. Puede quedar negativo solo por el lado
-            // de categoría con modoCategoria='libre' (Caja) — talleres y
-            // souvenirs nunca restan, solo se pueden agregar. Ver
-            // CajaController::editarPagada(), que registra un
+            // 02/09/2026 con souvenirs, 07/09/2026 con cargo de servicio) —
+            // el cargo fijo de siempre (costo_edicion) más la diferencia
+            // real de categoría (0 si no cambió, o si el modo actual no
+            // permite bajar), el precio real de los talleres agregados, el
+            // precio real de los souvenirs agregados, y el cargo de
+            // servicio sobre lo nuevo (categoría/souvenirs con cargo/
+            // talleres según evento.fee_incluye_talleres — ver
+            // EdicionPagadaFeeData, mismo criterio que el alta normal).
+            // Puede quedar negativo solo por el lado de categoría con
+            // modoCategoria='libre' (Caja) — talleres y souvenirs nunca
+            // restan, solo se pueden agregar; el fee tampoco resta en ese
+            // caso (nunca se reduce en una bajada, ver EdicionPagadaFeeData).
+            // Ver CajaController::editarPagada(), que registra un
             // CajaMovimiento cuando el total es negativo.
-            $costoAdicion = (float) $costoEdicion + $deltaTalleres + $deltaCategoria + $deltaSouvenirs;
+            $feeAdicional = EdicionPagadaFeeData::calcular($registration->evento, $deltaCategoria, $deltaSouvenirsConCargo, $deltaTalleres);
+            $costoAdicion = (float) $costoEdicion + $deltaTalleres + $deltaCategoria + $deltaSouvenirs + $feeAdicional;
 
             AuditLog::create([
                 'registration_id' => $registration->id,
