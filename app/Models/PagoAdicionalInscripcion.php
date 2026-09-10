@@ -26,6 +26,9 @@ class PagoAdicionalInscripcion extends Model
         'participantes_payload',
         'totales_payload',
         'qr_id',
+        // Cobro adicional real por Multipago (10/09/2026) — ver migración
+        // add_pay_order_number_to_pagos_adicionales_inscripcion_table.
+        'pay_order_number',
         'pago_status',
         'paid_at',
         // Correo de confirmación por pago adicional (02/09/2026) — ver

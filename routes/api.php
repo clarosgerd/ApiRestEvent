@@ -437,6 +437,13 @@ Route::group(['prefix' => 'v1','namespace' => 'App\Http\Controllers'], function 
     // inscripción.
     Route::post('/registrations/{reference}/pagos-adicionales', [PagoAdicionalController::class, 'store']);
     Route::patch('/pagos-adicionales/{referenciaAdicional}/qr', [PagoAdicionalController::class, 'guardarQrId']);
+    // Cobro adicional real por Multipago (10/09/2026) — pay-order (PATCH,
+    // mismo molde que /qr de arriba) y by-pay-order (GET) deben ir ANTES
+    // de la ruta comodín /pagos-adicionales/{referenciaAdicional} de abajo,
+    // mismo motivo que /registrations/by-pay-order más arriba: si no,
+    // Laravel matchea "by-pay-order" como si fuera un {referenciaAdicional}.
+    Route::patch('/pagos-adicionales/{referenciaAdicional}/pay-order', [PagoAdicionalController::class, 'guardarPayOrderNumber']);
+    Route::get('/pagos-adicionales/by-pay-order/{payOrderNumber}', [PagoAdicionalController::class, 'findByPayOrder']);
     Route::get('/pagos-adicionales/{referenciaAdicional}', [PagoAdicionalController::class, 'show']);
     Route::patch('/pagos-adicionales/{referenciaAdicional}/confirmar', [PagoAdicionalController::class, 'confirmar']);
 

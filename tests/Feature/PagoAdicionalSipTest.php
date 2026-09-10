@@ -548,4 +548,63 @@ class PagoAdicionalSipTest extends TestCase
 
         Mail::assertSent(PagoAdicionalConfirmadoMail::class, 2);
     }
+
+    // ── Cobro adicional real por Multipago (10/09/2026) — ver
+    // brain/api_rest_event/DEPLOY-CHECKLIST-SIP-BANCO-SEGURO-MULTIPAGO-ADICIONAL-10092026.md ──
+
+    public function test_show_expone_tipo_pago_original_de_la_inscripcion(): void
+    {
+        $registration = $this->crearInscripcionPagadaSinTaller('50000001');
+        $registration->update(['tipo_pago' => 'multipago']);
+        $participantes = [$this->participanteData('50000001', [
+            'talleres' => [['taller_id' => $this->taller->id, 'sesion_congreso_id' => $this->sesion->id]],
+        ])];
+        $totales = $this->totalesData(['talleres' => 30, 'fee' => 4, 'grand_total' => 84]);
+        $pago = app(GenerarPagoAdicionalAction::class)->handle($registration, $participantes, $totales, 40.0);
+
+        $this->getJson("/api/v1/pagos-adicionales/{$pago->referencia}")
+            ->assertOk()
+            ->assertJsonPath('tipoPagoOriginal', 'multipago')
+            ->assertJsonPath('payOrderNumber', null);
+    }
+
+    public function test_guardar_pay_order_number_lo_persiste(): void
+    {
+        $registration = $this->crearInscripcionPagadaSinTaller('50000002');
+        $participantes = [$this->participanteData('50000002', [
+            'talleres' => [['taller_id' => $this->taller->id, 'sesion_congreso_id' => $this->sesion->id]],
+        ])];
+        $totales = $this->totalesData(['talleres' => 30, 'fee' => 4, 'grand_total' => 84]);
+        $pago = app(GenerarPagoAdicionalAction::class)->handle($registration, $participantes, $totales, 40.0);
+
+        $this->patchJson("/api/v1/pagos-adicionales/{$pago->referencia}/pay-order", [
+            'pay_order_number' => '123456',
+        ])->assertOk()->assertJson(['success' => true]);
+
+        $this->assertDatabaseHas('pagos_adicionales_inscripcion', [
+            'referencia' => $pago->referencia,
+            'pay_order_number' => '123456',
+        ]);
+    }
+
+    public function test_find_by_pay_order_encuentra_el_pago_adicional(): void
+    {
+        $registration = $this->crearInscripcionPagadaSinTaller('50000003');
+        $participantes = [$this->participanteData('50000003', [
+            'talleres' => [['taller_id' => $this->taller->id, 'sesion_congreso_id' => $this->sesion->id]],
+        ])];
+        $totales = $this->totalesData(['talleres' => 30, 'fee' => 4, 'grand_total' => 84]);
+        $pago = app(GenerarPagoAdicionalAction::class)->handle($registration, $participantes, $totales, 40.0);
+        $pago->update(['pay_order_number' => '999888']);
+
+        $this->getJson('/api/v1/pagos-adicionales/by-pay-order/999888')
+            ->assertOk()
+            ->assertJson(['success' => true, 'referencia' => $pago->referencia]);
+    }
+
+    public function test_find_by_pay_order_404_si_no_existe(): void
+    {
+        $this->getJson('/api/v1/pagos-adicionales/by-pay-order/no-existe')
+            ->assertStatus(404);
+    }
 }
