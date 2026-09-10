@@ -38,13 +38,20 @@ class SipBancoInternalController extends Controller
             ->first();
 
         if (!$banco) {
-            return response()->json(['success' => true, 'banco' => null]);
+            // bancoConfigurado explícito (10/09/2026, bug real: Multisport
+            // Bolivia -> cuenta de CIA CRUZ) — documenta el contrato para
+            // el caller (resolve_sip_bank() en elascenso/event puede
+            // derivar lo mismo de success && banco===null, pero un campo
+            // explícito evita que un refactor futuro rompa esa inferencia
+            // en silencio).
+            return response()->json(['success' => true, 'banco' => null, 'bancoConfigurado' => false]);
         }
 
         $banco->makeVisible(['sip_password', 'sip_apikey', 'sip_apikey_servicio', 'callback_basic_password']);
 
         return response()->json([
             'success' => true,
+            'bancoConfigurado' => true,
             'banco' => [
                 'nombre' => $banco->nombre,
                 'sipUsername' => $banco->sip_username,

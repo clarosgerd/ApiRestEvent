@@ -106,10 +106,22 @@ class Organizador extends Model
             ? $this->formasPagoSeleccionadas
             : $this->formasPagoSeleccionadas()->get();
 
-        if ($seleccionadas->isNotEmpty()) {
-            return $seleccionadas;
-        }
+        $formasPago = $seleccionadas->isNotEmpty()
+            ? $seleccionadas
+            : FormasPago::whereNull('organizador_id')->where('activo', true)->get();
 
-        return FormasPago::whereNull('organizador_id')->where('activo', true)->get();
+        // SIP multi-banco (28/08/2026) — nunca ofrecer "sip" a un
+        // organizador sin SipBanco propio activo: sin esto, un cobro real
+        // termina en la cuenta de OTRO organizador (el default de
+        // sip-payment-integration/.env, ver resolve_sip_bank() en
+        // elascenso/event). Bug real 10/09/2026 (Multisport Bolivia ->
+        // CIA CRUZ, Bs336). Este es el ÚNICO punto que arma la lista que
+        // ve el participante (EventoResource) — registro.php, que valida
+        // tipoPago contra esta misma lista, rechaza un intento de elegir
+        // "sip" sin necesitar un chequeo aparte.
+        return $formasPago->reject(
+            fn (FormasPago $fp) => $fp->slug === 'sip'
+                && !SipBanco::where('organizador_id', $this->id)->where('activo', true)->exists()
+        )->values();
     }
 }

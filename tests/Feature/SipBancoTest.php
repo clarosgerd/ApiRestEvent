@@ -73,7 +73,12 @@ class SipBancoTest extends TestCase
         $this->withHeader('X-Internal-Secret', config('services.internal.secret'))
             ->getJson("/api/v1/internal/event/{$evento->id}/sip-banco")
             ->assertStatus(200)
-            ->assertJsonPath('banco', null);
+            ->assertJsonPath('banco', null)
+            // bancoConfigurado explícito (10/09/2026) — el caller
+            // (resolve_sip_bank() en elascenso/event) nunca debe caer al
+            // .env default sin poder distinguir este caso de una falla de
+            // red transitoria.
+            ->assertJsonPath('bancoConfigurado', false);
     }
 
     public function test_evento_de_organizador_con_banco_asignado_devuelve_credenciales_completas(): void
@@ -85,6 +90,7 @@ class SipBancoTest extends TestCase
         $this->withHeader('X-Internal-Secret', config('services.internal.secret'))
             ->getJson("/api/v1/internal/event/{$evento->id}/sip-banco")
             ->assertStatus(200)
+            ->assertJsonPath('bancoConfigurado', true)
             ->assertJsonPath('banco.sipUsername', 'TESTUSER')
             ->assertJsonPath('banco.sipPassword', 'TestPass123')
             ->assertJsonPath('banco.sipApikey', 'apikey123')
@@ -100,7 +106,8 @@ class SipBancoTest extends TestCase
         $this->withHeader('X-Internal-Secret', config('services.internal.secret'))
             ->getJson("/api/v1/internal/event/{$evento->id}/sip-banco")
             ->assertStatus(200)
-            ->assertJsonPath('banco', null);
+            ->assertJsonPath('banco', null)
+            ->assertJsonPath('bancoConfigurado', false);
     }
 
     public function test_evento_de_otro_organizador_no_ve_el_banco_ajeno(): void

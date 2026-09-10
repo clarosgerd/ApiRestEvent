@@ -77,6 +77,37 @@ class PagoAdicionalController extends Controller
     }
 
     /**
+     * Cobro adicional real por Multipago (10/09/2026) — guarda el
+     * payOrderNumber que devolvió Multipago al crear la orden. A
+     * diferencia de qr_id (SIP, solo diagnóstico), este SÍ es la clave de
+     * lookup real: el webhook (payment_callback_multipago.php) y el poll
+     * activo (pago_status_adicional.php) lo usan para encontrar esta fila.
+     * Llamado por elascenso/event justo después de crear la orden.
+     */
+    public function guardarPayOrderNumber(Request $request, string $referenciaAdicional): JsonResponse
+    {
+        $pago = PagoAdicionalInscripcion::where('referencia', $referenciaAdicional)->firstOrFail();
+        $pago->update(['pay_order_number' => $request->input('pay_order_number')]);
+
+        return response()->json(['success' => true]);
+    }
+
+    /**
+     * Cobro adicional real por Multipago (10/09/2026) — mismo molde que
+     * RegistrationController::findByPayOrder(), pero para la tabla de
+     * pagos adicionales. Usado por payment_callback_multipago.php cuando
+     * el payOrderNumber entrante no matchea ninguna Registration (o sea,
+     * el webhook es de un cobro adicional, no de un alta nueva) y por el
+     * poll activo de pago_status_adicional.php.
+     */
+    public function findByPayOrder(string $payOrderNumber): JsonResponse
+    {
+        $pago = PagoAdicionalInscripcion::where('pay_order_number', $payOrderNumber)->firstOrFail();
+
+        return response()->json(['success' => true, 'referencia' => $pago->referencia]);
+    }
+
+    /**
      * Estado actual del pago adicional — para polling desde
      * elascenso/event (api/pago_status_adicional.php).
      */
@@ -105,6 +136,16 @@ class PagoAdicionalController extends Controller
             // lo necesita para resolver con qué banco consultar el estado
             // en SIP (resolve_sip_bank()). Ver PLAN-SIP-MULTIBANCO-28082026.md.
             'eventoId' => $pago->registration->evento_id,
+            // tipoPagoOriginal (10/09/2026, bug real: Multisport Bolivia ->
+            // cuenta de CIA CRUZ) — pago_status_adicional.php lo necesita
+            // para saber con qué pasarela (si alguna) tiene sentido
+            // consultar este pago adicional puntual, en vez de asumir SIP
+            // siempre sin importar cómo se pagó la inscripción original.
+            'tipoPagoOriginal' => $pago->registration->tipo_pago,
+            // payOrderNumber (10/09/2026, cobro adicional real por
+            // Multipago) — equivalente al de arriba pero para el poll
+            // activo de Multipago (getPayOrderByNumber()).
+            'payOrderNumber' => $pago->pay_order_number,
         ];
         if ($pago->pago_status === 'paid') {
             $data['data'] = new RegistrationCollectionResource($registrationService->loadRelations($pago->registration));

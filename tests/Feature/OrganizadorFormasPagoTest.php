@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\FormasPago;
 use App\Models\Organizador;
+use App\Models\SipBanco;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -117,5 +118,71 @@ class OrganizadorFormasPagoTest extends TestCase
         ])->assertOk();
 
         $this->assertCount(0, $organizador->formasPagoSeleccionadas()->get());
+    }
+
+    // ── SIP multi-banco: nunca ofrecer "sip" sin SipBanco propio
+    // (10/09/2026, bug real: Multisport Bolivia -> cuenta de CIA CRUZ) ──
+
+    public function test_formas_pago_efectivas_oculta_sip_del_default_del_sistema_sin_banco(): void
+    {
+        $organizador = Organizador::factory()->create();
+        FormasPago::factory()->create(['slug' => 'sip', 'organizador_id' => null, 'activo' => true]);
+        FormasPago::factory()->create(['slug' => 'multipago', 'organizador_id' => null, 'activo' => true]);
+        // Sin fila en organizador_formas_pago -> cae al default del sistema.
+        // Sin SipBanco propio.
+
+        $slugs = $organizador->formasPagoEfectivas()->pluck('slug');
+
+        $this->assertFalse($slugs->contains('sip'));
+        $this->assertTrue($slugs->contains('multipago'));
+    }
+
+    public function test_formas_pago_efectivas_oculta_sip_customizada_sin_banco(): void
+    {
+        $organizador = Organizador::factory()->create();
+        $sip = FormasPago::factory()->create(['slug' => 'sip', 'organizador_id' => null]);
+        $meru = FormasPago::factory()->create(['slug' => 'meru', 'organizador_id' => null]);
+        // Organizador SÍ customizó su selección (incluye "sip" a propósito)
+        // pero sigue sin SipBanco propio — igual se oculta.
+        $organizador->formasPagoSeleccionadas()->attach([$sip->id, $meru->id], ['activo' => true]);
+
+        $slugs = $organizador->formasPagoEfectivas()->pluck('slug');
+
+        $this->assertFalse($slugs->contains('sip'));
+        $this->assertTrue($slugs->contains('meru'));
+    }
+
+    public function test_formas_pago_efectivas_mantiene_sip_con_banco_propio_activo(): void
+    {
+        $organizador = Organizador::factory()->create();
+        FormasPago::factory()->create(['slug' => 'sip', 'organizador_id' => null, 'activo' => true]);
+        SipBanco::create([
+            'organizador_id' => $organizador->id,
+            'nombre' => 'Test', 'sip_username' => 'u', 'sip_password' => 'p',
+            'sip_apikey' => 'k', 'sip_apikey_servicio' => 'ks',
+            'callback_basic_user' => 'cu', 'callback_basic_password' => 'cp',
+            'activo' => true,
+        ]);
+
+        $slugs = $organizador->formasPagoEfectivas()->pluck('slug');
+
+        $this->assertTrue($slugs->contains('sip'));
+    }
+
+    public function test_formas_pago_efectivas_oculta_sip_si_el_banco_propio_esta_inactivo(): void
+    {
+        $organizador = Organizador::factory()->create();
+        FormasPago::factory()->create(['slug' => 'sip', 'organizador_id' => null, 'activo' => true]);
+        SipBanco::create([
+            'organizador_id' => $organizador->id,
+            'nombre' => 'Test', 'sip_username' => 'u', 'sip_password' => 'p',
+            'sip_apikey' => 'k', 'sip_apikey_servicio' => 'ks',
+            'callback_basic_user' => 'cu', 'callback_basic_password' => 'cp',
+            'activo' => false,
+        ]);
+
+        $slugs = $organizador->formasPagoEfectivas()->pluck('slug');
+
+        $this->assertFalse($slugs->contains('sip'));
     }
 }
