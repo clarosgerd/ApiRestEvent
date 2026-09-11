@@ -76,4 +76,13 @@ class Registration extends Model
     {
         return $this->hasMany(RegistrationNotification::class);
     }
+
+    // Reporte de trazabilidad cross-evento (10/09/2026) — no existía
+    // ninguna relación inversa hacia pagos_adicionales_inscripcion todavía
+    // (solo PagoAdicionalInscripcion::registration() belongsTo). Ver
+    // ReporteTrazabilidadData::paginar().
+    public function pagosAdicionales(): HasMany
+    {
+        return $this->hasMany(PagoAdicionalInscripcion::class);
+    }
 }
