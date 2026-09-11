@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Evento;
 use App\Models\PromoCode;
 use App\Http\Requests\StorePromoCodeRequest;
 use App\Http\Requests\UpdatePromoCodeRequest;
@@ -13,6 +14,7 @@ use App\Http\Resources\PromoCodeCollection;
 use App\Filters\PromoCodeFilter;
 use App\Http\Controllers\Concerns\AuthorizesEventoScope;
 use App\Services\AdminAuditLogger;
+use App\Support\PromoCodeReporteData;
 class PromoCodeController extends Controller
 {
     use AuthorizesEventoScope;
@@ -125,6 +127,17 @@ class PromoCodeController extends Controller
             'success' => true,
             'message' => 'Código de promoción eliminado correctamente.',
         ]);
+    }
+
+    /**
+     * GET /event/{event}/promo-codes-reporte (11/09/2026) — reporte de
+     * códigos usados por evento, ver PromoCodeReporteData.
+     */
+    public function reporte(Evento $event): JsonResponse
+    {
+        $this->assertCanWriteEvento($event->id);
+
+        return response()->json(['success' => true] + PromoCodeReporteData::paraEvento($event));
     }
 
      public function promoCode(Request $request,string $id ,string $promocode):JsonResponse
