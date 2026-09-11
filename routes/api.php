@@ -3,6 +3,7 @@
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\PersonaController;
+use App\Http\Controllers\ReporteTrazabilidadController;
 
 use App\Http\Controllers\RegistrationController;
 use App\Http\Controllers\PagoAdicionalController;
@@ -409,6 +410,12 @@ Route::group(['prefix' => 'v1','namespace' => 'App\Http\Controllers'], function 
         // `persona/logout` (más abajo) siguen siendo del guard de Persona
         // a propósito, son la cuenta pública, no tocarlos.
         Route::apiResource('/persona', PersonaController::class);
+
+        // Reporte de trazabilidad de inscripciones (10/09/2026) — solo
+        // super_admin, cross-evento (ver ReporteTrazabilidadController::
+        // assertIsSuperAdmin()). A diferencia de dashboard-inscripciones
+        // (por evento), este cruza todos los eventos a la vez.
+        Route::get('/reporte-trazabilidad', [ReporteTrazabilidadController::class, 'index']);
     });
 
     Route::post('/admin/login', [AdminAuthController::class, 'login']);
