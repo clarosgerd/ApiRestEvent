@@ -214,6 +214,10 @@ Route::group(['prefix' => 'v1','namespace' => 'App\Http\Controllers'], function 
         // `balance` (ver BalanceEventoData) desde la sesión 11/08/2026.
         Route::get('/event/{event}/dashboard-inscripciones', [EventoController::class, 'dashboardInscripciones']);
 
+        // Reporte de códigos promocionales usados, por evento (11/09/2026)
+        // — ver PromoCodeReporteData.
+        Route::get('/event/{event}/promo-codes-reporte', [PromoCodeController::class, 'reporte']);
+
         // Presupuesto de un evento (control financiero del organizador) —
         // ver PRD-presupuesto_de_un_evento.md y elascenso/event/brain/
         // (sesión 11/08/2026). A diferencia de Socios/Liquidación (solo
