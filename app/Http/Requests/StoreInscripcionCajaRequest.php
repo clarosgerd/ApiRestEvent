@@ -75,6 +75,15 @@ class StoreInscripcionCajaRequest extends FormRequest
             'totales.descuento'                       => ['required', 'numeric'],
             'totales.descuento_registrante'            => ['nullable', 'numeric'],
             'totales.grand_total'                     => ['required', 'numeric'],
+            // Precio USD fijo en Caja (12/09/2026) — mismo snapshot que ya
+            // manda el registro público (StoreRegistrationRequest), ver
+            // CurrencyResolverData::resolverPrecioFijo(). `grand_total` de
+            // arriba sigue siendo SIEMPRE el bookkeeping en BOB — estos 3
+            // campos son el monto real cobrado en efectivo cuando el
+            // evento es usdPrecioFijo.
+            'totales.moneda_pago'                     => ['nullable', 'string', Rule::in(['BOB', 'USD'])],
+            'totales.tipo_cambio_aplicado'             => ['nullable', 'numeric'],
+            'totales.total_pagado'                     => ['nullable', 'numeric'],
         ];
     }
 

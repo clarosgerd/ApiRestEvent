@@ -166,6 +166,16 @@ class CajaController extends Controller
             'pay_order_number' => null,
             'totales'          => $data['totales'],
             'participantes'    => [$data['participante']],
+            // Precio USD fijo en Caja (12/09/2026) — ver
+            // CurrencyResolverData::resolverPrecioFijo(), que
+            // CrearInscripcionAction::validateMonedaPago() ya invoca para
+            // CUALQUIER caller (Caja incluida) cuando el evento es
+            // usdPrecioFijo. `grand_total` en $data['totales'] sigue
+            // siendo el bookkeeping en BOB de siempre — esto es el monto
+            // real cobrado en efectivo cuando corresponde.
+            'moneda_pago'          => $data['totales']['moneda_pago'] ?? null,
+            'tipo_cambio_aplicado' => $data['totales']['tipo_cambio_aplicado'] ?? null,
+            'total_pagado'         => $data['totales']['total_pagado'] ?? null,
         ]);
 
         try {
