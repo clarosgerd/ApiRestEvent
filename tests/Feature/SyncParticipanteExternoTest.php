@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Ciudad;
 use App\Models\Evento;
 use App\Models\FormType;
+use App\Models\FormularioCampos;
 use App\Models\Organizador;
 use App\Models\Pais;
 use App\Models\Registration;
@@ -227,6 +228,70 @@ class SyncParticipanteExternoTest extends TestCase
         ], formTypeCodigo: 'Curso Pre-Congreso')->assertOk();
 
         $this->assertDatabaseHas('participantes', ['numero_documento' => 'fabiola@test.net', 'categoria' => 'Elevando la calidad en el laboratorio']);
+    }
+
+    /**
+     * nombre_certificado (12/09/2026) — se guarda como respuesta al
+     * sistema genérico de preguntas adicionales, SI la pregunta está
+     * configurada para el FormType (setup manual). Sin parsear el texto,
+     * tal cual viene de la hoja.
+     */
+    public function test_nombre_certificado_se_guarda_como_respuesta_a_la_pregunta_configurada(): void
+    {
+        $pregunta = FormularioCampos::factory()->create([
+            'form_types_id' => $this->congresista->id,
+            'nombre_campo' => 'nombre_certificado',
+        ]);
+
+        $this->postSync([
+            ['nombre' => 'Frida', 'apellido' => 'Camargo Arce', 'correo' => 'frida@test.net', 'nombre_certificado' => 'MsC. FRIDA CAMARGO ARCE'],
+        ])->assertOk();
+
+        $participante = \App\Models\Participante::where('numero_documento', 'frida@test.net')->first();
+
+        $this->assertDatabaseHas('answers', [
+            'form_types_id' => $this->congresista->id,
+            'question_id' => $pregunta->id,
+            'participante_id' => $participante->id,
+            'value' => 'MsC. FRIDA CAMARGO ARCE',
+        ]);
+    }
+
+    /**
+     * Sin la pregunta configurada para ese FormType, el sync no debe
+     * fallar — es una pregunta opcional, no un requisito.
+     */
+    public function test_nombre_certificado_sin_pregunta_configurada_no_falla_y_no_guarda_nada(): void
+    {
+        $this->postSync([
+            ['nombre' => 'Frida', 'apellido' => 'Camargo Arce', 'correo' => 'frida@test.net', 'nombre_certificado' => 'MsC. FRIDA CAMARGO ARCE'],
+        ])->assertOk()->assertJson(['grupos' => [['creados' => 1]]]);
+
+        $this->assertDatabaseCount('answers', 0);
+    }
+
+    /**
+     * Reenviar la misma fila con un nombre_certificado distinto actualiza
+     * la respuesta existente, no duplica — mismo criterio de idempotencia
+     * que el resto del Action.
+     */
+    public function test_reenviar_nombre_certificado_actualiza_la_respuesta_existente(): void
+    {
+        FormularioCampos::factory()->create([
+            'form_types_id' => $this->congresista->id,
+            'nombre_campo' => 'nombre_certificado',
+        ]);
+
+        $this->postSync([
+            ['nombre' => 'Frida', 'apellido' => 'Camargo Arce', 'correo' => 'frida@test.net', 'nombre_certificado' => 'Lic. Frida Camargo'],
+        ])->assertOk();
+
+        $this->postSync([
+            ['nombre' => 'Frida', 'apellido' => 'Camargo Arce', 'correo' => 'frida@test.net', 'nombre_certificado' => 'MsC. Frida Camargo Arce'],
+        ])->assertOk();
+
+        $this->assertDatabaseCount('answers', 1);
+        $this->assertDatabaseHas('answers', ['value' => 'MsC. Frida Camargo Arce']);
     }
 
     public function test_form_type_codigo_inexistente_da_422(): void
