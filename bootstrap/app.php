@@ -4,6 +4,7 @@ use App\Http\Middleware\Admin\EnsureSuperAdminSession;
 use App\Http\Middleware\Admin\InjectAdminSessionToken;
 use App\Http\Middleware\Admin\RestrictCajeroToCaja;
 use App\Http\Middleware\NormalizeAuthTokenHeader;
+use App\Http\Middleware\RequiresExternalQrLookupSecret;
 use App\Http\Middleware\RequiresExternalSyncSecret;
 use App\Http\Middleware\RequiresInternalSecret;
 use Illuminate\Foundation\Application;
@@ -52,6 +53,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'admin.superadmin'      => EnsureSuperAdminSession::class,
             'admin.restrict-cajero' => RestrictCajeroToCaja::class,
             'external.sync.secret'  => RequiresExternalSyncSecret::class,
+            'external.qrlookup.secret' => RequiresExternalQrLookupSecret::class,
             // SIP multi-banco (28/08/2026) — alias nuevo, aplicado solo a la
             // ruta /internal/* (ver routes/api.php), nunca global.
             'internal.secret'       => RequiresInternalSecret::class,
