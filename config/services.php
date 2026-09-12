@@ -70,4 +70,11 @@ return [
         'secret' => env('EXTERNAL_SYNC_SECRET'),
     ],
 
+    // Lookup de participante por QR (12/09/2026) — para la app Android/iOS
+    // que va a construir un equipo aparte (fuera de nuestro alcance). Ver
+    // Http/Middleware/RequiresExternalQrLookupSecret.
+    'external_qr_lookup' => [
+        'secret' => env('EXTERNAL_QR_LOOKUP_SECRET'),
+    ],
+
 ];

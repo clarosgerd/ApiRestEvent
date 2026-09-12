@@ -111,6 +111,13 @@ Route::group(['prefix' => 'v1','namespace' => 'App\Http\Controllers'], function 
         Route::post('/event/{event}/participantes-externos/sync', [\App\Http\Controllers\Internal\SyncExternoController::class, 'sync']);
     });
 
+    // Lookup de QR para app externa Android/iOS (12/09/2026) — ver
+    // brain/api_rest_event/PLAN-QR-LOOKUP-APP-EXTERNA-12092026.md. Sin
+    // {event}: el QR solo trae la referencia.
+    Route::middleware('external.qrlookup.secret')->prefix('internal')->group(function () {
+        Route::get('/qr-lookup/{referencia}', [\App\Http\Controllers\Internal\QrLookupController::class, 'show']);
+    });
+
     // Escritura — panel de administración de eventos (ver
     // brain/PLAN-PANEL-ADMIN-EVENTOS-02082026.md), protegido con guard
     // `admins` (super_admin ve todo, admin scoped a un evento — el scoping

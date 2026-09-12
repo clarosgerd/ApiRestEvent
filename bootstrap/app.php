@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\NormalizeAuthTokenHeader;
+use App\Http\Middleware\RequiresExternalQrLookupSecret;
 use App\Http\Middleware\RequiresExternalSyncSecret;
 use App\Http\Middleware\RequiresInternalSecret;
 use Illuminate\Foundation\Application;
@@ -25,9 +26,14 @@ return Application::configure(basePath: dirname(__DIR__))
         // la ruta /internal/* (ver routes/api.php), nunca global.
         // Sync de congresos externos (07/09/2026) — 'external.sync.secret',
         // secreto DISTINTO del de arriba, ver RequiresExternalSyncSecret.
+        // Lookup de QR para app externa (12/09/2026) —
+        // 'external.qrlookup.secret', otro secreto distinto más, ver
+        // RequiresExternalQrLookupSecret. TODOS van en esta MISMA llamada
+        // (ver comentario arriba) — nunca un alias() nuevo por separado.
         $middleware->alias([
             'internal.secret' => RequiresInternalSecret::class,
             'external.sync.secret' => RequiresExternalSyncSecret::class,
+            'external.qrlookup.secret' => RequiresExternalQrLookupSecret::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
