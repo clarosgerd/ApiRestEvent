@@ -2,7 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Models\Category;
 use App\Models\Ciudad;
 use App\Models\Evento;
 use App\Models\FormType;
@@ -15,12 +14,16 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 /**
- * Sync de participantes de un congreso externo (07/09/2026) — ver
+ * Sync de participantes de un congreso externo (07/09/2026, rediseñado
+ * 12/09/2026 con el archivo real de COLABIOCLI 2026) — ver
  * brain/PLAN-SYNC-CONGRESO-EXTERNO-07092026.md, App\Actions\
  * SincronizarParticipanteExternoAction, App\Http\Controllers\Internal\
  * SyncExternoController. Endpoint llamado por el Google Apps Script de un
- * organizador externo (ej. COLABIOCLI 2026) — nunca por elascenso/event ni
- * por un admin logueado.
+ * organizador externo — nunca por elascenso/event ni por un admin logueado.
+ *
+ * El archivo real reveló 2 productos distintos en el mismo evento
+ * ("Congresista" y "Curso Pre-Congreso") — el body ahora manda "grupos",
+ * cada uno con su `form_type_codigo`, en vez de una lista plana única.
  */
 class SyncParticipanteExternoTest extends TestCase
 {
@@ -28,7 +31,9 @@ class SyncParticipanteExternoTest extends TestCase
 
     private Evento $evento;
 
-    private FormType $formType;
+    private FormType $congresista;
+
+    private FormType $cursoPreCongreso;
 
     protected function setUp(): void
     {
@@ -51,23 +56,31 @@ class SyncParticipanteExternoTest extends TestCase
             'publicado' => false,
         ]);
 
-        $this->formType = FormType::factory()->create(['event_id' => $this->evento->id]);
+        $this->congresista = FormType::factory()->create(['event_id' => $this->evento->id, 'name' => 'Congresista']);
+        $this->cursoPreCongreso = FormType::factory()->create(['event_id' => $this->evento->id, 'name' => 'Curso Pre-Congreso']);
     }
 
-    private function postSync(array $participantes, ?string $secret = 'test-secret-123'): \Illuminate\Testing\TestResponse
+    private function postGrupos(array $grupos, ?string $secret = 'test-secret-123'): \Illuminate\Testing\TestResponse
     {
         $headers = $secret !== null ? ['X-External-Sync-Secret' => $secret] : [];
 
         return $this->postJson(
             "/api/v1/internal/event/{$this->evento->id}/participantes-externos/sync",
-            ['participantes' => $participantes],
+            ['grupos' => $grupos],
             $headers
         );
     }
 
+    private function postSync(array $participantes, string $formTypeCodigo = 'Congresista', ?string $secret = 'test-secret-123'): \Illuminate\Testing\TestResponse
+    {
+        return $this->postGrupos([
+            ['form_type_codigo' => $formTypeCodigo, 'participantes' => $participantes],
+        ], $secret);
+    }
+
     public function test_rechaza_sin_secreto(): void
     {
-        $this->postSync([['nombre' => 'Ana', 'apellido' => 'Test', 'correo' => 'ana@test.net']], null)
+        $this->postSync([['nombre' => 'Ana', 'apellido' => 'Test', 'correo' => 'ana@test.net']], secret: null)
             ->assertStatus(403);
 
         $this->assertDatabaseCount('registrations', 0);
@@ -75,7 +88,7 @@ class SyncParticipanteExternoTest extends TestCase
 
     public function test_rechaza_con_secreto_incorrecto(): void
     {
-        $this->postSync([['nombre' => 'Ana', 'apellido' => 'Test', 'correo' => 'ana@test.net']], 'secreto-equivocado')
+        $this->postSync([['nombre' => 'Ana', 'apellido' => 'Test', 'correo' => 'ana@test.net']], secret: 'secreto-equivocado')
             ->assertStatus(403);
     }
 
@@ -83,14 +96,15 @@ class SyncParticipanteExternoTest extends TestCase
     {
         $this->postSync([
             ['nombre' => 'Ana', 'apellido' => 'Gutierrez', 'correo' => 'ana@test.net', 'telefono' => '77712345', 'categoria' => 'Estudiante', 'ubicacion' => 'Santa Cruz'],
-        ])->assertOk()->assertJson(['success' => true, 'creados' => 1, 'actualizados' => 0]);
+        ])->assertOk()->assertJson(['success' => true, 'grupos' => [['form_type_codigo' => 'Congresista', 'creados' => 1, 'actualizados' => 0]]]);
 
         $this->assertDatabaseHas('participantes', [
             'nombre' => 'Ana', 'apellido' => 'Gutierrez', 'numero_documento' => 'ana@test.net',
             'tipo_documento' => 'EMAIL', 'categoria' => 'Estudiante', 'ciudad' => 'Santa Cruz',
         ]);
         $this->assertDatabaseHas('registrations', [
-            'evento_id' => $this->evento->id, 'pago_status' => 'paid', 'tipo_pago' => 'externo',
+            'evento_id' => $this->evento->id, 'form_types_id' => $this->congresista->id,
+            'pago_status' => 'paid', 'tipo_pago' => 'externo',
         ]);
 
         $registration = Registration::where('evento_id', $this->evento->id)->first();
@@ -116,11 +130,11 @@ class SyncParticipanteExternoTest extends TestCase
     {
         $this->postSync([
             ['nombre' => 'Ana', 'apellido' => 'Gutierrez', 'correo' => 'ana@test.net', 'categoria' => 'Estudiante'],
-        ])->assertOk()->assertJson(['creados' => 1, 'actualizados' => 0]);
+        ])->assertOk()->assertJson(['grupos' => [['creados' => 1, 'actualizados' => 0]]]);
 
         $this->postSync([
             ['nombre' => 'Ana', 'apellido' => 'Gutierrez Perez', 'correo' => 'ana@test.net', 'categoria' => 'Profesional Miembro'],
-        ])->assertOk()->assertJson(['creados' => 0, 'actualizados' => 1]);
+        ])->assertOk()->assertJson(['grupos' => [['creados' => 0, 'actualizados' => 1]]]);
 
         $this->assertDatabaseCount('registrations', 1);
         $this->assertDatabaseCount('participantes', 1);
@@ -129,15 +143,43 @@ class SyncParticipanteExternoTest extends TestCase
         ]);
     }
 
-    public function test_fila_sin_correo_se_omite_sin_tumbar_el_resto(): void
+    /**
+     * Fallback (12/09/2026, hallado con el archivo real): INSCRIPCIONES
+     * LIBERADAS (invitados VIP, sin costo) a veces no trae correo. Sin
+     * correo válido, la clave de idempotencia pasa a ser nombre+apellido
+     * normalizado — para no perder la fila entera.
+     */
+    public function test_fila_sin_correo_valido_usa_nombre_apellido_como_documento(): void
     {
         $this->postSync([
-            ['nombre' => 'Ana', 'apellido' => 'Gutierrez', 'correo' => 'ana@test.net'],
-            ['nombre' => 'Sin', 'apellido' => 'Correo', 'correo' => ''],
-            ['nombre' => 'Correo', 'apellido' => 'Invalido', 'correo' => 'no-es-un-correo'],
-        ])->assertOk()->assertJson(['creados' => 1, 'actualizados' => 0]);
+            ['nombre' => 'Patricia', 'apellido' => 'Esperon', 'correo' => ''],
+            ['nombre' => 'Romina', 'apellido' => 'Medeiros', 'correo' => 'no-es-un-correo'],
+        ])->assertOk()->assertJson(['grupos' => [['creados' => 2, 'actualizados' => 0]]]);
+
+        $this->assertDatabaseCount('participantes', 2);
+        $this->assertDatabaseHas('participantes', [
+            'numero_documento' => 'patricia esperon', 'tipo_documento' => 'NOMBRE', 'correo' => '',
+        ]);
+        $this->assertDatabaseHas('participantes', [
+            'numero_documento' => 'romina medeiros', 'tipo_documento' => 'NOMBRE', 'correo' => '',
+        ]);
+    }
+
+    /**
+     * Reenviar la misma fila SIN correo (mismo nombre+apellido) tampoco
+     * debe duplicar — mismo criterio de idempotencia que con correo, solo
+     * que la clave es otra.
+     */
+    public function test_reenviar_fila_sin_correo_actualiza_en_vez_de_duplicar(): void
+    {
+        $this->postSync([['nombre' => 'Patricia', 'apellido' => 'Esperon', 'correo' => '', 'categoria' => 'Presidente']])
+            ->assertOk()->assertJson(['grupos' => [['creados' => 1]]]);
+
+        $this->postSync([['nombre' => 'Patricia', 'apellido' => 'Esperon', 'correo' => '', 'categoria' => 'Ex-Presidente']])
+            ->assertOk()->assertJson(['grupos' => [['creados' => 0, 'actualizados' => 1]]]);
 
         $this->assertDatabaseCount('participantes', 1);
+        $this->assertDatabaseHas('participantes', ['numero_documento' => 'patricia esperon', 'categoria' => 'Ex-Presidente']);
     }
 
     public function test_fila_sin_nombre_o_apellido_se_omite(): void
@@ -146,25 +188,66 @@ class SyncParticipanteExternoTest extends TestCase
             ['nombre' => '', 'apellido' => 'Test', 'correo' => 'a@test.net'],
         ])->assertOk();
 
-        $this->assertCount(1, $response->json('omitidos'));
+        $this->assertCount(1, $response->json('grupos.0.omitidos'));
         $this->assertDatabaseCount('participantes', 0);
     }
 
-    public function test_rechaza_si_el_evento_no_tiene_exactamente_un_form_type(): void
+    /**
+     * Hallazgo real (archivo de COLABIOCLI 2026, 12/09/2026): una persona
+     * puede estar anotada al congreso Y a un curso pre-congreso con el
+     * mismo correo — son 2 inscripciones distintas, no deben pisarse.
+     */
+    public function test_misma_persona_en_dos_form_types_crea_dos_registrations(): void
     {
-        FormType::factory()->create(['event_id' => $this->evento->id]); // ahora hay 2
+        $this->postSync([
+            ['nombre' => 'Ana', 'apellido' => 'Gutierrez', 'correo' => 'ana@test.net', 'categoria' => 'Estudiante'],
+        ], formTypeCodigo: 'Congresista')->assertOk();
 
-        $this->postSync([['nombre' => 'Ana', 'apellido' => 'Test', 'correo' => 'ana@test.net']])
+        $this->postSync([
+            ['nombre' => 'Ana', 'apellido' => 'Gutierrez', 'correo' => 'ana@test.net', 'nombre_curso' => 'Urianálisis'],
+        ], formTypeCodigo: 'Curso Pre-Congreso')->assertOk();
+
+        $this->assertDatabaseCount('registrations', 2);
+        $this->assertDatabaseCount('participantes', 2);
+        $this->assertDatabaseHas('registrations', ['evento_id' => $this->evento->id, 'form_types_id' => $this->congresista->id]);
+        $this->assertDatabaseHas('registrations', ['evento_id' => $this->evento->id, 'form_types_id' => $this->cursoPreCongreso->id]);
+        $this->assertDatabaseHas('participantes', ['numero_documento' => 'ana@test.net', 'categoria' => 'Estudiante']);
+        $this->assertDatabaseHas('participantes', ['numero_documento' => 'ana@test.net', 'categoria' => 'Urianálisis']);
+    }
+
+    /**
+     * Cursos_Pre_Congreso manda "Curso Pre-Congreso" como Categoría para
+     * TODAS las filas (no distingue nada) — el dato real está en
+     * `nombre_curso`, que pisa a `categoria` cuando viene.
+     */
+    public function test_nombre_curso_pisa_a_categoria_cuando_viene(): void
+    {
+        $this->postSync([
+            ['nombre' => 'Fabiola', 'apellido' => 'Linares', 'correo' => 'fabiola@test.net', 'categoria' => 'Curso Pre-Congreso', 'nombre_curso' => 'Elevando la calidad en el laboratorio'],
+        ], formTypeCodigo: 'Curso Pre-Congreso')->assertOk();
+
+        $this->assertDatabaseHas('participantes', ['numero_documento' => 'fabiola@test.net', 'categoria' => 'Elevando la calidad en el laboratorio']);
+    }
+
+    public function test_form_type_codigo_inexistente_da_422(): void
+    {
+        $this->postSync([['nombre' => 'Ana', 'apellido' => 'Test', 'correo' => 'ana@test.net']], formTypeCodigo: 'No Existe')
             ->assertStatus(422);
 
         $this->assertDatabaseCount('registrations', 0);
+    }
+
+    public function test_resuelve_form_type_codigo_sin_importar_mayusculas(): void
+    {
+        $this->postSync([['nombre' => 'Ana', 'apellido' => 'Test', 'correo' => 'ana@test.net']], formTypeCodigo: 'congresista')
+            ->assertOk()->assertJson(['grupos' => [['creados' => 1]]]);
     }
 
     public function test_evento_inexistente_da_404(): void
     {
         $this->postJson(
             '/api/v1/internal/event/999999/participantes-externos/sync',
-            ['participantes' => [['nombre' => 'Ana', 'apellido' => 'Test', 'correo' => 'ana@test.net']]],
+            ['grupos' => [['form_type_codigo' => 'Congresista', 'participantes' => [['nombre' => 'Ana', 'apellido' => 'Test', 'correo' => 'ana@test.net']]]]],
             ['X-External-Sync-Secret' => 'test-secret-123']
         )->assertStatus(404);
     }
