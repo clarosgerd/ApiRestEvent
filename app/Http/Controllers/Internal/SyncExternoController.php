@@ -43,6 +43,7 @@ class SyncExternoController extends Controller
             'grupos.*.participantes.*.categoria' => ['nullable', 'string', 'max:255'],
             'grupos.*.participantes.*.nombre_curso' => ['nullable', 'string', 'max:255'],
             'grupos.*.participantes.*.ubicacion' => ['nullable', 'string', 'max:255'],
+            'grupos.*.participantes.*.nombre_certificado' => ['nullable', 'string', 'max:255'],
         ]);
 
         $formTypes = $event->formTypes()->get()->keyBy(fn ($ft) => mb_strtolower(trim($ft->name)));

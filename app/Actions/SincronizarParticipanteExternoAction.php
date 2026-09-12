@@ -2,8 +2,10 @@
 
 namespace App\Actions;
 
+use App\Models\Answer;
 use App\Models\Evento;
 use App\Models\FormType;
+use App\Models\FormularioCampos;
 use App\Models\Participante;
 use App\Models\Registration;
 use App\Models\RegistrationTotal;
@@ -37,11 +39,25 @@ use Illuminate\Support\Facades\DB;
  * como fallback. Es también la clave de idempotencia: reenviar la misma
  * fila (o el sheet completo, sin filtrar "lo nuevo") actualiza en vez de
  * duplicar.
+ *
+ * `nombre_certificado` (12/09/2026): la hoja real trae una columna con el
+ * nombre exacto que debería figurar en un certificado (con título — "MsC.
+ * FRIDA CAMARGO ARCE"), que el congreso emite POR SU CUENTA (columna
+ * "Envió Certificado" del Sheet) — no generamos certificados nosotros para
+ * este caso. En vez de inventar una columna nueva o intentar parsear el
+ * título para reusar `participante.alias` (el campo que sí alimenta
+ * `EventoController::certificadosPdf()`), se guarda tal cual, texto crudo,
+ * como respuesta al sistema GENÉRICO de preguntas adicionales que ya existe
+ * (`questions`/`answers`, `FormularioCampos`/`Answer`) — decisión del
+ * usuario: cero riesgo de parsing, es solo un dato de referencia. Si el
+ * FormType no tiene una `FormularioCampos` con `nombre_campo='nombre_certificado'`
+ * configurada (setup manual, ver plan §1), el dato simplemente no se
+ * guarda — no es un error, esta pregunta es opcional por evento.
  */
 class SincronizarParticipanteExternoAction
 {
     /**
-     * @param array{nombre?: string, apellido?: string, correo?: string, telefono?: string, categoria?: string, nombre_curso?: string, ubicacion?: string} $fila
+     * @param array{nombre?: string, apellido?: string, correo?: string, telefono?: string, categoria?: string, nombre_curso?: string, ubicacion?: string, nombre_certificado?: string} $fila
      * @return array{resultado: 'creado'|'actualizado'|'omitido', motivo?: string, participanteId?: int}
      */
     public function run(Evento $evento, FormType $formType, array $fila): array
@@ -79,8 +95,9 @@ class SincronizarParticipanteExternoAction
         $telefono = trim((string) ($fila['telefono'] ?? ''));
         $ubicacion = trim((string) ($fila['ubicacion'] ?? ''));
         $correo = $tieneCorreoValido ? $correoCrudo : '';
+        $nombreCertificado = trim((string) ($fila['nombre_certificado'] ?? ''));
 
-        return DB::transaction(function () use ($evento, $formType, $nombre, $apellido, $numeroDocumento, $tipoDocumento, $correo, $categoria, $telefono, $ubicacion) {
+        return DB::transaction(function () use ($evento, $formType, $nombre, $apellido, $numeroDocumento, $tipoDocumento, $correo, $categoria, $telefono, $ubicacion, $nombreCertificado) {
             $participante = Participante::whereHas(
                 'registration',
                 fn ($q) => $q->where('evento_id', $evento->id)->where('form_types_id', $formType->id)
@@ -94,6 +111,10 @@ class SincronizarParticipanteExternoAction
                     'telefono' => $telefono !== '' ? $telefono : $participante->telefono,
                     'ciudad' => $ubicacion !== '' ? $ubicacion : $participante->ciudad,
                 ]);
+
+                if ($nombreCertificado !== '') {
+                    $this->guardarNombreCertificado($formType, $participante, $nombreCertificado);
+                }
 
                 return ['resultado' => 'actualizado', 'participanteId' => $participante->id];
             }
@@ -153,7 +174,39 @@ class SincronizarParticipanteExternoAction
                 'costo_edicion_acumulado' => 0,
             ]);
 
+            if ($nombreCertificado !== '') {
+                $this->guardarNombreCertificado($formType, $participante, $nombreCertificado);
+            }
+
             return ['resultado' => 'creado', 'participanteId' => $participante->id];
         });
+    }
+
+    /**
+     * Guarda `nombre_certificado` como respuesta a la pregunta adicional
+     * homónima, SI está configurada para este FormType (setup manual, ver
+     * plan §1) — si no existe esa `FormularioCampos`, no hace nada (esta
+     * pregunta es opcional por evento, no un requisito del sync).
+     * Idempotente: reenviar el mismo valor actualiza la respuesta existente
+     * en vez de duplicarla, mismo criterio que el resto del Action.
+     */
+    private function guardarNombreCertificado(FormType $formType, Participante $participante, string $valor): void
+    {
+        $pregunta = FormularioCampos::where('form_types_id', $formType->id)
+            ->where('nombre_campo', 'nombre_certificado')
+            ->first();
+
+        if (! $pregunta) {
+            return;
+        }
+
+        Answer::updateOrCreate(
+            [
+                'form_types_id' => $formType->id,
+                'question_id' => $pregunta->id,
+                'participante_id' => $participante->id,
+            ],
+            ['value' => $valor]
+        );
     }
 }
