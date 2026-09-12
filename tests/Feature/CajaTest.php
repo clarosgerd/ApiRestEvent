@@ -184,6 +184,109 @@ class CajaTest extends TestCase
         ]);
     }
 
+    /**
+     * Precio USD fijo en Caja (12/09/2026) — ver
+     * brain/api_rest_event/PLAN-CAJA-USD-FIJO-EXTRANJEROS-27082026.md.
+     * Reusa CurrencyResolverData::resolverPrecioFijo() tal cual (ya la
+     * invoca CrearInscripcionAction::validateMonedaPago() para CUALQUIER
+     * caller) — lo único que faltaba era que Caja forwardeara
+     * moneda_pago/total_pagado desde el request. `price` (Bs, 2000) y
+     * `price_usd` (240) son deliberadamente DISTINTOS para confirmar que
+     * el bookkeeping en Bs (caja_movimientos, registration_totals) nunca
+     * se mezcla con la plata real cobrada en USD.
+     */
+    public function test_alta_y_cobro_en_caja_de_evento_usd_precio_fijo(): void
+    {
+        $evento = Evento::factory()->create([
+            'organizador_id' => $this->evento->organizador_id,
+            'tipo_evento_id' => $this->evento->tipo_evento_id,
+            'subtipo_evento_id' => $this->evento->subtipo_evento_id,
+            'pais_id' => $this->evento->pais_id,
+            'ciudad_id' => $this->evento->ciudad_id,
+            'fee_pct' => 0.10,
+            'usd_precio_fijo' => true, 'acepta_usd' => true,
+        ]);
+        $formType = FormType::factory()->create([
+            'event_id' => $evento->id, 'cupo_total' => 100, 'activo' => true, 'requiere_categoria' => true,
+        ]);
+        $categoria = Category::factory()->create(['event_id' => $evento->id, 'price' => 2000, 'price_usd' => 240]);
+
+        $cajero = $this->actingAsAdmin();
+        $cajero->update(['rol' => 'cajero', 'evento_id' => $evento->id]);
+        $this->postJson("/api/v1/event/{$evento->id}/caja/turno/abrir", ['fondo_inicial' => 0])->assertStatus(201);
+
+        $participante = $this->participanteData('EXTRANJERO-1', [
+            'categoria' => (string) $categoria->id, 'precioCategoria' => 2000, 'subtotal' => 2000,
+        ]);
+
+        $response = $this->postJson("/api/v1/event/{$evento->id}/caja/inscripcion", [
+            'form_types_id' => $formType->id,
+            'participante' => $participante,
+            'totales' => [
+                'inscripcion' => 2000, 'donacion' => 0, 'souvenirs' => 0, 'fee' => 200,
+                'descuento' => 0, 'descuento_registrante' => 0, 'grand_total' => 2200,
+                'moneda_pago' => 'USD', 'tipo_cambio_aplicado' => null, 'total_pagado' => 264,
+            ],
+        ]);
+
+        $response->assertStatus(201)->assertJson(['success' => true]);
+
+        $this->assertDatabaseHas('registrations', [
+            'evento_id' => $evento->id, 'pago_status' => 'paid', 'tipo_pago' => 'EFECTIVO',
+            'moneda_pago' => 'USD', 'total_pagado' => 264, 'tipo_cambio_aplicado' => null,
+        ]);
+        // El bookkeeping en Bs (caja_movimientos, para el cierre de turno)
+        // sigue siendo el grand_total en Bs de siempre — no se pisa con
+        // el monto real en USD, a propósito (ver docblock de la clase).
+        $this->assertDatabaseHas('caja_movimientos', [
+            'evento_id' => $evento->id, 'tipo' => 'inscripcion_nueva', 'monto' => 2200,
+        ]);
+    }
+
+    /**
+     * Defensa en profundidad — el servidor rechaza igual aunque el
+     * cliente (bug o intento deliberado) mande donación en un evento
+     * usdPrecioFijo, sin depender del guardia del lado del navegador.
+     */
+    public function test_caja_rechaza_donacion_en_evento_usd_precio_fijo(): void
+    {
+        $evento = Evento::factory()->create([
+            'organizador_id' => $this->evento->organizador_id,
+            'tipo_evento_id' => $this->evento->tipo_evento_id,
+            'subtipo_evento_id' => $this->evento->subtipo_evento_id,
+            'pais_id' => $this->evento->pais_id,
+            'ciudad_id' => $this->evento->ciudad_id,
+            'fee_pct' => 0.10,
+            'usd_precio_fijo' => true, 'acepta_usd' => true,
+        ]);
+        $formType = FormType::factory()->create([
+            'event_id' => $evento->id, 'cupo_total' => 100, 'activo' => true, 'requiere_categoria' => true,
+            'has_donation' => true,
+        ]);
+        $categoria = Category::factory()->create(['event_id' => $evento->id, 'price' => 2000, 'price_usd' => 240]);
+
+        $cajero = $this->actingAsAdmin();
+        $cajero->update(['rol' => 'cajero', 'evento_id' => $evento->id]);
+        $this->postJson("/api/v1/event/{$evento->id}/caja/turno/abrir", ['fondo_inicial' => 0])->assertStatus(201);
+
+        $participante = $this->participanteData('EXTRANJERO-2', [
+            'categoria' => (string) $categoria->id, 'precioCategoria' => 2000, 'subtotal' => 2000, 'donacion' => 50,
+        ]);
+
+        $response = $this->postJson("/api/v1/event/{$evento->id}/caja/inscripcion", [
+            'form_types_id' => $formType->id,
+            'participante' => $participante,
+            'totales' => [
+                'inscripcion' => 2000, 'donacion' => 50, 'souvenirs' => 0, 'fee' => 205,
+                'descuento' => 0, 'descuento_registrante' => 0, 'grand_total' => 2255,
+                'moneda_pago' => 'USD', 'tipo_cambio_aplicado' => null, 'total_pagado' => 264,
+            ],
+        ]);
+
+        $response->assertStatus(422);
+        $this->assertDatabaseCount('registrations', 0);
+    }
+
     public function test_cobrar_pendiente_existente(): void
     {
         $cajero = $this->actingAsCajero();
