@@ -110,6 +110,48 @@ class RegistrationService
             return $this->loadRelations($registration);
         }
 
+        // Bug real (12/09/2026, caso real LA-6EF627D3, evento Naranjillo
+        // Ultra Trail) — un webhook de Multipago llegó DESPUÉS de que
+        // ExpirarInscripcionesPendientesAction ya había cancelado la
+        // inscripción por falta de pago dentro del plazo: cupo revertido,
+        // correo de "cupo revertido" enviado, y el Participante ya
+        // PURGADO (PurgarDatosPersonaCanceladaAction, evento con
+        // mantener_datos_persona=false). El endpoint de callback de
+        // pasarela (RegistrationController::updatePayment(), sin auth
+        // propia) no tenía ningún guardia de transición de estado — a
+        // diferencia de TODOS los demás llamadores de este método con
+        // 'paid' (CajaController::cobrarPendiente(),
+        // OrganizadorDashboardController::confirmarPagoSitio(),
+        // RegistrationController::confirmarPagoManual()), que ya exigen
+        // pago_status==='pending' ANTES de llamar. Se cierra acá, en el
+        // colaborador compartido, para proteger también al único
+        // llamador que no se autoprotegía — sin esto, la pasarela
+        // terminaba marcando 'paid' una inscripción sin ningún
+        // participante: el dinero entró de verdad, pero el registro
+        // quedó vacío, sin forma de que el organizador supiera quién
+        // pagó qué.
+        //
+        // No se relanza como excepción (rompería el 200 que la pasarela
+        // espera y dispararía reintentos inútiles) — la plata YA entró,
+        // esto no es un error transitorio que un reintento vaya a
+        // resolver, es un caso que necesita reconciliación manual. Se
+        // loguea en CRITICAL para que quede visible, y la inscripción se
+        // queda tal cual estaba (cancelada/fallida) en vez de mentir con
+        // un 'paid' fantasma sin participantes.
+        if ($status === 'paid' && in_array($registration->pago_status, ['cancelled', 'failed'], true)) {
+            Log::critical('pago-tardio-sobre-inscripcion-ya-cancelada', [
+                'referencia'       => $registration->referencia,
+                'registration_id'  => $registration->id,
+                'evento_id'        => $registration->evento_id,
+                'evento_nombre'    => $registration->evento_nombre,
+                'tipo_pago'        => $registration->tipo_pago,
+                'pay_order_number' => $registration->pay_order_number,
+                'estado_anterior'  => $registration->pago_status,
+            ]);
+
+            return $this->loadRelations($registration);
+        }
+
         $registration->update([
             'pago_status' => $status
         ]);
