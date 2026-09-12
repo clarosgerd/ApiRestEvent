@@ -10,12 +10,13 @@ use App\Models\RegistrationTotal;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Sync de participantes de un congreso externo (07/09/2026) — ver
- * brain/PLAN-SYNC-CONGRESO-EXTERNO-07092026.md. Primer caso: COLABIOCLI
- * 2026, cuyas inscripciones viven en un Google Sheet propio del organizador
- * (fuera de nuestro sistema), sincronizadas acá solo para poder reusar
- * Retiro en sitio (entrega de kit — que ya incluye la credencial, así que
- * también cubre acreditación) — NO para consolidación de balance.
+ * Sync de participantes de un congreso externo (07/09/2026, rediseñado
+ * 12/09/2026) — ver brain/PLAN-SYNC-CONGRESO-EXTERNO-07092026.md. Primer
+ * caso: COLABIOCLI 2026, cuyas inscripciones viven en un Google Sheet propio
+ * del organizador (fuera de nuestro sistema), sincronizadas acá solo para
+ * poder reusar Retiro en sitio (entrega de kit — que ya incluye la
+ * credencial, así que también cubre acreditación) — NO para consolidación
+ * de balance.
  *
  * A propósito NO reusa `CrearInscripcionAction`: esa valida precio contra
  * `categories`, stock, fee%, moneda, promo — nada de eso aplica, no es una
@@ -23,40 +24,67 @@ use Illuminate\Support\Facades\DB;
  * organizador). Este Action inserta directo, con su propia validación
  * mínima.
  *
- * Su formulario no pide documento de identidad — se usa el CORREO como
- * `numero_documento` (único, se pide individualmente incluso en
- * inscripción grupal). Es también la clave de idempotencia: reenviar la
- * misma fila (o el sheet completo, sin filtrar "lo nuevo") actualiza en vez
- * de duplicar.
+ * `$formType` lo resuelve el controller según de qué hoja vino la fila (el
+ * archivo real del congreso tiene 2 productos distintos: "Congresista" y
+ * "Curso Pre-Congreso" — una misma persona puede estar en ambos). Por eso el
+ * upsert está scopeado por `(evento, form_type, numero_documento)`, no solo
+ * evento+documento — así las dos inscripciones de una misma persona no se
+ * pisan entre sí.
+ *
+ * `numero_documento`: su formulario no pide documento de identidad — se usa
+ * el CORREO cuando viene. `INSCRIPCIONES LIBERADAS` (invitados VIP, sin
+ * costo) a veces no trae correo — ahí se usa `nombre+apellido` normalizado
+ * como fallback. Es también la clave de idempotencia: reenviar la misma
+ * fila (o el sheet completo, sin filtrar "lo nuevo") actualiza en vez de
+ * duplicar.
  */
 class SincronizarParticipanteExternoAction
 {
     /**
-     * @param array{nombre?: string, apellido?: string, correo?: string, telefono?: string, categoria?: string, ubicacion?: string} $fila
+     * @param array{nombre?: string, apellido?: string, correo?: string, telefono?: string, categoria?: string, nombre_curso?: string, ubicacion?: string} $fila
      * @return array{resultado: 'creado'|'actualizado'|'omitido', motivo?: string, participanteId?: int}
      */
     public function run(Evento $evento, FormType $formType, array $fila): array
     {
         $nombre = trim((string) ($fila['nombre'] ?? ''));
         $apellido = trim((string) ($fila['apellido'] ?? ''));
-        $correo = strtolower(trim((string) ($fila['correo'] ?? '')));
 
         if ($nombre === '' || $apellido === '') {
             return ['resultado' => 'omitido', 'motivo' => 'Falta nombre o apellido.'];
         }
-        if ($correo === '' || !filter_var($correo, FILTER_VALIDATE_EMAIL)) {
-            return ['resultado' => 'omitido', 'motivo' => "Correo faltante o inválido: \"{$correo}\"."];
+
+        $correoCrudo = strtolower(trim((string) ($fila['correo'] ?? '')));
+        $tieneCorreoValido = $correoCrudo !== '' && filter_var($correoCrudo, FILTER_VALIDATE_EMAIL);
+
+        // Fallback (12/09/2026): `INSCRIPCIONES LIBERADAS` (invitados VIP)
+        // a veces no trae correo — sin esto, esas filas se perdían enteras.
+        // No es tan robusto contra duplicados como el correo (dos invitados
+        // homónimos colisionarían), pero es una lista chica por edición y
+        // de todos modos se busca por nombre en el mostrador.
+        if ($tieneCorreoValido) {
+            $numeroDocumento = $correoCrudo;
+            $tipoDocumento = 'EMAIL';
+        } else {
+            $numeroDocumento = preg_replace('/\s+/', ' ', strtolower(trim("{$nombre} {$apellido}")));
+            $tipoDocumento = 'NOMBRE';
         }
 
-        $categoria = trim((string) ($fila['categoria'] ?? ''));
+        // `nombre_curso` (hoja Cursos_Pre_Congreso) pisa a `categoria` si
+        // viene — esa hoja manda "Curso Pre-Congreso" en su columna
+        // Categoría para TODAS las filas (no distingue nada); el dato real
+        // de qué curso es está en Nombre Curso.
+        $categoria = trim((string) ($fila['nombre_curso'] ?? '')) !== ''
+            ? trim((string) $fila['nombre_curso'])
+            : trim((string) ($fila['categoria'] ?? ''));
         $telefono = trim((string) ($fila['telefono'] ?? ''));
         $ubicacion = trim((string) ($fila['ubicacion'] ?? ''));
+        $correo = $tieneCorreoValido ? $correoCrudo : '';
 
-        return DB::transaction(function () use ($evento, $formType, $nombre, $apellido, $correo, $categoria, $telefono, $ubicacion) {
+        return DB::transaction(function () use ($evento, $formType, $nombre, $apellido, $numeroDocumento, $tipoDocumento, $correo, $categoria, $telefono, $ubicacion) {
             $participante = Participante::whereHas(
                 'registration',
-                fn ($q) => $q->where('evento_id', $evento->id)
-            )->where('numero_documento', $correo)->first();
+                fn ($q) => $q->where('evento_id', $evento->id)->where('form_types_id', $formType->id)
+            )->where('numero_documento', $numeroDocumento)->first();
 
             if ($participante) {
                 $participante->update([
@@ -93,10 +121,13 @@ class SincronizarParticipanteExternoAction
                 // no los pide el formulario del congreso — sentinels
                 // explícitos, no un dato inventado que parezca real.
                 'genero' => 'Otro',
-                'tipo_documento' => 'EMAIL',
-                'numero_documento' => $correo,
+                'tipo_documento' => $tipoDocumento,
+                'numero_documento' => $numeroDocumento,
                 'fecha_nacimiento' => '1900-01-01',
                 'edad' => 0,
+                // Puede quedar vacío (fallback sin correo, ver docblock) —
+                // 'correo' no es NULLABLE pero sí acepta '' (string NOT
+                // NULL sin default, no hay constraint de formato en BD).
                 'correo' => $correo,
                 'direccion' => '',
                 'ciudad' => $ubicacion,
