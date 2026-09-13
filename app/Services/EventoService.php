@@ -65,6 +65,12 @@ class EventoService
             // Orden de secciones en #screen-form-types (25/08/2026) — ver
             // admin-eventos/EventoController::update() y elascenso/event/index.php.
             'seccionesOrden'   => 'secciones_orden',
+            // Gafetes/certificados parametrizables por evento (13/09/2026) —
+            // pedido real de COLABIOCLI 2026, manteniendo CIACRUZ y el resto
+            // de eventos existentes intactos (defaults false/null). Ver
+            // EventoController::gafetesPdf()/certificadosPdf().
+            'certificadoSoloNombre' => 'certificado_solo_nombre',
+            'gafeteConfig'          => 'gafete_config',
         ];
 
         // Columnas NOT NULL sin default en la migración original de `eventos`

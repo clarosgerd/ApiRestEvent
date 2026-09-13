@@ -570,18 +570,45 @@ return response()->json([
             }
         }
 
-        // Gafete físico de 7x5cm (ver figura de referencia del organizador) —
-        // sin logo/nombre de evento/foto/referencia, solo nombre + QR + rol.
-        // A4 horizontal (mismo patrón que certificadosPdf) para que entren 3
-        // gafetes por fila con margen de sobra; en A4 vertical con los
-        // márgenes default de dompdf, 3×7cm queda muy justo/desborda.
+        // Gafete físico de 7x5cm por default (ver figura de referencia del
+        // organizador) — sin logo/nombre de evento/foto/referencia, solo
+        // nombre + QR + rol. A4 horizontal (mismo patrón que
+        // certificadosPdf) para que entren 3 gafetes por fila con margen de
+        // sobra; en A4 vertical con los márgenes default de dompdf, 3×7cm
+        // queda muy justo/desborda.
+        //
+        // Tamaño/layout parametrizable por evento (13/09/2026, pedido real
+        // de COLABIOCLI 2026) — $event->gafete_config null usa exactamente
+        // los defaults de siempre, así que CIACRUZ y el resto de eventos
+        // existentes no cambian.
+        $dims = $this->gafeteDims($event->gafete_config);
 
         $pdf = Pdf::loadView('tickets.gafetes', [
             'evento' => $event,
-            'filas'  => array_chunk($items, 3),
-        ])->setPaper('a4', 'landscape');
+            'filas'  => array_chunk($items, $dims['per_row']),
+            'dims'   => $dims,
+        ])->setPaper($dims['paper'], $dims['orientation']);
 
         return $pdf->stream('gafetes-' . Str::slug($event->nombre) . '.pdf');
+    }
+
+    /**
+     * Dimensiones/layout del gafete con defaults seguros — mismo criterio
+     * que safeHex(): un `gafete_config` mal formado o con valores fuera de
+     * rango (cargado por el organizador vía admin-eventos) nunca debe
+     * romper el CSS/paper del PDF, solo caer al default.
+     */
+    private function gafeteDims(?array $config): array
+    {
+        $paper = $config['paper'] ?? 'a4';
+
+        return [
+            'width_cm'    => (float) ($config['width_cm'] ?? 7.0),
+            'height_cm'   => (float) ($config['height_cm'] ?? 5.0),
+            'per_row'     => max(1, min(6, (int) ($config['per_row'] ?? 3))),
+            'paper'       => in_array($paper, ['a4', 'letter'], true) ? $paper : 'a4',
+            'orientation' => ($config['orientation'] ?? 'landscape') === 'portrait' ? 'portrait' : 'landscape',
+        ];
     }
 
     /**
@@ -669,6 +696,7 @@ return response()->json([
                         'posicionGeneral'   => $resultado->posicion_general,
                         'posicionCategoria' => $resultado->posicion_categoria,
                         'referencia'        => $registration->referencia,
+                        'soloNombre'        => (bool) $event->certificado_solo_nombre,
                     ];
                 } else {
                     // Título (20/08/2026) — $participante->alias es la misma
@@ -677,15 +705,26 @@ return response()->json([
                     // Otro). Vacío en staff/voluntariado/DNS-DNF de carrera,
                     // que no la usan — el filter() se lo salta sin dejar un
                     // espacio de más.
+                    //
+                    // certificado_solo_nombre (13/09/2026, pedido real de
+                    // COLABIOCLI 2026): imprime solo nombre+apellido, sin el
+                    // prefijo de título/alias. Default false — CIACRUZ y el
+                    // resto de eventos existentes arman el nombre igual que
+                    // siempre.
                     $items[] = [
                         'tipo'       => 'asistencia',
-                        'nombre'     => collect([$participante->alias, $participante->nombre, $participante->apellido])
-                            ->filter()->implode(' '),
+                        'nombre'     => $event->certificado_solo_nombre
+                            ? trim($participante->nombre . ' ' . $participante->apellido)
+                            : collect([$participante->alias, $participante->nombre, $participante->apellido])
+                                ->filter()->implode(' '),
                         // Mismo mapa $categoryNames de la rama de arriba —
                         // sin esto salía el ID crudo ("12") en vez del
                         // nombre real ("Ponente") en el diploma.
                         'rol'        => $categoryNames[$participante->categoria] ?? $participante->categoria,
                         'referencia' => $registration->referencia,
+                        // Suprime el párrafo ".detalle" (rol/fecha) en la
+                        // vista cuando el evento pide "solo nombres".
+                        'soloNombre' => (bool) $event->certificado_solo_nombre,
                     ];
                 }
             }

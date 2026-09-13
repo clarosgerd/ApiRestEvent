@@ -74,6 +74,15 @@ class UpdateEventosRequest extends FormRequest
             // EventoService::update(), mismas 9 claves fijas del frontend.
             'seccionesOrden'   => 'sometimes|nullable|array',
             'seccionesOrden.*' => 'string|in:description,calendar,countdown,media,sponsors,kitGallery,routeMap,agenda,formTypes',
+            // Gafetes/certificados parametrizables por evento (13/09/2026) —
+            // pedido real de COLABIOCLI 2026, ver EventoService::update().
+            'certificadoSoloNombre'   => 'sometimes|boolean',
+            'gafeteConfig'            => 'sometimes|nullable|array',
+            'gafeteConfig.width_cm'   => 'sometimes|numeric|min:3|max:15',
+            'gafeteConfig.height_cm'  => 'sometimes|numeric|min:3|max:15',
+            'gafeteConfig.per_row'    => 'sometimes|integer|min:1|max:6',
+            'gafeteConfig.paper'      => 'sometimes|in:a4,letter',
+            'gafeteConfig.orientation' => 'sometimes|in:portrait,landscape',
             'video'            => 'sometimes|nullable|string|max:255',
             'image'            => 'sometimes|nullable|string|max:255',
             'colorHex'         => 'sometimes|nullable|string|max:7',

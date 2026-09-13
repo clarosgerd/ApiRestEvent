@@ -100,6 +100,11 @@ class Evento extends Model
         // organizador. null = usa el orden por defecto del frontend, sin
         // cambio de aspecto para eventos que no lo configuraron.
         'secciones_orden',
+        // Gafetes/certificados parametrizables por evento (13/09/2026) —
+        // pedido real de COLABIOCLI 2026, manteniendo CIACRUZ y el resto de
+        // eventos existentes intactos (defaults false/null).
+        'certificado_solo_nombre',
+        'gafete_config',
     ];
 
 protected $casts = [
@@ -115,6 +120,8 @@ protected $casts = [
     'forzar_qr_pago_adicional' => 'boolean',
     'mantener_datos_persona' => 'boolean',
     'secciones_orden'   => 'array',
+    'certificado_solo_nombre' => 'boolean',
+    'gafete_config'     => 'array',
 ];
     /**
      * Permite que las rutas `{event}` (GET/PUT/DELETE /event/{event}, y
