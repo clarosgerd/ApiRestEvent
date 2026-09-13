@@ -22,9 +22,22 @@ class PromoCodeController extends Controller
     /**
      * Display a listing of the resource.
      */
+    /**
+     * event_id obligatorio (13/09/2026) — este endpoint es público (sin
+     * auth). Sin este chequeo devolvía TODOS los códigos promocionales de
+     * TODOS los eventos (código real + descuento) a cualquiera, paginado
+     * pero enumerable. Confirmado que ningún consumidor real depende de
+     * listar sin filtro — cerrar la fuga no rompe nada existente.
+     */
     public function index(Request $request)
     {
-        //
+        if (!$request->has('event_id.eq')) {
+            return response()->json([
+                'success' => false,
+                'error'   => 'event_id es requerido.',
+            ], 422);
+        }
+
          $filter = new PromoCodeFilter();
         $filterItems = $filter->transform($request); // [['column','operator','value']]
         $promoCode = PromoCode::where($filterItems);

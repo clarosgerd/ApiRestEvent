@@ -139,4 +139,73 @@ class PromoCodeControllerTest extends TestCase
 
         $this->assertDatabaseMissing('promo_codes', ['id' => $promo->id]);
     }
+
+    /**
+     * Fuga cerrada (13/09/2026) — GET /promo-code es público (sin auth).
+     * Sin event_id devolvía TODOS los códigos de TODOS los eventos (código
+     * real + descuento) a cualquiera. Confirmado que ningún consumidor real
+     * depende de listar sin filtro.
+     */
+    public function test_index_requires_event_id(): void
+    {
+        $this->getJson('/api/v1/promo-code')
+            ->assertStatus(422)
+            ->assertJsonPath('error', 'event_id es requerido.');
+    }
+
+    public function test_index_filtra_por_event_id(): void
+    {
+        PromoCode::factory()->create(['event_id' => $this->evento->id, 'promo_code' => 'DELMIO']);
+
+        $this->getJson('/api/v1/promo-code?event_id[eq]=' . $this->evento->id)
+            ->assertOk()
+            ->assertJsonPath('data.0.promo_code', 'DELMIO');
+    }
+
+    public function test_index_filtra_por_usado(): void
+    {
+        PromoCode::factory()->create(['event_id' => $this->evento->id, 'promo_code' => 'AGOTADO', 'usado' => true]);
+        PromoCode::factory()->create(['event_id' => $this->evento->id, 'promo_code' => 'VIGENTE', 'usado' => false]);
+
+        $response = $this->getJson('/api/v1/promo-code?event_id[eq]=' . $this->evento->id . '&usado[eq]=1');
+
+        $response->assertOk();
+        $codigos = collect($response->json('data'))->pluck('promo_code');
+        $this->assertTrue($codigos->contains('AGOTADO'));
+        $this->assertFalse($codigos->contains('VIGENTE'));
+    }
+
+    /**
+     * Regresión directa de la fuga: un código de OTRO evento nunca debe
+     * aparecer al pedir event_id de este evento.
+     */
+    public function test_index_no_devuelve_codigos_de_otro_evento(): void
+    {
+        $otroOrganizador = Organizador::factory()->create();
+        $otroEvento = Evento::factory()->create([
+            'organizador_id' => $otroOrganizador->id,
+            'tipo_evento_id' => $this->evento->tipo_evento_id,
+            'subtipo_evento_id' => $this->evento->subtipo_evento_id,
+            'pais_id' => $this->evento->pais_id,
+            'ciudad_id' => $this->evento->ciudad_id,
+        ]);
+
+        PromoCode::factory()->create(['event_id' => $this->evento->id, 'promo_code' => 'MIEVENTO']);
+        PromoCode::factory()->create(['event_id' => $otroEvento->id, 'promo_code' => 'SECRETODELOTRO']);
+
+        $response = $this->getJson('/api/v1/promo-code?event_id[eq]=' . $this->evento->id);
+
+        $response->assertOk();
+        $codigos = collect($response->json('data'))->pluck('promo_code');
+        $this->assertTrue($codigos->contains('MIEVENTO'));
+        $this->assertFalse($codigos->contains('SECRETODELOTRO'));
+    }
+
+    /** Fix real (13/09/2026) — evento() usaba 'id' como $foreignKey en vez de owner key. */
+    public function test_promo_code_evento_relation_resuelve_el_evento_correcto(): void
+    {
+        $promo = PromoCode::factory()->create(['event_id' => $this->evento->id]);
+
+        $this->assertSame($this->evento->id, $promo->evento->id);
+    }
 }

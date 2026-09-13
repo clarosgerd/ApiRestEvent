@@ -30,8 +30,17 @@ class PromoCode extends Model
     ];
 
 
+     /**
+      * Fix real (13/09/2026) — antes usaba `belongsTo('App\Models\Evento',
+      * 'id')`, donde 'id' se interpreta como $foreignKey (columna en
+      * promo_codes), no como owner key: la query armaba
+      * `eventos.id = promo_codes.id`, ignorando la FK real (`event_id`).
+      * Confirmado sin call sites en ningún repo antes de este fix — era
+      * código muerto, nunca causó un bug activo, pero devolvía datos
+      * incorrectos/null para quien lo llamara.
+      */
      public function evento()  {
-        return $this->belongsTo('App\Models\Evento','id');
+        return $this->belongsTo(Evento::class, 'event_id');
      }
 
     public function usages(): HasMany
