@@ -127,7 +127,12 @@ class EventoCreateTest extends TestCase
             'coordinates' => [['lat' => -16.5, 'lng' => -68.1]],
             'route'       => [['lat' => -16.5, 'lng' => -68.1, 'label' => 'Salida']],
             'promoCodes'  => [
-                ['promo_code' => 'TEST10', 'price' => 0, 'discount_type' => 'percentage', 'discount_percent' => 0.10],
+                // max_uses (13/09/2026) — este camino anidado (PromoCodeDTO
+                // + PromoCode::insert() en CrearEventoAction) es DISTINTO
+                // de PromoCodeController::store(); sin pasarlo por el DTO
+                // explícitamente, insert() caía siempre al default de
+                // columna (1) sin importar lo que se mandara acá.
+                ['promo_code' => 'TEST10', 'price' => 0, 'discount_type' => 'percentage', 'discount_percent' => 0.10, 'max_uses' => 4],
             ],
             'auspiciadores' => [
                 ['nombre' => 'Sponsor X', 'logo_url' => 'x.png', 'contacto' => 'x', 'orden' => 1],
@@ -163,6 +168,7 @@ class EventoCreateTest extends TestCase
         $this->assertSame(1, Route::where('event_id', $evento->id)->count());
         $this->assertSame(1, Category::where('event_id', $evento->id)->count());
         $this->assertSame(1, PromoCode::where('event_id', $evento->id)->count());
+        $this->assertSame(4, PromoCode::where('event_id', $evento->id)->first()->max_uses);
         $this->assertSame(1, Auspiciador::where('event_id', $evento->id)->count());
         $this->assertSame(1, FormType::where('event_id', $evento->id)->count());
 

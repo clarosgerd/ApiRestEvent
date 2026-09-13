@@ -24,6 +24,10 @@ class PromoCodeFactory extends Factory
             'price' => $this->faker->randomFloat(2, 10, 100),
             'discount_type' => 'fixed_price',
             'discount_percent' => null,
+            // Multi-uso (13/09/2026) — mismo default que la columna real
+            // (1 = un solo uso, comportamiento histórico).
+            'max_uses' => 1,
+            'times_used' => 0,
         ];
     }
 
@@ -34,5 +38,10 @@ class PromoCodeFactory extends Factory
             'discount_type' => 'percentage',
             'discount_percent' => $percent,
         ]);
+    }
+
+    public function multiUse(int $maxUses): static
+    {
+        return $this->state(fn () => ['max_uses' => $maxUses]);
     }
 }

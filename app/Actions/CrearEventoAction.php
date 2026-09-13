@@ -307,6 +307,10 @@ class CrearEventoAction
             'price'            => $p->price,
             'discount_type'    => $p->discountType,
             'discount_percent' => $p->discountPercent,
+            // Multi-uso (13/09/2026) — sin esto, insert() usaría el
+            // default de columna (1) sin importar lo que el wizard mandó,
+            // ver PromoCodeDTO::maxUses.
+            'max_uses'         => $p->maxUses,
         ], $dto->promoCodes);
 
         PromoCode::insert($data);

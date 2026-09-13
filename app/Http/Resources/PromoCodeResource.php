@@ -22,6 +22,10 @@ class PromoCodeResource extends JsonResource
             'discount_type'    => $this->discount_type ?? 'fixed_price',
             'discount_percent' => $this->discount_percent !== null ? (float) $this->discount_percent : null,
             'usado'            => (bool) $this->usado,
+            // Multi-uso (13/09/2026) — aditivo, admin-eventos/elascenso/event
+            // que todavía no los usan los ignoran sin romperse.
+            'max_uses'         => (int) $this->max_uses,
+            'times_used'       => (int) $this->times_used,
 
     ];
     }

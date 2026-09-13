@@ -11,6 +11,7 @@ use App\Models\Organizador;
 use App\Models\Pais;
 use App\Models\Participante;
 use App\Models\PromoCode;
+use App\Models\PromoCodeUsage;
 use App\Models\Registration;
 use App\Models\SubtipoEvento;
 use App\Models\TipoEvento;
@@ -43,7 +44,14 @@ class PromoCodeReporteTest extends TestCase
         ]);
     }
 
-    private function crearParticipanteConPromo(Evento $evento, string $promoCodigo, float $promoDescuento): Participante
+    /**
+     * Crea un Participante con un promo aplicado Y la fila de
+     * PromoCodeUsage correspondiente (13/09/2026, multi-uso) — el reporte
+     * ahora lee de `promo_code_usages`, no de un match por texto contra
+     * `participantes.promo_codigo`; sin esta fila el uso no aparecería en
+     * el reporte aunque el Participante sí tenga el código guardado.
+     */
+    private function crearParticipanteConPromo(Evento $evento, PromoCode $promoCode, float $promoDescuento): Participante
     {
         $formType = FormType::factory()->create(['event_id' => $evento->id]);
         $categoria = Category::factory()->create(['event_id' => $evento->id, 'price' => 100]);
@@ -58,7 +66,7 @@ class PromoCodeReporteTest extends TestCase
             'pago_status' => 'paid',
         ]);
 
-        return Participante::create([
+        $participante = Participante::create([
             'registration_id' => $registration->id,
             'nombre' => 'Nombre' . rand(1000, 9999), 'apellido' => 'Apellido',
             'genero' => 'Femenino', 'tipo_documento' => 'DNI',
@@ -66,11 +74,21 @@ class PromoCodeReporteTest extends TestCase
             'fecha_nacimiento' => '1990-01-01', 'edad' => 30,
             'correo' => 'test' . rand(1000, 9999) . '@test.net', 'direccion' => 'x', 'ciudad' => 'x', 'telefono' => '123',
             'categoria' => $categoria->id, 'precio_categoria' => 100, 'subtotal' => 90,
-            'promo_codigo' => $promoCodigo, 'promo_descuento' => $promoDescuento,
+            'promo_codigo' => $promoCode->promo_code, 'promo_descuento' => $promoDescuento,
         ]);
+
+        PromoCodeUsage::create([
+            'promo_code_id' => $promoCode->id,
+            'registration_id' => $registration->id,
+            'participante_id' => $participante->id,
+            'monto_descontado' => $promoDescuento,
+            'used_at' => now(),
+        ]);
+
+        return $participante;
     }
 
-    public function test_codigo_sin_usar_no_tiene_participante(): void
+    public function test_codigo_sin_usar_tiene_lista_de_usos_vacia(): void
     {
         $evento = $this->crearEvento();
         PromoCode::factory()->create([
@@ -85,18 +103,18 @@ class PromoCodeReporteTest extends TestCase
         $response->assertOk()
             ->assertJsonPath('filas.0.codigo', 'SINUSAR')
             ->assertJsonPath('filas.0.usado', false)
-            ->assertJsonPath('filas.0.participante', null)
-            ->assertJsonPath('filas.0.montoDescontado', null);
+            ->assertJsonPath('filas.0.vecesUsado', 0)
+            ->assertJsonCount(0, 'filas.0.usos');
     }
 
-    public function test_codigo_usado_muestra_participante_y_monto(): void
+    public function test_codigo_usado_una_vez_muestra_un_uso_con_participante_y_monto(): void
     {
         $evento = $this->crearEvento();
-        PromoCode::factory()->create([
+        $promo = PromoCode::factory()->create([
             'event_id' => $evento->id, 'promo_code' => 'USADO10', 'discount_type' => 'percentage',
-            'discount_percent' => 0.10, 'usado' => true,
+            'discount_percent' => 0.10, 'usado' => true, 'times_used' => 1,
         ]);
-        $participante = $this->crearParticipanteConPromo($evento, 'USADO10', 10.0);
+        $participante = $this->crearParticipanteConPromo($evento, $promo, 10.0);
 
         $this->actingAsAdmin();
 
@@ -104,19 +122,47 @@ class PromoCodeReporteTest extends TestCase
 
         $response->assertOk()
             ->assertJsonPath('filas.0.usado', true)
-            ->assertJsonPath('filas.0.participante.nombre', $participante->nombre)
-            ->assertJsonPath('filas.0.participante.numeroDocumento', $participante->numero_documento)
-            ->assertJsonPath('filas.0.montoDescontado', 10);
+            ->assertJsonCount(1, 'filas.0.usos')
+            ->assertJsonPath('filas.0.usos.0.participante.nombre', $participante->nombre)
+            ->assertJsonPath('filas.0.usos.0.participante.numeroDocumento', $participante->numero_documento)
+            ->assertJsonPath('filas.0.usos.0.montoDescontado', 10);
     }
 
-    public function test_totales_correctos(): void
+    /**
+     * Multi-uso (13/09/2026) — un código con max_uses=3 usado por 3
+     * participantes distintos muestra los 3 en `usos[]`, en orden de
+     * `used_at`.
+     */
+    public function test_codigo_multi_uso_muestra_todas_las_participaciones(): void
     {
         $evento = $this->crearEvento();
-        PromoCode::factory()->create(['event_id' => $evento->id, 'promo_code' => 'A', 'usado' => true]);
+        $promo = PromoCode::factory()->create([
+            'event_id' => $evento->id, 'promo_code' => 'MULTI3', 'discount_type' => 'fixed_price',
+            'price' => 20, 'max_uses' => 3, 'times_used' => 3, 'usado' => true,
+        ]);
+        $this->crearParticipanteConPromo($evento, $promo, 5.0);
+        $this->crearParticipanteConPromo($evento, $promo, 5.0);
+        $this->crearParticipanteConPromo($evento, $promo, 5.0);
+
+        $this->actingAsAdmin();
+
+        $response = $this->getJson("/api/v1/event/{$evento->id}/promo-codes-reporte");
+
+        $response->assertOk()
+            ->assertJsonPath('filas.0.maxUsos', 3)
+            ->assertJsonPath('filas.0.vecesUsado', 3)
+            ->assertJsonCount(3, 'filas.0.usos');
+    }
+
+    public function test_totales_reflejan_veces_usado_y_total_usos(): void
+    {
+        $evento = $this->crearEvento();
+        $promoA = PromoCode::factory()->create(['event_id' => $evento->id, 'promo_code' => 'A', 'usado' => true, 'times_used' => 1]);
         PromoCode::factory()->create(['event_id' => $evento->id, 'promo_code' => 'B', 'usado' => false]);
-        PromoCode::factory()->create(['event_id' => $evento->id, 'promo_code' => 'C', 'usado' => true]);
-        $this->crearParticipanteConPromo($evento, 'A', 15.0);
-        $this->crearParticipanteConPromo($evento, 'C', 25.0);
+        $promoC = PromoCode::factory()->create(['event_id' => $evento->id, 'promo_code' => 'C', 'max_uses' => 2, 'times_used' => 2, 'usado' => true]);
+        $this->crearParticipanteConPromo($evento, $promoA, 15.0);
+        $this->crearParticipanteConPromo($evento, $promoC, 25.0);
+        $this->crearParticipanteConPromo($evento, $promoC, 25.0);
 
         $this->actingAsAdmin();
 
@@ -124,8 +170,9 @@ class PromoCodeReporteTest extends TestCase
 
         $response->assertOk()
             ->assertJsonPath('totalCodigos', 3)
-            ->assertJsonPath('totalUsados', 2)
-            ->assertJsonPath('totalDescontado', 40);
+            ->assertJsonPath('totalUsados', 2)   // códigos tocados al menos una vez: A y C
+            ->assertJsonPath('totalUsos', 3)     // usage-events totales: 1 (A) + 2 (C)
+            ->assertJsonPath('totalDescontado', 65);
     }
 
     public function test_codigos_de_otro_evento_no_aparecen(): void

@@ -141,6 +141,9 @@ class StoreEventosRequest extends FormRequest
             'promoCodes.*.price'    => 'nullable|numeric|min:0',
             'promoCodes.*.discount_type'    => 'nullable|string|in:fixed_price,percentage',
             'promoCodes.*.discount_percent' => 'nullable|numeric|min:0|max:1',
+            // Multi-uso (13/09/2026) — faltaba acá, PromoCodeDTO::fromArray()
+            // nunca veía el campo aunque el wizard lo mandara.
+            'promoCodes.*.max_uses' => 'nullable|integer|min:1|max:10000',
 
             'auspiciadores'            => 'nullable|array',
             'auspiciadores.*.nombre'   => 'required_with:auspiciadores|string|max:255',
