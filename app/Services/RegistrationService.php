@@ -6,6 +6,7 @@ use App\Models\Participante;
 use App\Models\FormType;
 use App\Models\Persona;
 use App\Models\PromoCode;
+use App\Models\PromoCodeUsage;
 use App\Models\Souvenir;
 use App\Models\SouvenirParticipante;
 use App\Models\Registration;
@@ -197,7 +198,7 @@ class RegistrationService
      */
     public function createParticipantFromData(Registration $registration, array $data): void
     {
-        $this->consumePromoCode($registration->evento_id, $data['promoCodigo'] ?? '', $registration->id, $registration->form_types_id);
+        $promoUsageId = $this->consumePromoCode($registration->evento_id, $data['promoCodigo'] ?? '', $registration->id, $registration->form_types_id);
 
         $birth = $data['nacimiento'];
 
@@ -232,6 +233,18 @@ class RegistrationService
             'promo_codigo'     => $data['promoCodigo'] ?? '',
             'subtotal'         => $data['subtotal'],
         ]);
+
+        // Multi-uso (13/09/2026) — completa la fila de PromoCodeUsage
+        // creada en consumePromoCode() (arriba, ANTES de que este
+        // Participante existiera) con el id real y el monto que terminó
+        // aplicándosele. El monto se copia tal cual, nunca se recalcula
+        // acá — fuera de alcance de esta feature.
+        if ($promoUsageId !== null) {
+            PromoCodeUsage::whereKey($promoUsageId)->update([
+                'participante_id'  => $participant->id,
+                'monto_descontado' => $participant->promo_descuento,
+            ]);
+        }
 
         // Caja para eventos tipo congreso (20/08/2026) — puede llegar
         // vacío; el contacto de emergencia dejó de ser obligatorio
@@ -431,22 +444,44 @@ class RegistrationService
     }
 
     /**
-     * Marca un código de promoción como usado por esta inscripción, o lanza
-     * si ya lo consumió otra. lockForUpdate() dentro de la transacción de
-     * quien llama (App\Actions\CrearInscripcionAction/
+     * Marca un uso de un código de promoción para esta inscripción, o lanza
+     * si ya se agotó (`times_used >= max_uses`). lockForUpdate() dentro de
+     * la transacción de quien llama (App\Actions\CrearInscripcionAction/
      * ActualizarInscripcionAction/ActualizarInscripcionPagadaAction) evita
-     * que dos inscripciones simultáneas con el mismo código pasen ambas la
-     * validación. Público — colaborador compartido por las 3 Actions.
+     * que dos inscripciones simultáneas agoten el mismo código a la vez.
+     * Público — colaborador compartido por las 3 Actions.
      *
      * `$formTypeId` es nuevo (09/08): `hasPromoCode` vive en `form_types`,
      * no en `eventos` — defensa en profundidad, nunca confiar solo en que
      * elascenso/event o elascenso-blade ya lo validaron antes de llamar
      * acá.
+     *
+     * Multi-uso (13/09/2026) — antes esto era un booleano `usado` +
+     * `registration_id` (un código, una inscripción dueña). Ahora es un
+     * contador (`times_used`/`max_uses`); `usado` se mantiene físicamente
+     * pero pasa a significar "agotado" (recalculado acá mismo), para que
+     * los 3 lectores existentes de ese campo (admin-eventos,
+     * elascenso/event, PromoCodeController::promoCode()) seguir
+     * funcionando sin cambios. Decisión confirmada: cada PARTICIPANTE que
+     * aplica el código cuenta como un uso, sin importar si comparte
+     * inscripción con otros — por eso esto se sigue llamando una vez por
+     * participante (mismo call site de siempre), y ya no hay excepción
+     * para "misma inscripción reaplicando el código".
+     *
+     * `registration_id` en `promo_codes` deja de autorizar nada (nada fuera
+     * de este servicio y de `PromoCodeController::destroy()` lo lee) — se
+     * mantiene solo como una miga de "última inscripción que lo tocó".
+     *
+     * Devuelve el id de la fila de `PromoCodeUsage` creada (o `null` si no
+     * había código que consumir) para que el caller pueda completar
+     * `participante_id`/`monto_descontado` una vez que el Participante
+     * exista — `consumePromoCode()` se llama ANTES de `Participante::create()`
+     * en ambos call sites, mismo orden que siempre tuvo este método.
      */
-    public function consumePromoCode(int $eventId, string $promoCodigo, int $registrationId, int $formTypeId): void
+    public function consumePromoCode(int $eventId, string $promoCodigo, int $registrationId, int $formTypeId): ?int
     {
         $promoCodigo = trim($promoCodigo);
-        if ($promoCodigo === '') return;
+        if ($promoCodigo === '') return null;
 
         $formType = FormType::find($formTypeId);
         if (! $formType?->has_promo_code) {
@@ -463,27 +498,64 @@ class RegistrationService
 
         // Si no existe, ya debería haberse rechazado aguas arriba en
         // elascenso/event (_registro_validacion.php) — acá no bloqueamos por
-        // un código desconocido, solo por uno ya usado por otra inscripción.
-        if (!$promo) return;
+        // un código desconocido, solo por uno ya agotado.
+        if (!$promo) return null;
 
-        if ($promo->usado && $promo->registration_id !== $registrationId) {
+        if ($promo->times_used >= $promo->max_uses) {
             throw new \DomainException('Este código de promoción ya fue utilizado.');
         }
 
-        $promo->update(['usado' => true, 'registration_id' => $registrationId]);
+        $promo->times_used++;
+        $promo->usado = $promo->times_used >= $promo->max_uses; // "agotado"
+        $promo->registration_id = $registrationId; // miga, ya no autoriza nada
+        $promo->save();
+
+        return PromoCodeUsage::create([
+            'promo_code_id'   => $promo->id,
+            'registration_id' => $registrationId,
+            'used_at'         => now(),
+        ])->id;
     }
 
     /**
-     * Libera los códigos de promoción que una inscripción tiene consumidos —
+     * Libera los usos de promo code que una inscripción tiene consumidos —
      * se llama antes de recrear sus participantes en
      * App\Actions\ActualizarInscripcionAction/ActualizarInscripcionPagadaAction,
      * para no rechazarla a sí misma si mantiene el mismo código y para
-     * liberar el código si lo cambia o lo quita.
+     * liberar cupo si lo cambia o lo quita.
+     *
+     * Multi-uso (13/09/2026) — libera exactamente los `PromoCodeUsage` que
+     * esta inscripción posee (puede tener varios: distintos códigos, o el
+     * mismo código usado por varios de sus participantes) y decrementa
+     * `times_used` en esa cantidad exacta por código, en vez de un reset
+     * ciego a `usado=false`. Como las 2 Actions de edición borran y
+     * recrean TODOS los participantes en cada edición, "liberar todo lo
+     * que esta inscripción tenía + dejar que el loop de recreación
+     * reconsuma solo lo que sigue presente" ya resuelve, sin lógica de
+     * diff adicional: mismo código = libera y reconsume neto cero; código
+     * distinto = libera el viejo; participante sacado = ese cupo no se
+     * re-consume; participante agregado = un consumo más.
      */
     public function releasePromoCodes(int $registrationId): void
     {
-        PromoCode::where('registration_id', $registrationId)
-            ->update(['usado' => false, 'registration_id' => null]);
+        $counts = PromoCodeUsage::where('registration_id', $registrationId)
+            ->selectRaw('promo_code_id, count(*) as c')
+            ->groupBy('promo_code_id')
+            ->pluck('c', 'promo_code_id');
+
+        foreach ($counts as $promoCodeId => $count) {
+            $promo = PromoCode::whereKey($promoCodeId)->lockForUpdate()->first();
+            if (!$promo) continue;
+
+            $promo->times_used = max(0, $promo->times_used - $count);
+            $promo->usado = $promo->times_used >= $promo->max_uses;
+            if ($promo->registration_id === $registrationId) {
+                $promo->registration_id = null;
+            }
+            $promo->save();
+        }
+
+        PromoCodeUsage::where('registration_id', $registrationId)->delete();
     }
 
     /**

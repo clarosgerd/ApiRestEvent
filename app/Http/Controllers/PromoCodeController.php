@@ -48,6 +48,12 @@ class PromoCodeController extends Controller
         $data = $request->validated();
         $this->assertCanWriteEvento((int) $data['event_id']);
 
+        // Multi-uso (13/09/2026) — default explícito en creación (la
+        // columna ya lo default-ea a 1 también, esto es cinturón y
+        // tirantes para que quede claro en el código, no solo en el
+        // schema). Ver StorePromoCodeRequest — max_uses es opcional.
+        $data['max_uses'] = $data['max_uses'] ?? 1;
+
         $promoCode = PromoCode::create($data);
 
         AdminAuditLogger::log('create', 'promo_code', $promoCode->id, (int) $promoCode->event_id, null, $promoCode->toArray());
@@ -103,15 +109,19 @@ class PromoCodeController extends Controller
     /**
      * Remove the specified resource from storage.
      *
-     * Bloquea (409) si el código ya fue usado — PromoCode trackea su
-     * propio uso (`usado` + `registration_id`), no hace falta consultar
-     * Participante.
+     * Bloquea (409) si el código tiene algún uso registrado.
+     *
+     * Multi-uso (13/09/2026) — antes chequeaba `usado || registration_id`;
+     * `usado` ahora significa "agotado" (times_used >= max_uses), así que
+     * ese chequeo viejo dejaría borrar un código PARCIALMENTE usado (ej.
+     * max_uses=5, times_used=2) — hueco real que se cierra acá,
+     * chequeando `times_used` directo en vez de la señal derivada.
      */
     public function destroy(PromoCode $promo_code): JsonResponse
     {
         $this->assertCanWriteEvento((int) $promo_code->event_id);
 
-        if ($promo_code->usado || $promo_code->registration_id) {
+        if ($promo_code->times_used > 0) {
             return response()->json([
                 'success' => false,
                 'error'   => 'No se puede eliminar este código de promoción: ya fue utilizado.',

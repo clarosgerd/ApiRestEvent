@@ -29,6 +29,12 @@ class StorePromoCodeRequest extends FormRequest
             'discount_type'    => 'nullable|string|in:fixed_price,percentage',
             'discount_percent' => 'nullable|numeric|min:0|max:1',
             'status'           => 'nullable|boolean',
+            // Multi-uso (13/09/2026) — sometimes|nullable, NO required: así
+            // un admin-eventos viejo (que todavía no manda este campo)
+            // sigue creando códigos contra la API nueva sin romperse; el
+            // controller lo default-ea a 1 cuando falta. Tope de 10000
+            // como guardarraíl técnico, no una regla de negocio real.
+            'max_uses'         => 'sometimes|nullable|integer|min:1|max:10000',
         ];
     }
 }

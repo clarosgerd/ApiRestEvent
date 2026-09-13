@@ -34,6 +34,11 @@ class UpdatePromoCodeRequest extends FormRequest
             'discount_type'    => 'sometimes|nullable|string|in:fixed_price,percentage',
             'discount_percent' => 'sometimes|nullable|numeric|min:0|max:1',
             'status'           => 'sometimes|nullable|boolean',
+            // Multi-uso (13/09/2026) — sometimes, sin fallback en el
+            // controller (a diferencia de store()): si un PUT viejo no lo
+            // manda, el código conserva su max_uses actual, nunca se
+            // resetea a 1 sin querer.
+            'max_uses'         => 'sometimes|nullable|integer|min:1|max:10000',
         ];
     }
 }

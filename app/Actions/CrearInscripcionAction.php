@@ -10,6 +10,7 @@ use App\Models\Equipo;
 use App\Models\Evento;
 use App\Models\FormType;
 use App\Models\Participante;
+use App\Models\PromoCodeUsage;
 use App\Models\Registration;
 use App\Models\RegistrationTotal;
 use App\Models\Souvenir;
@@ -208,7 +209,7 @@ class CrearInscripcionAction
         ParticipantDTO $dto
     ): void {
 
-        $this->registrationService->consumePromoCode($registration->evento_id, $dto->promoCode, $registration->id, $registration->form_types_id);
+        $promoUsageId = $this->registrationService->consumePromoCode($registration->evento_id, $dto->promoCode, $registration->id, $registration->form_types_id);
 
         $participant = Participante::create([
 
@@ -249,6 +250,17 @@ class CrearInscripcionAction
             'subtotal' => $dto->subtotal,
 
         ]);
+
+        // Multi-uso (13/09/2026) — completa la fila de PromoCodeUsage
+        // creada en consumePromoCode() (arriba, ANTES de que este
+        // Participante existiera). Monto copiado tal cual, nunca
+        // recalculado — fuera de alcance de esta feature.
+        if ($promoUsageId !== null) {
+            PromoCodeUsage::whereKey($promoUsageId)->update([
+                'participante_id'  => $participant->id,
+                'monto_descontado' => $participant->promo_descuento,
+            ]);
+        }
 
         ContactoEmergenciaParticipante::create([
             'participante_id' => $participant->id,

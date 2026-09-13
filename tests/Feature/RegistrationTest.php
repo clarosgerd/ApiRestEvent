@@ -370,6 +370,201 @@ class RegistrationTest extends TestCase
     }
 
     /**
+     * Multi-uso (13/09/2026) — payload con N participantes en UNA sola
+     * inscripción, todos aplicando el mismo código. Mismo shape que
+     * validPayload() (doble-wrap `[[...]]`, ver
+     * RegistrationController::store(): `$request->validated()[0]`), pero
+     * con varios participantes; `totales.inscripcion`/`fee` escalan con N
+     * (validateFeePct() calcula el fee sobre la SUMA de inscripción de
+     * todos los participantes, no por-participante).
+     */
+    private function groupPayload(int $participantCount, string $promoCodigo): array
+    {
+        $participants = [];
+        for ($i = 0; $i < $participantCount; $i++) {
+            $participants[] = [
+                'nombre' => "Participante{$i}", 'apellido' => 'Grupo', 'alias' => '',
+                'genero' => 'Femenino', 'tipoDocumento' => 'CI',
+                'numeroDocumento' => 'GRUPO' . $i . '-' . Str::random(4),
+                'polera' => 'Sin polera', 'precioPolera' => 0,
+                'nacimiento' => ['dia' => 10, 'mes' => 5, 'anio' => 1995], 'edad' => 31,
+                'correo' => "grupo{$i}-" . Str::random(4) . '@example.com',
+                'direccion' => 'x', 'ciudad' => 'x', 'telefono' => '123',
+                'categoria' => $this->categoria->id, 'precioCategoria' => 100,
+                'donacion' => 0, 'promoDescuento' => 0, 'promoCodigo' => $promoCodigo,
+                'subtotal' => 100,
+                'contacto_emergencia' => ['nombre' => 'X', 'celular' => '123', 'relacion' => 'Madre'],
+                'souvenirs' => [],
+            ];
+        }
+
+        $inscripcion = 100 * $participantCount;
+        $fee = round($inscripcion * 0.05, 2);
+
+        return [[
+            'referencia' => 'GRUPO-' . Str::random(8),
+            'fecha' => now()->toDateTimeString(),
+            'evento_id' => $this->event->id,
+            'form_types_id' => $this->formType->id,
+            'evento_nombre' => $this->event->nombre,
+            'tipo_pago' => 'QR',
+            'pago_status' => 'pending',
+            'totales' => [
+                'inscripcion' => $inscripcion, 'donacion' => 0, 'souvenirs' => 0,
+                'fee' => $fee, 'descuento' => 0, 'grand_total' => $inscripcion + $fee,
+            ],
+            'participantes' => $participants,
+        ]];
+    }
+
+    /**
+     * Multi-uso (13/09/2026) — max_uses=1 (default de todo código
+     * existente) se comporta EXACTAMENTE igual que antes: rechaza desde
+     * una segunda inscripción distinta, mismo mensaje.
+     */
+    public function test_create_registration_rejects_promo_code_when_max_uses_exhausted_by_other_registration(): void
+    {
+        $this->formType->update(['has_promo_code' => true]);
+        \App\Models\PromoCode::factory()->create([
+            'event_id' => $this->event->id, 'promo_code' => 'UNSOLOUSO', 'max_uses' => 1,
+        ]);
+
+        $this->postJson('/api/v1/registrations', $this->validPayload(['promoCodigo' => 'UNSOLOUSO', 'numeroDocumento' => '11111111']))
+            ->assertCreated();
+
+        $this->postJson('/api/v1/registrations', $this->validPayload(['promoCodigo' => 'UNSOLOUSO', 'numeroDocumento' => '22222222']))
+            ->assertUnprocessable()
+            ->assertJsonPath('error', 'Este código de promoción ya fue utilizado.');
+
+        $this->assertDatabaseHas('promo_codes', ['promo_code' => 'UNSOLOUSO', 'times_used' => 1, 'usado' => true]);
+    }
+
+    public function test_promo_code_accepted_by_n_distinct_registrations_up_to_max_uses_then_rejected_on_n_plus_1th(): void
+    {
+        $this->formType->update(['has_promo_code' => true]);
+        \App\Models\PromoCode::factory()->create([
+            'event_id' => $this->event->id, 'promo_code' => 'TRES', 'max_uses' => 3,
+        ]);
+
+        for ($i = 1; $i <= 3; $i++) {
+            $this->postJson('/api/v1/registrations', $this->validPayload(['promoCodigo' => 'TRES', 'numeroDocumento' => "DOC{$i}"]))
+                ->assertCreated();
+        }
+
+        $this->postJson('/api/v1/registrations', $this->validPayload(['promoCodigo' => 'TRES', 'numeroDocumento' => 'DOC4']))
+            ->assertUnprocessable()
+            ->assertJsonPath('error', 'Este código de promoción ya fue utilizado.');
+
+        $this->assertDatabaseHas('promo_codes', ['promo_code' => 'TRES', 'times_used' => 3, 'usado' => true]);
+        $this->assertDatabaseCount('registrations', 3);
+    }
+
+    /**
+     * Decisión confirmada con el usuario: cada PARTICIPANTE que aplica el
+     * código cuenta como un uso, sin importar si comparte inscripción con
+     * otros.
+     */
+    public function test_group_registration_consumes_one_slot_per_participant_up_to_max_uses(): void
+    {
+        $this->formType->update(['has_promo_code' => true]);
+        \App\Models\PromoCode::factory()->create([
+            'event_id' => $this->event->id, 'promo_code' => 'GRUPO5', 'max_uses' => 5,
+        ]);
+
+        $this->postJson('/api/v1/registrations', $this->groupPayload(3, 'GRUPO5'))
+            ->assertCreated();
+
+        $this->assertDatabaseHas('promo_codes', ['promo_code' => 'GRUPO5', 'times_used' => 3, 'usado' => false]);
+        $this->assertDatabaseCount('participantes', 3);
+    }
+
+    public function test_group_registration_rejects_once_max_uses_reached_mid_loop(): void
+    {
+        $this->formType->update(['has_promo_code' => true]);
+        \App\Models\PromoCode::factory()->create([
+            'event_id' => $this->event->id, 'promo_code' => 'GRUPO2', 'max_uses' => 2,
+        ]);
+
+        $this->postJson('/api/v1/registrations', $this->groupPayload(3, 'GRUPO2'))
+            ->assertUnprocessable()
+            ->assertJsonPath('error', 'Este código de promoción ya fue utilizado.');
+
+        // Todo el registro (incluido el consumo de los 2 primeros
+        // participantes) revierte junto con la transacción — mismo
+        // `DB::transaction` que envuelve todo `createInTransaction()`.
+        $this->assertDatabaseCount('registrations', 0);
+        $this->assertDatabaseCount('participantes', 0);
+        $this->assertDatabaseHas('promo_codes', ['promo_code' => 'GRUPO2', 'times_used' => 0]);
+    }
+
+    public function test_edit_registration_keeping_same_promo_code_does_not_leak_or_double_count_slot(): void
+    {
+        $this->formType->update(['has_promo_code' => true]);
+        \App\Models\PromoCode::factory()->create([
+            'event_id' => $this->event->id, 'promo_code' => 'EDITAR1',
+        ]);
+
+        $response = $this->postJson('/api/v1/registrations', $this->validPayload(['promoCodigo' => 'EDITAR1']));
+        $response->assertCreated();
+        $referencia = $response->json('data.referencia');
+
+        $participanteData = [
+            'nombre' => 'Ana', 'apellido' => 'Garcia Editada', 'alias' => 'anita',
+            'genero' => 'Femenino', 'tipoDocumento' => 'CI', 'numeroDocumento' => '87654321',
+            'polera' => 'M', 'precioPolera' => 0,
+            'nacimiento' => ['dia' => 10, 'mes' => 5, 'anio' => 1995], 'edad' => 31,
+            'correo' => 'ana@example.com', 'direccion' => 'x', 'ciudad' => 'x', 'telefono' => '123',
+            'categoria' => $this->categoria->id, 'precioCategoria' => 100, 'donacion' => 0,
+            'promoDescuento' => 0, 'promoCodigo' => 'EDITAR1', 'subtotal' => 100,
+            'contacto_emergencia' => ['nombre' => 'X', 'celular' => '123', 'relacion' => 'Madre'],
+            'souvenirs' => [],
+        ];
+
+        app(\App\Actions\ActualizarInscripcionAction::class)->handle($referencia, [
+            'totales' => ['inscripcion' => 100, 'donacion' => 0, 'souvenirs' => 0, 'fee' => 5, 'descuento' => 0, 'grand_total' => 105],
+            'participantes' => [$participanteData],
+        ]);
+
+        $this->assertDatabaseHas('promo_codes', ['promo_code' => 'EDITAR1', 'times_used' => 1, 'usado' => true]);
+    }
+
+    public function test_edit_registration_removing_participant_frees_that_participants_slot(): void
+    {
+        $this->formType->update(['has_promo_code' => true]);
+        \App\Models\PromoCode::factory()->create([
+            'event_id' => $this->event->id, 'promo_code' => 'GRUPOEDIT', 'max_uses' => 2,
+        ]);
+
+        $response = $this->postJson('/api/v1/registrations', $this->groupPayload(2, 'GRUPOEDIT'));
+        $response->assertCreated();
+        $referencia = $response->json('data.referencia');
+
+        $this->assertDatabaseHas('promo_codes', ['promo_code' => 'GRUPOEDIT', 'times_used' => 2, 'usado' => true]);
+
+        $participanteQueQueda = [
+            'nombre' => 'Participante0', 'apellido' => 'Grupo', 'alias' => '',
+            'genero' => 'Femenino', 'tipoDocumento' => 'CI', 'numeroDocumento' => 'GRUPOEDIT-QUEDA',
+            'polera' => '', 'precioPolera' => 0,
+            'nacimiento' => ['dia' => 10, 'mes' => 5, 'anio' => 1995], 'edad' => 31,
+            'correo' => 'quedaeditado@example.com', 'direccion' => 'x', 'ciudad' => 'x', 'telefono' => '123',
+            'categoria' => $this->categoria->id, 'precioCategoria' => 100, 'donacion' => 0,
+            'promoDescuento' => 0, 'promoCodigo' => 'GRUPOEDIT', 'subtotal' => 100,
+            'contacto_emergencia' => ['nombre' => 'X', 'celular' => '123', 'relacion' => 'Madre'],
+            'souvenirs' => [],
+        ];
+
+        // edicion_solo_extras=false por default en el FormType de este
+        // test, así que sacar un participante en la edición es válido.
+        app(\App\Actions\ActualizarInscripcionAction::class)->handle($referencia, [
+            'totales' => ['inscripcion' => 100, 'donacion' => 0, 'souvenirs' => 0, 'fee' => 5, 'descuento' => 0, 'grand_total' => 105],
+            'participantes' => [$participanteQueQueda],
+        ]);
+
+        $this->assertDatabaseHas('promo_codes', ['promo_code' => 'GRUPOEDIT', 'times_used' => 1, 'usado' => false]);
+        $this->assertDatabaseCount('participantes', 1);
+    }
+
+    /**
      * Categorías por form_type (27/08/2026) — ver
      * PLAN-CATEGORIAS-POR-FORM-TYPE-27082026.md. Antes de este cambio,
      * `CrearInscripcionAction::validatePrecioCategoria()` solo chequeaba
