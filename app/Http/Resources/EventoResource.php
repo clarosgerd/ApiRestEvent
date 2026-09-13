@@ -149,6 +149,12 @@ class EventoResource extends JsonResource
             // (25/08/2026) — null si el organizador no lo configuró, el
             // frontend cae al orden por defecto en ese caso.
             'seccionesOrden'             =>$this->secciones_orden,
+            // Gafetes/certificados parametrizables por evento (13/09/2026) —
+            // pedido real de COLABIOCLI 2026. gafeteConfig null = tamaño
+            // estándar (7x5cm, 3 por fila); ver
+            // EventoController::gafetesPdf()/certificadosPdf().
+            'certificadoSoloNombre'      =>(bool) $this->certificado_solo_nombre,
+            'gafeteConfig'               =>$this->gafete_config,
             'equipos'                    =>EquipoResource::collection($this->whenLoaded('equipos')),  // Catálogo de equipos (precargado por el organizador) para form_types con hasTeam
     //        'contador_visitas'          =>$this->contador_visitas
     ];

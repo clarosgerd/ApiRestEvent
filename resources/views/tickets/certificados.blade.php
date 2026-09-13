@@ -115,9 +115,15 @@
             @endforeach
           </div>
         @else
-          <div class="detalle">
-            por su asistencia como <strong>{{ $item['rol'] }}</strong>@if (!empty($evento->fecha_inicio)), el <strong>{{ \Illuminate\Support\Carbon::parse($evento->fecha_inicio)->locale('es')->translatedFormat('d \d\e F \d\e Y') }}</strong>@endif
-          </div>
+          {{-- certificado_solo_nombre (13/09/2026, pedido real de
+               COLABIOCLI 2026): suprime el párrafo de rol/fecha, dejando
+               solo el nombre. Default false — CIACRUZ y el resto de
+               eventos existentes muestran este párrafo igual que hoy. --}}
+          @if (empty($item['soloNombre']))
+            <div class="detalle">
+              por su asistencia como <strong>{{ $item['rol'] }}</strong>@if (!empty($evento->fecha_inicio)), el <strong>{{ \Illuminate\Support\Carbon::parse($evento->fecha_inicio)->locale('es')->translatedFormat('d \d\e F \d\e Y') }}</strong>@endif
+            </div>
+          @endif
         @endif
 
         <div>

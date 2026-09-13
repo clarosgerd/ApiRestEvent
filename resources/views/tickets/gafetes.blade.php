@@ -6,9 +6,9 @@
   @page { margin: 1cm; }
   body { font-family: DejaVu Sans, sans-serif; margin: 0; }
   table.grid { width: 100%; border-collapse: collapse; }
-  td.badge-cell { width: 7.3cm; padding: 4px; vertical-align: top; }
+  td.badge-cell { width: calc({{ $dims['width_cm'] }}cm + 0.3cm); padding: 4px; vertical-align: top; }
   .badge {
-    width: 7cm; height: 5cm; box-sizing: border-box;
+    width: {{ $dims['width_cm'] }}cm; height: {{ $dims['height_cm'] }}cm; box-sizing: border-box;
     border: 2px solid #022858;
     border-radius: 10px;
     padding: 10px 8px;
@@ -62,7 +62,7 @@
           </div>
         </td>
       @endforeach
-      @for ($k = count($fila); $k < 3; $k++)
+      @for ($k = count($fila); $k < $dims['per_row']; $k++)
         <td class="badge-cell"></td>
       @endfor
     </tr>
