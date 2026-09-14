@@ -22,7 +22,14 @@ class SouvenirController extends Controller
 {
     use DelegatesToApiJson;
 
-    private const BOOLEAN_FIELDS = ['incluido', 'requiere_talla', 'requiere_sexo'];
+    // Bug real encontrado de paso (14/09/2026, no de este lote):
+    // 'visible_participante' faltaba acá desde la sincronización original
+    // (25/08/2026) — el checkbox "Visible para el participante" de
+    // edit.blade.php nunca tenía efecto porque, al no venir en $merge, un
+    // checkbox destildado (que no manda nada en el POST) no persistía el
+    // cambio. Corregido junto con el campo nuevo de este lote
+    // ('aplica_cargo_servicio', mismo motivo: opt-in, default false).
+    private const BOOLEAN_FIELDS = ['incluido', 'requiere_talla', 'requiere_sexo', 'visible_participante', 'aplica_cargo_servicio', 'es_polera'];
 
     public function store(Request $request, FormType $formType, ApiSouvenirController $api): RedirectResponse
     {

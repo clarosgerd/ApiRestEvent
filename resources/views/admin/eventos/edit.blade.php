@@ -371,6 +371,22 @@
                         </span>
                     </label>
                 </div>
+                {{-- "Pagar en el evento (efectivo)" al agregar un taller a una
+                     inscripción ya pagada — configurable por evento (02/09/2026,
+                     sincronizado 14/09/2026). Default apagado: se siguen ofreciendo
+                     ambas opciones (efectivo y QR), igual que hoy. --}}
+                <div class="col-span-2">
+                    <label class="flex items-center gap-2 text-sm font-semibold">
+                        <input type="checkbox" name="forzarQrPagoAdicional" value="1"
+                               {{ !empty($evento['forzarQrPagoAdicional']) ? 'checked' : '' }}>
+                        Forzar QR en el pago adicional (editar inscripción pagada)
+                        <span class="font-normal text-slate-500">
+                            (si está tildado, un participante que agrega un taller a una
+                            inscripción ya pagada solo puede pagar el monto adicional con QR —
+                            se saca la opción de pagar en efectivo el día del evento)
+                        </span>
+                    </label>
+                </div>
                 {{-- Purgar datos de Persona/Participante en inscripciones canceladas
                      (01/09/2026, sincronizado 14/09/2026) — a diferencia del resto de
                      los checkboxes de esta página, este nace TILDADO por default
@@ -714,6 +730,10 @@
                             </div>
                             {{-- Foto + flags — mismos <input>/<checkbox> pero mandados con el
                                  form de arriba (name/icon/price) via el atributo form="..." --}}
+                            {{-- Texto promocional (02/09/2026, sincronizado 14/09/2026) — texto
+                                 libre opcional, no afecta precio/disponibilidad, solo se muestra
+                                 junto al ítem en el formulario público. --}}
+                            <input type="text" name="texto_promocional" value="{{ $souvenir['texto_promocional'] ?? '' }}" maxlength="500" placeholder="Texto promocional (opcional, ej. &quot;La mejor Coca-Cola bien fría&quot;)" form="souvenir-form-{{ $souvenir['id'] }}" class="w-full border border-slate-300 rounded px-2 py-1 text-xs mt-2">
                             <div class="grid grid-cols-5 gap-2 items-center mt-2">
                                 <input type="url" name="foto_url" value="{{ $souvenir['foto_url'] ?? '' }}" placeholder="URL de foto (opcional)" form="souvenir-form-{{ $souvenir['id'] }}" class="col-span-2 w-full border border-slate-300 rounded px-2 py-1 text-xs">
                                 <label class="text-xs flex items-center gap-1">
@@ -728,6 +748,55 @@
                                     <input type="checkbox" name="requiere_sexo" form="souvenir-form-{{ $souvenir['id'] }}" value="1" @checked($souvenir['requiere_sexo'] ?? false)>
                                     Sexo
                                 </label>
+                            </div>
+                            {{-- Souvenirs invisibles para el participante — checked por defecto
+                                 (opt-out, no opt-in): un ítem nace visible, el organizador lo
+                                 destilda si quiere que se asigne solo al inscribirse, sin pasar
+                                 por el formulario. Bug real corregido 14/09/2026: faltaba acá y
+                                 en Admin\SouvenirController::BOOLEAN_FIELDS desde la
+                                 sincronización original (25/08/2026) — el checkbox nunca tenía
+                                 efecto. --}}
+                            <div class="mt-2">
+                                <label class="text-xs flex items-center gap-1">
+                                    <input type="checkbox" name="visible_participante" form="souvenir-form-{{ $souvenir['id'] }}" value="1" @checked($souvenir['visible_participante'] ?? true)>
+                                    Visible para el participante
+                                </label>
+                                <p class="text-xs text-slate-400 mt-0.5">
+                                    Destildado: se asigna solo a cada participante al
+                                    inscribirse, sin costo aparte y sin que lo elija — nunca
+                                    aparece en el formulario de inscripción.
+                                </p>
+                            </div>
+                            {{-- Cargo de servicio por souvenir individual (01/09/2026,
+                                 sincronizado 14/09/2026) — checkbox opt-in (destildado por
+                                 defecto): un ítem nace SIN sumar al cargo de servicio. --}}
+                            <div class="mt-2">
+                                <label class="text-xs flex items-center gap-1">
+                                    <input type="checkbox" name="aplica_cargo_servicio" form="souvenir-form-{{ $souvenir['id'] }}" value="1" @checked($souvenir['aplica_cargo_servicio'] ?? false)>
+                                    Aplicar cargo de servicio a este ítem
+                                </label>
+                                <p class="text-xs text-slate-400 mt-0.5">
+                                    Destildado (default): este ítem no suma a la base del
+                                    cargo de servicio, igual que siempre. Tildado: su precio
+                                    se incluye junto con inscripción/talleres — usalo para
+                                    souvenirs con costo real, no para los incluidos en el
+                                    precio de la inscripción.
+                                </p>
+                            </div>
+                            {{-- Reporte de poleras (03/09/2026, sincronizado 14/09/2026) —
+                                 requiere "Talla" tildado, ApiRestEvent rechaza la combinación
+                                 inversa. --}}
+                            <div class="mt-2">
+                                <label class="text-xs flex items-center gap-1">
+                                    <input type="checkbox" name="es_polera" form="souvenir-form-{{ $souvenir['id'] }}" value="1" @checked($souvenir['es_polera'] ?? false)>
+                                    Es la polera (para el Reporte de poleras)
+                                </label>
+                                <p class="text-xs text-slate-400 mt-0.5">
+                                    Marcá este ítem si es la polera/camiseta del evento —
+                                    el Reporte de poleras del dashboard va a mostrar las
+                                    tallas que los participantes eligieron acá. Requiere
+                                    "Talla" tildado.
+                                </p>
                             </div>
                             {{-- Gestionar stock aplica a CUALQUIER ítem, tenga o no talla/sexo
                                  (ej. una medalla): sin filas ahí, el ítem queda con
@@ -748,6 +817,7 @@
                         <input type="text" name="icon" placeholder="Ícono" maxlength="10" class="w-full border border-slate-300 rounded px-2 py-1 text-sm">
                         <input type="number" step="0.01" min="0" name="price" placeholder="Precio" class="w-full border border-slate-300 rounded px-2 py-1 text-sm">
                         <button type="submit" class="text-xs text-brand-600 hover:underline">+ Agregar ítem</button>
+                        <input type="text" name="texto_promocional" maxlength="500" placeholder="Texto promocional (opcional)" class="col-span-5 w-full border border-slate-300 rounded px-2 py-1 text-xs mt-1">
                     </form>
                 </div>
 

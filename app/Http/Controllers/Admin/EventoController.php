@@ -219,6 +219,10 @@ class EventoController extends Controller
             'aceptaUsd' => $request->boolean('aceptaUsd'),
             'usdPrecioFijo' => $request->boolean('usdPrecioFijo'),
             'talleresConCosto' => $request->boolean('talleresConCosto'),
+            // "Pagar en el evento (efectivo)" al agregar un taller a una
+            // inscripción pagada — configurable por evento (02/09/2026,
+            // sincronizado 14/09/2026), mismo motivo que aceptaUsd.
+            'forzarQrPagoAdicional' => $request->boolean('forzarQrPagoAdicional'),
             // Purgar datos de Persona/Participante en inscripciones
             // canceladas (01/09/2026, sincronizado 14/09/2026) — mismo
             // motivo que aceptaUsd: se manda siempre para que destildear
