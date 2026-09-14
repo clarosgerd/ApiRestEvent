@@ -57,7 +57,23 @@ class PagoProxyController extends Controller
         }
 
         if ($tipoPago === 'sip' && $qrProvider === 'sip') {
-            $sip = $this->qr->sipClient();
+            $sip = $this->qr->sipClient((int) ($registro['evento_id'] ?? 0));
+            if ($sip && $sip['status'] === 'sin_banco') {
+                // SIP multi-banco (28/08/2026, sincronizado 14/09/2026) —
+                // nunca se consulta con el banco default (podría reportar
+                // contra la cuenta de OTRO organizador); caso real: el
+                // banco se desactivó DESPUÉS de que este registro generara
+                // su QR con el suyo propio. NO cae al fallback simulado —
+                // eso marcaría "paid" sin haber verificado nada de verdad.
+                Log::warning('[SIP] resolve_sip_bank devolvió sin_banco al consultar estado de '.$referencia.' — bloqueando.');
+
+                return response()->json([
+                    'success' => true,
+                    'status' => 'blocked',
+                    'referencia' => $referencia,
+                    'mensaje' => 'No pudimos verificar este pago automáticamente. Contactá al organizador o pagá en Caja el día del evento.',
+                ]);
+            }
             if ($sip) {
                 try {
                     $estado = $sip['client']->estadoTransaccion($referencia);

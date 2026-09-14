@@ -149,7 +149,20 @@ class RegistroProxyController extends Controller
 
         $sipQrData = null;
         if ($pasarela === 'sip' && $qrProvider === 'sip') {
-            $sip = $this->qr->sipClient();
+            $sip = $this->qr->sipClient((int) $evento['id']);
+            if ($sip && $sip['status'] === 'sin_banco') {
+                // SIP multi-banco (28/08/2026, sincronizado 14/09/2026) —
+                // defensa en profundidad: no debería pasar nunca acá
+                // (Organizador::formasPagoEfectivas() ya no ofrece 'sip' a
+                // un organizador sin SipBanco propio), solo por una carrera
+                // real o un cliente con caché vieja. Nunca se genera el QR
+                // contra el banco default en este caso — bug real de plata
+                // cruzada entre organizadores, ver
+                // [[project_sip_banco_seguro_multipago_adicional]].
+                Log::warning('[SIP] resolve_sip_bank devolvió sin_banco para evento '.$evento['id'].', referencia '.$ref.' — bloqueando.');
+
+                return response()->json(['error' => 'El pago por QR ya no está disponible para este evento. Recargá la página y elegí otro método de pago.'], 409);
+            }
             if ($sip) {
                 try {
                     $qrResult = $sip['client']->generarQr(

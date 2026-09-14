@@ -48,6 +48,26 @@ class SipCallbackController extends Controller
         $authenticator = new CallbackAuthenticator($config->callbackBasicUser, $config->callbackBasicPassword);
 
         $autorizadoPorHeader = $authenticator->isAuthorized($headers);
+
+        // SIP multi-banco (28/08/2026, sincronizado 14/09/2026) — no se
+        // sabe de antemano con qué banco se generó el QR que este callback
+        // confirma (el alias/referencia no lo dice), y las credenciales de
+        // callback pueden diferir por banco. Se acepta el Basic Auth si
+        // matchea el .env por defecto (ya chequeado arriba) O cualquier
+        // banco activo en sip_bancos.
+        if (! $autorizadoPorHeader) {
+            foreach ($this->qr->activeSipBankCallbackCredentials() as $cred) {
+                $user = (string) ($cred['user'] ?? '');
+                if ($user === '') {
+                    continue;
+                }
+                if ((new CallbackAuthenticator($user, (string) ($cred['password'] ?? '')))->isAuthorized($headers)) {
+                    $autorizadoPorHeader = true;
+                    break;
+                }
+            }
+        }
+
         $autorizadoPorToken = $config->callbackToken !== ''
             && $request->query('callback_token')
             && hash_equals($config->callbackToken, (string) $request->query('callback_token'));

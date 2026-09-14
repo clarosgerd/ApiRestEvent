@@ -305,15 +305,22 @@ class RegistroPagoWebhooksTest extends TestCase
 
     public function test_webhook_sip_sin_autenticacion_da_401(): void
     {
-        $this->mock(QrProviderService::class, fn ($mock) => $mock->shouldReceive('sipClient')->andReturn([
-            'client' => null,
-            'config' => (object) [
-                'storagePath' => sys_get_temp_dir().'/monolito-sip-test',
-                'callbackBasicUser' => 'sip-user',
-                'callbackBasicPassword' => 'sip-pass',
-                'callbackToken' => 'token-secreto',
-            ],
-        ]));
+        $this->mock(QrProviderService::class, function ($mock) {
+            $mock->shouldReceive('sipClient')->andReturn([
+                'client' => null,
+                'config' => (object) [
+                    'storagePath' => sys_get_temp_dir().'/monolito-sip-test',
+                    'callbackBasicUser' => 'sip-user',
+                    'callbackBasicPassword' => 'sip-pass',
+                    'callbackToken' => 'token-secreto',
+                ],
+            ]);
+            // SIP multi-banco (28/08/2026, sincronizado 14/09/2026) — sin
+            // esta expectativa, el fallback nuevo que prueba contra
+            // cualquier banco activo revienta el mock (nadie lo esperaba).
+            // Sin bancos activos acá, sigue dando 401.
+            $mock->shouldReceive('activeSipBankCallbackCredentials')->andReturn([]);
+        });
 
         $this->postJson('/webhooks/sip/callback', ['alias' => 'LA-ABC'])
             ->assertStatus(401)->assertJsonPath('codigo', '9999');
