@@ -223,12 +223,12 @@
 
             <!-- Dirección / Ciudad -->
             <div class="form-row">
-              <div class="form-group" style="flex:2;">
+              <div class="form-group" id="direccionGroup" style="flex:2;">
                 <label><span data-i18n="registration.address">Address</span></label>
                 <input type="text" id="direccion" placeholder="Street address" autocomplete="off" data-i18n-ph="registration.streetAddress">
                 <span class="field-error" id="err-dir" data-i18n="registration.errRequired">Required field.</span>
               </div>
-              <div class="form-group">
+              <div class="form-group" id="ciudadGroup">
                 <label><span data-i18n="registration.city">City</span></label>
                 <input type="text" id="ciudad" placeholder="City" autocomplete="off" data-i18n-ph="registration.city">
                 <span class="field-error" id="err-ciudad" data-i18n="registration.errRequired">Required field.</span>
@@ -237,7 +237,7 @@
 
             <!-- Teléfonos -->
             <div class="form-row">
-              <div class="form-group">
+              <div class="form-group" id="telefonoGroup">
                 <label><span data-i18n="registration.phone">Phone</span></label>
                 <input type="tel" id="telefono" autocomplete="off">
                 <span class="field-error" id="err-tel" data-i18n="registration.errRequired">Required field.</span>

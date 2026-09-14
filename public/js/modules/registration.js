@@ -860,6 +860,35 @@ function buildEventUI(){
     deliverySection.style.display = 'none';
     document.getElementById('quiere_delivery').checked = false;
   }
+
+  // Ocultar Dirección/Ciudad/Teléfono/Alias por tipo de formulario
+  // (01/09/2026, sincronizado 14/09/2026) — ver applyCamposOcultos() más
+  // abajo.
+  applyCamposOcultos();
+}
+
+// ────────────────────────────────────────────────────────────
+// Ocultar Dirección/Ciudad/Teléfono/Alias por tipo de formulario
+// (01/09/2026, sincronizado 14/09/2026) — form_types.camposOcultos
+// (array), configurable desde admin-eventos. Distinto de que sean
+// opcionales (eso ya vale para TODOS los eventos, ver validateForm()) —
+// esto además los saca del formulario para un form_type puntual.
+// ────────────────────────────────────────────────────────────
+const CAMPOS_OCULTABLES_IDS = {
+  direccion: 'direccionGroup',
+  ciudad:    'ciudadGroup',
+  telefono:  'telefonoGroup',
+  // Alias también es el Título en form_types tipo 'congreso' (mismo
+  // campo de BD, ver toggleAliasTituloMode()) — ocultarlo saca a los dos.
+  alias:     'aliasGroup',
+};
+
+function applyCamposOcultos(){
+  const ocultos = selectedFormType?.camposOcultos || [];
+  Object.entries(CAMPOS_OCULTABLES_IDS).forEach(([campo, groupId]) => {
+    const group = document.getElementById(groupId);
+    if (group) group.style.display = ocultos.includes(campo) ? 'none' : '';
+  });
 }
 
 // ────────────────────────────────────────────────────────────
