@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\ClubController;
 use App\Http\Controllers\EventoController;
+use App\Http\Controllers\GeneroController;
 use App\Http\Controllers\Inscripcion\HomeController;
 use App\Http\Controllers\Inscripcion\ListaEsperaProxyController;
 use App\Http\Controllers\Inscripcion\PagoProxyController;
@@ -60,6 +61,9 @@ Route::get('/club/landing', [ClubController::class, 'landing'])->middleware('aut
 
 Route::get('/promo/{id}/{promocode}', [PromoCodeController::class, 'promoCode']);
 Route::get('/tipo-cambio', [TipoCambioController::class, 'show']);
+// Género de participante (31/08/2026, sincronizado 14/09/2026) — catálogo
+// público, solo activos (mismo criterio que /eventos de arriba).
+Route::get('/generos', [GeneroController::class, 'index']);
 
 // ── Inscripciones ──
 Route::post('/registro', [RegistroProxyController::class, 'store']);
@@ -103,6 +107,7 @@ Route::post('/api/club_logout.php', [ClubController::class, 'logout'])->middlewa
 Route::get('/api/club_landing.php', [ClubController::class, 'landing'])->middleware('auth:sanctum');
 Route::get('/api/promo.php', fn (Request $request) => app(PromoCodeController::class)->promoCode($request, (string) $request->query('event_id', ''), (string) $request->query('code', '')));
 Route::get('/api/tipo_cambio.php', [TipoCambioController::class, 'show']);
+Route::get('/api/generos.php', [GeneroController::class, 'index']);
 Route::post('/api/registro.php', [RegistroProxyController::class, 'store']);
 Route::post('/api/registro_actualizar.php', fn (Request $request, RegistroProxyController $controller) => $controller->update($request, (string) $request->input('referencia', '')));
 Route::post('/api/registro_actualizar_pagada.php', fn (Request $request, RegistroProxyController $controller) => $controller->marcarPagada($request, (string) $request->input('referencia', '')));

@@ -1513,12 +1513,20 @@ function validateForm(){
     document.getElementById('catError').classList.remove('visible');
   }
 
+  // Dirección/Ciudad/Alias-Título y Contacto de emergencia pasaron a
+  // opcionales (31/08/2026, sincronizado 14/09/2026) — no hacen a la
+  // identidad de la persona, a diferencia de nombre/documento/email/fecha
+  // de nacimiento. Ver PLAN-GENERO-CATALOGO-CAMPOS-OPCIONALES-31082026.md.
   const required = [
-    ['nombre','err-nombre'], ['apellido','err-apellido'], ['alias','err-alias'],
+    ['nombre','err-nombre'], ['apellido','err-apellido'],
     ['genero','err-genero'], ['tipoDocumento','err-tipoDoc'], ['numeroDocumento','err-numDoc'],
-    ['email','err-email'], ['direccion','err-dir'], ['ciudad','err-ciudad'],
-    ['celular','err-cel'], ['nombre_emergencia','err-emerg'], ['relacion_emergencia','err-rel']
+    ['email','err-email'],
   ];
+  // Contacto de emergencia — nunca obligatorio a nivel de validación. Limpia
+  // cualquier estado de error que hubiera quedado de antes de este cambio.
+  const contactoEmergenciaPairs = [['celular','err-cel'], ['nombre_emergencia','err-emerg'], ['relacion_emergencia','err-rel']];
+  contactoEmergenciaPairs.forEach(([fid, eid]) => { markValid(fid); hideErr(eid); });
+
   required.forEach(([fid, eid]) => {
     const v = (document.getElementById(fid)?.value || '').trim();
     if (!v){ markInvalid(fid); showErr(eid); ok = false; }

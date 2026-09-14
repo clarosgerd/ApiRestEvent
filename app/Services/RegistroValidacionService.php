@@ -118,7 +118,10 @@ class RegistroValidacionService
         $participantesValidos = [];
 
         foreach ($participantes as $idx => $p) {
-            $required = ['nombre', 'apellido', 'alias', 'genero', 'correo', 'direccion', 'ciudad', 'categoria', 'precioCategoria'];
+            // Alias/Dirección/Ciudad pasaron a opcionales (31/08/2026,
+            // sincronizado 14/09/2026) — no hacen a la identidad de la
+            // persona. Ver PLAN-GENERO-CATALOGO-CAMPOS-OPCIONALES-31082026.md.
+            $required = ['nombre', 'apellido', 'genero', 'correo', 'categoria', 'precioCategoria'];
             foreach ($required as $campo) {
                 if (empty($p[$campo])) {
                     return ['error' => "Campo '{$campo}' requerido en participante ".($idx + 1).'.'];

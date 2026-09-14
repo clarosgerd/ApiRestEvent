@@ -84,7 +84,7 @@
                 <span class="field-error" id="err-apellido" data-i18n="registration.errRequired">Required field.</span>
               </div>
               <div class="form-group" id="aliasGroup" style="flex:0;min-width:100px;max-width:120px;">
-                <label><span id="aliasLabel" data-i18n="registration.alias">Alias</span> <span class="req">*</span></label>
+                <label><span id="aliasLabel" data-i18n="registration.alias">Alias</span></label>
                 <input type="text" id="alias" placeholder="Alias" maxlength="20" autocomplete="off" data-i18n-ph="registration.alias">
                 <!-- Título para eventos tipo congreso (20/08/2026, portado de
                      elascenso/event) — reusa el campo `alias` existente sin
@@ -112,12 +112,14 @@
             <div class="form-row">
               <div class="form-group" style="max-width:260px;">
                 <label><span data-i18n="registration.gender">Gender</span> <span class="req">*</span></label>
+                <!-- Género por catálogo (31/08/2026, sincronizado 14/09/2026)
+                     — antes hardcodeado acá con 4 opciones (2 de ellas
+                     rompían el INSERT en participantes.genero, un ENUM que
+                     solo acepta Masculino/Femenino/Otro). Se puebla desde
+                     populateGeneroSelects(), ver api/generos.php. La opción
+                     placeholder queda fija, el resto viene del catálogo. -->
                 <select id="genero">
                   <option value="" data-i18n-opt="registration.genderPlaceholder">Select Gender</option>
-                  <option value="Masculino" data-i18n-opt="registration.genderMale">Male</option>
-                  <option value="Femenino" data-i18n-opt="registration.genderFemale">Female</option>
-                  <option value="Non-binary" data-i18n-opt="registration.genderNonBinary">Non-binary</option>
-                  <option value="Prefer not to say" data-i18n-opt="registration.genderPreferNot">Prefer not to say</option>
                 </select>
                 <span class="field-error" id="err-genero" data-i18n="registration.errRequired">Required field.</span>
               </div>
@@ -222,12 +224,12 @@
             <!-- Dirección / Ciudad -->
             <div class="form-row">
               <div class="form-group" style="flex:2;">
-                <label><span data-i18n="registration.address">Address</span> <span class="req">*</span></label>
+                <label><span data-i18n="registration.address">Address</span></label>
                 <input type="text" id="direccion" placeholder="Street address" autocomplete="off" data-i18n-ph="registration.streetAddress">
                 <span class="field-error" id="err-dir" data-i18n="registration.errRequired">Required field.</span>
               </div>
               <div class="form-group">
-                <label><span data-i18n="registration.city">City</span> <span class="req">*</span></label>
+                <label><span data-i18n="registration.city">City</span></label>
                 <input type="text" id="ciudad" placeholder="City" autocomplete="off" data-i18n-ph="registration.city">
                 <span class="field-error" id="err-ciudad" data-i18n="registration.errRequired">Required field.</span>
               </div>
@@ -236,26 +238,28 @@
             <!-- Teléfonos -->
             <div class="form-row">
               <div class="form-group">
-                <label><span data-i18n="registration.phone">Phone</span> <span class="req">*</span></label>
+                <label><span data-i18n="registration.phone">Phone</span></label>
                 <input type="tel" id="telefono" autocomplete="off">
                 <span class="field-error" id="err-tel" data-i18n="registration.errRequired">Required field.</span>
               </div>
               <div class="form-group">
-                <label><span data-i18n="registration.emergencyPhone">Emergency Phone</span> <span class="req">*</span></label>
+                <label><span data-i18n="registration.emergencyPhone">Emergency Phone</span></label>
                 <input type="tel" id="celular" autocomplete="off">
                 <span class="field-error" id="err-cel" data-i18n="registration.errRequired">Required field.</span>
               </div>
             </div>
 
-            <!-- Contacto de emergencia -->
+            <!-- Contacto de emergencia — nunca obligatorio (31/08/2026,
+                 sincronizado 14/09/2026, ver validateForm()), sin
+                 asteriscos. -->
             <div class="form-row">
               <div class="form-group">
-                <label><span data-i18n="registration.emergencyContactName">Emergency Contact Name</span> <span class="req">*</span></label>
+                <label><span data-i18n="registration.emergencyContactName">Emergency Contact Name</span></label>
                 <input type="text" id="nombre_emergencia" placeholder="Full name" maxlength="100" autocomplete="off" data-i18n-ph="registration.emergencyContactName">
                 <span class="field-error" id="err-emerg" data-i18n="registration.errRequired">Required field.</span>
               </div>
               <div class="form-group">
-                <label><span data-i18n="registration.emergencyRelationship">Emergency Relationship</span> <span class="req">*</span></label>
+                <label><span data-i18n="registration.emergencyRelationship">Emergency Relationship</span></label>
                 <select id="relacion_emergencia">
                   <option value="" data-i18n-opt="registration.relSelect">Select…</option>
                   <option value="HUS" data-i18n-opt="registration.relHusband">Husband</option>

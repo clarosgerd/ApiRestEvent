@@ -58,10 +58,10 @@
         </div>
         <div class="form-group" style="max-width:220px;">
           <label><span data-i18n="account.gender">Gender</span></label>
-          <select id="regSexo">
-            <option value="Masculino" data-i18n-opt="account.genderMale">Masculino</option>
-            <option value="Femenino" data-i18n-opt="account.genderFemale">Femenino</option>
-          </select>
+          <!-- Género por catálogo (31/08/2026, sincronizado 14/09/2026) —
+               mismo catálogo que #genero del formulario de inscripción, ver
+               populateGeneroSelects(). -->
+          <select id="regSexo"></select>
         </div>
       </div>
       <div class="form-row">

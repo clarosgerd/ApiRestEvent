@@ -218,6 +218,12 @@ let refQrImage         = null;   // base64 del QR de referencia (ticket), genera
 // siguen siendo accesibles acá tal cual antes de la extracción.
 let itiTel = null, itiCel = null;
 let currentLang = 'es';
+// Género por catálogo (31/08/2026, sincronizado 14/09/2026) — [{id, nombre}],
+// cargado una vez al iniciar (ver loadGenerosCatalog()/populateGeneroSelects()).
+// `nombre` es SIEMPRE el valor canónico en español que espera
+// participantes.genero en ApiRestEvent (Masculino/Femenino/Otro) — no se
+// traduce el value, solo el texto visible de cada <option>.
+let generosCatalog = [];
 // Moneda de visualización — los montos SIEMPRE se calculan y cobran en BOB;
 // esto solo cambia cómo se muestran (ver formatMoney()).
 let currentCurrency = 'BOB';
@@ -250,6 +256,7 @@ function setLanguage(lang) {
     btn.classList.toggle('active', btn.dataset.lang === lang);
   });
   applyTranslations();
+  populateGeneroSelects(); // Retraduce las opciones de género sin perder la selección actual.
   if (currentEvent) {
     renderEventCountdown(currentEvent);
     renderFormTypes(currentEvent.formTypes || []);
@@ -259,6 +266,65 @@ function setLanguage(lang) {
   }
   if (loggedUser && document.getElementById('modalPendingSection').style.display !== 'none') {
     showPendingSection();
+  }
+}
+
+// Género por catálogo (31/08/2026, sincronizado 14/09/2026) — reemplaza las
+// 4 opciones que antes estaban hardcodeadas en el HTML (2 de ellas rompían
+// el INSERT en participantes.genero, un ENUM que solo acepta
+// Masculino/Femenino/Otro). Ver api/generos.php y
+// PLAN-GENERO-CATALOGO-CAMPOS-OPCIONALES-31082026.md.
+const GENERO_I18N_KEYS = {
+  'Masculino': 'registration.genderMale',
+  'Femenino': 'registration.genderFemale',
+  'Otro': 'registration.genderOther',
+};
+
+async function loadGenerosCatalog(){
+  try {
+    const data = await fetchJson(`${API_BASE}/generos.php`);
+    if (Array.isArray(data.data)) generosCatalog = data.data;
+  } catch (e) {
+    // Sin catálogo (red caída, etc.) — los selects de género quedan solo
+    // con el placeholder; no bloquea el resto de la app.
+  }
+  populateGeneroSelects();
+}
+
+// Puebla #genero (formulario de inscripción) y #regSexo (perfil de
+// cuenta) desde generosCatalog. Se llama al iniciar y de nuevo al cambiar
+// de idioma (setLanguage()) para retraducir el texto visible de cada
+// opción sin perder la selección actual.
+function populateGeneroSelects(){
+  const generoSel  = document.getElementById('genero');
+  const regSexoSel = document.getElementById('regSexo');
+
+  if (generoSel) {
+    const prevValue = generoSel.value;
+    // El placeholder ("Select Gender") es la única opción fija en el
+    // HTML estático — se conserva, el resto se reconstruye.
+    const placeholder = generoSel.querySelector('option[value=""]');
+    generoSel.innerHTML = '';
+    if (placeholder) generoSel.appendChild(placeholder);
+    generosCatalog.forEach(g => {
+      const opt = document.createElement('option');
+      opt.value = g.nombre;
+      opt.textContent = t(GENERO_I18N_KEYS[g.nombre] || g.nombre);
+      generoSel.appendChild(opt);
+    });
+    if (prevValue) generoSel.value = prevValue;
+  }
+
+  if (regSexoSel) {
+    const prevValue = regSexoSel.value;
+    regSexoSel.innerHTML = '';
+    generosCatalog.forEach(g => {
+      const opt = document.createElement('option');
+      opt.value = g.nombre;
+      opt.textContent = t(GENERO_I18N_KEYS[g.nombre] || g.nombre);
+      regSexoSel.appendChild(opt);
+    });
+    if (prevValue) regSexoSel.value = prevValue;
   }
 }
 
@@ -468,6 +534,7 @@ document.addEventListener('DOMContentLoaded', () => {
   updateAnimButton();
   loadAllEvents();   // Cargar lista de eventos al iniciar
   loadExchangeRates(); // Tipo de cambio para el selector BOB/USD/BRL del header
+  loadGenerosCatalog(); // Catálogo de género para #genero/#regSexo (31/08/2026, sincronizado 14/09/2026)
 
   // Link compartido (?evento=<id>): saltar directo a ese evento en vez de
   // dejar a la persona en el listado genérico.
