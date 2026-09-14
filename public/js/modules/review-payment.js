@@ -19,7 +19,15 @@
 function buildSummary(){
   const body = document.getElementById('summaryBody');
   body.innerHTML = '';
-  let totIns = 0, totDon = 0, totSouv = 0, totDisc = 0;
+  let totIns = 0, totDon = 0, totSouv = 0, totTalleres = 0, totDisc = 0;
+  // Cargo de servicio por souvenir individual (01/09/2026, portado
+  // 14/09/2026 — ver [[project_plan_consolidacion_monolito]] gap #3) —
+  // suma aparte solo de los souvenirs con aplica_cargo_servicio true en
+  // el catálogo del form_type, para la base del fee más abajo. Mismo
+  // cálculo que RegistroValidacionService/CrearInscripcionAction (fuente
+  // de verdad real — acá es solo lo que se le muestra al participante
+  // antes de pagar).
+  let totSouvConCargo = 0;
 
   const showDonation = !!currentEvent.hasDonation;
   const showDiscount = currentEvent.hasPromoCode == 1;
@@ -30,23 +38,37 @@ function buildSummary(){
   document.getElementById('thDiscount').style.display    = showDiscount ? '' : 'none';
   document.getElementById('ftRowDiscount').style.display = showDiscount ? '' : 'none';
 
-  // colspan de las celdas de etiqueta = columnas totales - 1 (valor)
-  const colspan = 6 - (showDonation ? 0 : 1) - (showDiscount ? 0 : 1);
+  // colspan de las celdas de etiqueta = columnas totales - 1 (valor). Base
+  // 7 = Participante+Categoría+Inscripción+Donación+Souvenirs+Talleres+
+  // Descuento (Talleres no es condicional, siempre cuenta).
+  const colspan = 7 - (showDonation ? 0 : 1) - (showDiscount ? 0 : 1);
   document.querySelectorAll('.ft-label-cell').forEach(td => td.colSpan = colspan);
 
   participants.forEach(p => {
     const ins       = p.precioCategoria + p.precioPolera;
     const souvTotal = p.souvenirs.reduce((a, s) => a + s.precio, 0);
+    // Cargo de servicio por souvenir individual — solo los que tienen
+    // aplica_cargo_servicio en el catálogo del form_type.
+    const souvTotalConCargo = p.souvenirs.reduce((a, s) => {
+      const cat = (selectedFormType.souvenirs || []).find(sv => sv.id === s.id);
+      return a + (cat && cat.aplica_cargo_servicio ? s.precio : 0);
+    }, 0);
     const souvTxt   = p.souvenirs.length
       ? p.souvenirs.map(s => `${escHtml(s.nombre)} (${formatMoney(s.precio)})`).join(', ')
       : '—';
+    const talleresTotal = (p.talleres || []).reduce((a, t) => a + (t.unit_price || 0), 0);
+    const talleresTxt   = (p.talleres && p.talleres.length)
+      ? p.talleres.map(t => `${escHtml(t.taller_nombre)}: ${escHtml(t.titulo)}${t.unit_price > 0 ? ' — '+formatMoney(t.unit_price) : ''}`).join('<br>')
+      : '—';
     const disc      = p.promoDescuento > 0 ? p.promoDescuento : 0;
-    const sub       = ins + p.donacion + souvTotal - disc;
+    const sub       = ins + p.donacion + souvTotal + talleresTotal - disc;
 
-    totIns  += ins;
-    totDon  += p.donacion;
-    totSouv += souvTotal;
-    totDisc += disc;
+    totIns      += ins;
+    totDon      += p.donacion;
+    totSouv     += souvTotal;
+    totSouvConCargo += souvTotalConCargo;
+    totTalleres += talleresTotal;
+    totDisc     += disc;
 
     const tr = document.createElement('tr');
     tr.innerHTML = `
@@ -56,22 +78,42 @@ function buildSummary(){
       <td>${formatMoney(ins)}</td>
       ${showDonation ? `<td>${formatMoney(p.donacion)}</td>` : ''}
       <td>${souvTxt}</td>
+      <td>${talleresTxt}</td>
       ${showDiscount ? `<td style="color:var(--success)">${disc > 0 ? '-'+formatMoney(disc) : '—'}</td>` : ''}
       <td><strong>${formatMoney(sub)}</strong></td>`;
     body.appendChild(tr);
   });
 
-  const fee   = Math.round(totIns * 0.05 * 100) / 100;
+  // Cargo de servicio (11/08/2026, portado 14/09/2026) — antes 0.05
+  // hardcodeado. Ahora sale de currentEvent.fee_pct (fracción, ej. 0.05 =
+  // 5%), configurable por evento, con fallback a 0.05 si no viene. Base =
+  // inscripción + talleres (según feeIncluyeTalleres, default true) +
+  // souvenirs con aplica_cargo_servicio. Donación queda siempre afuera.
+  // Mismo cálculo que RegistroValidacionService::calcularTotales() /
+  // CrearInscripcionAction::validateFeePct() (fuente de verdad real) —
+  // acá es solo la estimación que se muestra antes de confirmar el pago,
+  // el servidor recalcula independiente y rechaza si no coincide.
+  const feePct = Number(currentEvent?.fee_pct ?? 0.05);
+  const feeIncluyeTalleres = currentEvent?.feeIncluyeTalleres !== false;
+  const feeBase = totIns + (feeIncluyeTalleres ? totTalleres : 0) + totSouvConCargo;
+  const fee   = Math.round(feeBase * feePct * 100) / 100;
   const extra = editMode === 'paid' ? (editCost || 0) : 0;
   const group = getGroupRules();
   const showGroupDiscount = group.enabled && group.max > 0 && participants.length >= group.max;
   const groupDiscount     = showGroupDiscount ? Math.round(totIns * group.pct * 100) / 100 : 0;
-  const grand = totIns + totDon + totSouv + fee - totDisc - groupDiscount + extra;
+  const grand = totIns + totDon + totSouv + totTalleres + fee - totDisc - groupDiscount + extra;
 
   document.getElementById('ftInscription').textContent = formatMoney(totIns);
   document.getElementById('ftDonation').textContent    = formatMoney(totDon);
   document.getElementById('ftSouvenirs').textContent   = formatMoney(totSouv);
+  // Fila talleres del footer — visible solo si hay seleccionados.
+  document.getElementById('ftRowTalleres').style.display = totTalleres > 0 ? '' : 'none';
+  document.getElementById('ftTalleres').textContent    = formatMoney(totTalleres);
   document.getElementById('ftFee').textContent         = formatMoney(fee);
+  const ftFeeLabel = document.getElementById('ftFeeLabel');
+  // Ya no se muestra el porcentaje fijo en la etiqueta — desde que fee_pct
+  // es configurable por evento, "Service Fee (5%)" podía quedar mal.
+  if (ftFeeLabel) ftFeeLabel.textContent = t('registration.serviceFee');
   document.getElementById('ftDiscount').textContent    = '-' + formatMoney(totDisc);
   document.getElementById('ftRowGroupDiscount').style.display = showGroupDiscount ? '' : 'none';
   document.getElementById('ftGroupDiscountLabel').textContent = `Group discount (${group.max} participants)`;

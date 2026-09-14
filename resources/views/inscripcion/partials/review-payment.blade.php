@@ -20,21 +20,26 @@
                   <th data-i18n="registration.colInscription">Inscription</th>
                   <th id="thDonation" data-i18n="registration.colDonation">Donation</th>
                   <th data-i18n="registration.colSouvenirs">Souvenirs</th>
+                  <!-- Talleres/feeIncluyeTalleres (18-19/08/2026, portado 14/09/2026 —
+                       ver [[project_plan_consolidacion_monolito]] gap #3) — columna
+                       siempre visible, no condicional, igual que en elascenso/event. -->
+                  <th data-i18n="registration.colTalleres">Workshops</th>
                   <th id="thDiscount" data-i18n="registration.colDiscount">Discount</th>
                   <th data-i18n="registration.colSubtotal">Subtotal</th>
                 </tr>
               </thead>
               <tbody id="summaryBody"></tbody>
               <tfoot>
-                <tr><td colspan="6" class="text-right ft-label-cell" data-i18n="registration.totalInscription">Total Inscription</td><td id="ftInscription">$0.00</td></tr>
-                <tr id="ftRowDonation"><td colspan="6" class="text-right ft-label-cell" data-i18n="registration.totalDonation">Total Donation</td><td id="ftDonation">$0.00</td></tr>
-                <tr><td colspan="6" class="text-right ft-label-cell" data-i18n="registration.totalSouvenirs">Total Souvenirs</td><td id="ftSouvenirs">$0.00</td></tr>
-                <tr><td colspan="6" class="text-right ft-label-cell" data-i18n="registration.serviceFee">Service Fee (5%)</td><td id="ftFee">$0.00</td></tr>
-                <tr id="ftRowDiscount"><td colspan="6" class="text-right ft-label-cell" style="color:var(--success);" data-i18n="registration.totalDiscount">Total Discount</td><td id="ftDiscount" style="color:var(--success);">-$0.00</td></tr>
-                <tr id="ftRowGroupDiscount" style="display:none;"><td colspan="6" class="text-right ft-label-cell" style="color:var(--success);" id="ftGroupDiscountLabel">Group discount</td><td id="ftGroupDiscount" style="color:var(--success);">-$0.00</td></tr>
-                <tr id="ftRowEditCost" style="display:none;"><td colspan="6" class="text-right ft-label-cell" data-i18n="registration.editCostLabel">Editing cost</td><td id="ftEditCost">$0.00</td></tr>
+                <tr><td colspan="7" class="text-right ft-label-cell" data-i18n="registration.totalInscription">Total Inscription</td><td id="ftInscription">$0.00</td></tr>
+                <tr id="ftRowDonation"><td colspan="7" class="text-right ft-label-cell" data-i18n="registration.totalDonation">Total Donation</td><td id="ftDonation">$0.00</td></tr>
+                <tr><td colspan="7" class="text-right ft-label-cell" data-i18n="registration.totalSouvenirs">Total Souvenirs</td><td id="ftSouvenirs">$0.00</td></tr>
+                <tr id="ftRowTalleres" style="display:none;"><td colspan="7" class="text-right ft-label-cell" data-i18n="registration.totalTalleres">Total Workshops</td><td id="ftTalleres">$0.00</td></tr>
+                <tr><td colspan="7" class="text-right ft-label-cell" id="ftFeeLabel" data-i18n="registration.serviceFee">Service Fee</td><td id="ftFee">$0.00</td></tr>
+                <tr id="ftRowDiscount"><td colspan="7" class="text-right ft-label-cell" style="color:var(--success);" data-i18n="registration.totalDiscount">Total Discount</td><td id="ftDiscount" style="color:var(--success);">-$0.00</td></tr>
+                <tr id="ftRowGroupDiscount" style="display:none;"><td colspan="7" class="text-right ft-label-cell" style="color:var(--success);" id="ftGroupDiscountLabel">Group discount</td><td id="ftGroupDiscount" style="color:var(--success);">-$0.00</td></tr>
+                <tr id="ftRowEditCost" style="display:none;"><td colspan="7" class="text-right ft-label-cell" data-i18n="registration.editCostLabel">Editing cost</td><td id="ftEditCost">$0.00</td></tr>
                 <tr class="grand-total">
-                  <td colspan="6" class="text-right ft-label-cell" data-i18n="registration.grandTotal">GRAND TOTAL</td>
+                  <td colspan="7" class="text-right ft-label-cell" data-i18n="registration.grandTotal">GRAND TOTAL</td>
                   <td id="ftTotal">$0.00</td>
                 </tr>
               </tfoot>
