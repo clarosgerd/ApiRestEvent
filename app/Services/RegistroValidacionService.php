@@ -107,6 +107,14 @@ class RegistroValidacionService
         $totalInscripcion = 0.0;
         $totalDonacion = 0.0;
         $totalSouvenirs = 0.0;
+        // Cargo de servicio por souvenir individual (01/09/2026,
+        // sincronizado 14/09/2026) — suma aparte solo de los souvenirs con
+        // `aplica_cargo_servicio` true (ej. una polera con costo real), se
+        // usa para la base del fee más abajo, separado de $totalSouvenirs
+        // (que sigue siendo el total mostrado, afuera del fee por default).
+        // Ver ApiRestEvent::CrearInscripcionAction::validateFeePct(),
+        // fuente de verdad de este mismo cálculo.
+        $totalSouvenirsConCargo = 0.0;
         $totalDescuento = 0.0;
         $totalTalleres = 0.0;
         $talleresConCosto = ! empty($evento['talleresConCosto']);
@@ -145,6 +153,7 @@ class RegistroValidacionService
             $inscripcion = (float) ($p['precioCategoria'] ?? 0) + $precioPoleraValidado;
             $donacion = ! empty($formType['hasDonation']) ? max(0, (float) ($p['donacion'] ?? 0)) : 0.0;
             $souvenirsTotal = 0.0;
+            $souvenirsConCargo = 0.0;
             $souvenirsDesc = [];
 
             $ftSouvenirs = $formType['souvenirs'] ?? [];
@@ -170,6 +179,18 @@ class RegistroValidacionService
                         }
 
                         $souvenirsTotal += (float) $sv['precio'];
+                        // Cargo de servicio por souvenir individual
+                        // (01/09/2026, sincronizado 14/09/2026) — se usa el
+                        // precio de CATÁLOGO ($precioEsperado), no el que
+                        // mande el cliente, mismo criterio "nunca confiar en
+                        // el proxy" del resto de esta función. Si el
+                        // souvenir es `incluido` el precio esperado ya es 0
+                        // (ver arriba), así que sumar $precioEsperado acá es
+                        // equivalente y más simple que repetir la lógica de
+                        // incluido.
+                        if (! empty($ftSv['aplica_cargo_servicio'])) {
+                            $souvenirsConCargo += $precioEsperado;
+                        }
                         $souvenirsDesc[] = $sv;
                         break;
                     }
@@ -282,6 +303,7 @@ class RegistroValidacionService
             $totalInscripcion += $inscripcion;
             $totalDonacion += $donacion;
             $totalSouvenirs += $souvenirsTotal;
+            $totalSouvenirsConCargo += $souvenirsConCargo;
             $totalTalleres += $talleresTotal;
             $totalDescuento += $descuento;
 
@@ -299,7 +321,12 @@ class RegistroValidacionService
 
         $feePct = isset($evento['fee_pct']) ? (float) $evento['fee_pct'] : 0.05;
         $feeIncluyeTalleres = $evento['feeIncluyeTalleres'] ?? true;
-        $baseFee = $totalInscripcion + ($feeIncluyeTalleres ? $totalTalleres : 0);
+        // Cargo de servicio por souvenir individual (01/09/2026,
+        // sincronizado 14/09/2026) — souvenirs ya no quedan siempre afuera:
+        // cada ítem del catálogo puede marcarse `aplica_cargo_servicio`
+        // (default false, opt-in) para sumar su precio a la base.
+        // $totalSouvenirsConCargo ya viene filtrado por ese flag.
+        $baseFee = $totalInscripcion + ($feeIncluyeTalleres ? $totalTalleres : 0) + $totalSouvenirsConCargo;
         $fee = round($baseFee * $feePct, 2);
 
         $descuentoRegistrante = ($permiteGrupal && $maxGrupo > 0 && count($participantesValidos) >= $maxGrupo)

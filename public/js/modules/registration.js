@@ -779,11 +779,19 @@ function buildEventUI(){
       ? `<div class="souvenir-included">${escHtml(t('registration.itemIncluded'))}</div>`
       : `<div class="souvenir-price">${formatMoney(sv.price)}</div>`;
 
+    // Texto promocional por souvenir (02/09/2026, sincronizado 14/09/2026)
+    // — texto libre opcional cargado por el organizador, puramente de
+    // marketing. null/'' si no se cargó nada.
+    const promoTxt = sv.texto_promocional
+      ? `<div class="souvenir-promo">${escHtml(sv.texto_promocional)}</div>`
+      : '';
+
     div.innerHTML = `
       <div class="souvenir-check">✓</div>
       ${foto}
       <div class="souvenir-icon">${sv.icon}</div>
       <div class="souvenir-name">${escHtml(sv.name)}</div>
+      ${promoTxt}
       ${priceOrIncluded}
       ${renderSouvenirTallaSexoPicker(sv)}`;
     div.setAttribute('aria-pressed', sv.incluido ? 'true' : 'false');
