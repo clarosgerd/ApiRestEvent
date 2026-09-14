@@ -58,7 +58,7 @@ class CajaTest extends TestCase
         ]);
         $this->cajeroSession = [
             'admin_token' => $cajero->createToken('t')->plainTextToken,
-            'admin_user' => ['id' => $cajero->id, 'rol' => 'cajero', 'evento_id' => $this->evento->id],
+            'admin_user' => ['id' => $cajero->id, 'rol' => 'cajero', 'evento_id' => $this->evento->id, 'eventoIds' => [$this->evento->id]],
         ];
 
         $admin = AdminUser::create([
@@ -68,7 +68,7 @@ class CajaTest extends TestCase
         ]);
         $this->adminSession = [
             'admin_token' => $admin->createToken('t')->plainTextToken,
-            'admin_user' => ['id' => $admin->id, 'rol' => 'admin', 'evento_id' => $this->evento->id],
+            'admin_user' => ['id' => $admin->id, 'rol' => 'admin', 'evento_id' => $this->evento->id, 'eventoIds' => [$this->evento->id]],
         ];
     }
 
@@ -263,7 +263,7 @@ class CajaTest extends TestCase
         ]);
         $sesionAjena = [
             'admin_token' => $cajeroAjeno->createToken('t')->plainTextToken,
-            'admin_user' => ['id' => $cajeroAjeno->id, 'rol' => 'cajero', 'evento_id' => $otroEvento->id],
+            'admin_user' => ['id' => $cajeroAjeno->id, 'rol' => 'cajero', 'evento_id' => $otroEvento->id, 'eventoIds' => [$otroEvento->id]],
         ];
 
         $this->withSession($sesionAjena)

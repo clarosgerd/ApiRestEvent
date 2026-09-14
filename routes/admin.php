@@ -16,9 +16,11 @@ use App\Http\Controllers\Admin\CoordinateController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\DashboardInscripcionesController;
 use App\Http\Controllers\Admin\DeliveryController;
+use App\Http\Controllers\Admin\EquipoController;
 use App\Http\Controllers\Admin\EventoController;
 use App\Http\Controllers\Admin\FormasPagoController;
 use App\Http\Controllers\Admin\FormTypeController;
+use App\Http\Controllers\Admin\GeneroController;
 use App\Http\Controllers\Admin\ItemBodegaController;
 use App\Http\Controllers\Admin\ItemStockController;
 use App\Http\Controllers\Admin\ListaEsperaController;
@@ -37,6 +39,7 @@ use App\Http\Controllers\Admin\RelacionContactoController;
 use App\Http\Controllers\Admin\RouteController as AdminRouteController;
 use App\Http\Controllers\Admin\SesionCongresoController;
 use App\Http\Controllers\Admin\SexoController;
+use App\Http\Controllers\Admin\SipBancoController;
 use App\Http\Controllers\Admin\SocioController;
 use App\Http\Controllers\Admin\SouvenirController;
 use App\Http\Controllers\Admin\SubtipoEventoController;
@@ -215,6 +218,11 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::put('/auspiciadores/{auspiciador}', [AuspiciadorController::class, 'update'])->name('auspiciadores.update');
         Route::delete('/auspiciadores/{auspiciador}', [AuspiciadorController::class, 'destroy'])->name('auspiciadores.destroy');
 
+        // Catálogo de equipos (01/09/2026, sincronizado 14/09/2026).
+        Route::post('/eventos/{evento}/equipos', [EquipoController::class, 'store'])->name('equipos.store');
+        Route::put('/equipos/{equipo}', [EquipoController::class, 'update'])->name('equipos.update');
+        Route::delete('/equipos/{equipo}', [EquipoController::class, 'destroy'])->name('equipos.destroy');
+
         Route::post('/eventos/{evento}/agenda', [AgendaItemController::class, 'store'])->name('agenda.store');
         Route::put('/agenda/{agendaItem}', [AgendaItemController::class, 'update'])->name('agenda.update');
         Route::delete('/agenda/{agendaItem}', [AgendaItemController::class, 'destroy'])->name('agenda.destroy');
@@ -265,6 +273,15 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::put('/usuarios/{user}', [AdminUserController::class, 'update'])->name('usuarios.update');
             Route::delete('/usuarios/{user}', [AdminUserController::class, 'destroy'])->name('usuarios.destroy');
 
+            // Bancos SIP (31/08/2026, sincronizado 14/09/2026) — credenciales de
+            // cobro por organizador, más sensible que el resto del panel.
+            Route::get('/sip-bancos', [SipBancoController::class, 'index'])->name('sip-bancos.index');
+            Route::get('/sip-bancos/create', [SipBancoController::class, 'create'])->name('sip-bancos.create');
+            Route::post('/sip-bancos', [SipBancoController::class, 'store'])->name('sip-bancos.store');
+            Route::get('/sip-bancos/{sipBanco}/edit', [SipBancoController::class, 'edit'])->name('sip-bancos.edit');
+            Route::put('/sip-bancos/{sipBanco}', [SipBancoController::class, 'update'])->name('sip-bancos.update');
+            Route::delete('/sip-bancos/{sipBanco}', [SipBancoController::class, 'destroy'])->name('sip-bancos.destroy');
+
             Route::prefix('catalogos')->name('catalogos.')->group(function () {
                 Route::get('/paises', [PaisController::class, 'index'])->name('paises.index');
                 Route::post('/paises', [PaisController::class, 'store'])->name('paises.store');
@@ -280,6 +297,14 @@ Route::prefix('admin')->name('admin.')->group(function () {
                 Route::post('/sexos', [SexoController::class, 'store'])->name('sexos.store');
                 Route::put('/sexos/{sexo}', [SexoController::class, 'update'])->name('sexos.update');
                 Route::delete('/sexos/{sexo}', [SexoController::class, 'destroy'])->name('sexos.destroy');
+
+                // Género de participante (31/08/2026, sincronizado 14/09/2026) —
+                // respalda participantes.genero, NO confundir con sexos
+                // (categories.sexo_id).
+                Route::get('/generos', [GeneroController::class, 'index'])->name('generos.index');
+                Route::post('/generos', [GeneroController::class, 'store'])->name('generos.store');
+                Route::put('/generos/{genero}', [GeneroController::class, 'update'])->name('generos.update');
+                Route::delete('/generos/{genero}', [GeneroController::class, 'destroy'])->name('generos.destroy');
 
                 Route::get('/tipos-evento', [TipoEventoController::class, 'index'])->name('tipos-evento.index');
                 Route::post('/tipos-evento', [TipoEventoController::class, 'store'])->name('tipos-evento.store');

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Http\Controllers\Admin\Concerns\AuthorizesEventoScope;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\EventoController as ApiEventoController;
 use App\Models\Evento;
@@ -17,6 +18,8 @@ use Illuminate\View\View;
  */
 class DashboardInscripcionesController extends Controller
 {
+    use AuthorizesEventoScope;
+
     public function show(Evento $event, ApiEventoController $apiEvento): View
     {
         $this->assertCanViewEvento($event->id);
@@ -76,17 +79,5 @@ class DashboardInscripcionesController extends Controller
             'Content-Type' => 'text/csv; charset=UTF-8',
             'Content-Disposition' => "attachment; filename=\"reporte-talleres-evento-{$event->id}.csv\"",
         ]);
-    }
-
-    /**
-     * Mismo criterio que Admin\EventoController::assertCanViewEvento.
-     */
-    private function assertCanViewEvento(int $evento): void
-    {
-        $admin = session('admin_user');
-
-        if (($admin['rol'] ?? null) !== 'super_admin' && (int) ($admin['evento_id'] ?? 0) !== $evento) {
-            abort(403, 'No tiene acceso a este evento.');
-        }
     }
 }

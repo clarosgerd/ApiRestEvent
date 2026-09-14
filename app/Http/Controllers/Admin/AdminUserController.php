@@ -10,6 +10,7 @@ use App\Http\Requests\UpdateAdminUserRequest;
 use App\Models\AdminUser;
 use App\Models\Evento;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 /**
@@ -54,9 +55,28 @@ class AdminUserController extends Controller
         ]);
     }
 
-    public function update(UpdateAdminUserRequest $request, ApiAdminUserController $api, AdminUser $user): RedirectResponse
+    /**
+     * Admin de evento asignado a varios eventos (28/08/2026, sincronizado
+     * 14/09/2026) — un `<select multiple>` vacío (nadie tildado) no manda
+     * la clave `evento_ids_adicionales` en el POST, y
+     * `AdminUserController::update()` (API) solo resincroniza la pivote si
+     * la clave está presente en `$request->validated()` (`array_key_exists`,
+     * a propósito: un array vacío SÍ debe limpiar la pivote). No se puede
+     * type-hintear `UpdateAdminUserRequest` directo en la firma (Laravel lo
+     * valida antes de que este método pueda inyectar el default) — se usa
+     * `mergeAndValidate()` para fusionar el default ANTES de validar,
+     * mismo patrón ya establecido en Fase 1c.
+     */
+    public function update(Request $request, ApiAdminUserController $api, AdminUser $user): RedirectResponse
     {
-        return $this->redirectFromApiResponse($api->update($request, $user), 'admin.usuarios.index');
+        $merge = [];
+        if ($request->input('rol') === 'admin' && !$request->has('evento_ids_adicionales')) {
+            $merge['evento_ids_adicionales'] = [];
+        }
+
+        $validated = $this->mergeAndValidate(UpdateAdminUserRequest::class, $request, $merge);
+
+        return $this->redirectFromApiResponse($api->update($validated, $user), 'admin.usuarios.index');
     }
 
     public function destroy(ApiAdminUserController $api, AdminUser $user): RedirectResponse
@@ -65,16 +85,26 @@ class AdminUserController extends Controller
     }
 
     /**
-     * Lista de eventos para el select de evento_id — lectura simple, sin
-     * lógica de autorización propia (ya está detrás de `admin.superadmin`),
-     * así que no hace falta delegar en un controller de la API para esto.
-     * La vista espera la clave `name` (así la expone `EventoResource` del
+     * Lista de eventos para el select de evento_id (principal) y el
+     * multi-select de evento_ids_adicionales — lectura simple, sin lógica
+     * de autorización propia (ya está detrás de `admin.superadmin`), así
+     * que no hace falta delegar en un controller de la API para esto. La
+     * vista espera la clave `name` (así la expone `EventoResource` del
      * lado de la API) — acá se lee directo el modelo, cuya columna real es
      * `nombre`, de ahí el alias explícito.
+     *
+     * Bug real de admin-eventos (28/08/2026, "solo muestra 48 registros de
+     * eventos"): ahí este selector reusaba `GET /event`, que tiene un tope
+     * DURO server-side de 48 por página — con más de 48 eventos reales,
+     * los últimos quedaban inalcanzables. Acá NO aplica (consulta directa
+     * al modelo, sin ese tope HTTP de por medio) — se saca el `limit(48)`
+     * que había quedado de la Fase 1b original (arbitrario, mismo síntoma
+     * si el catálogo real supera 48 eventos) para no heredar el mismo bug
+     * por otro camino.
      */
     private function listaEventos(): array
     {
-        return Evento::orderByDesc('id')->limit(48)->get(['id', 'nombre'])
+        return Evento::orderByDesc('id')->get(['id', 'nombre'])
             ->map(fn (Evento $e) => ['id' => $e->id, 'name' => $e->nombre])
             ->toArray();
     }

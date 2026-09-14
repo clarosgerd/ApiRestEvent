@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Http\Controllers\Admin\Concerns\AuthorizesEventoScope;
 use App\Http\Controllers\Admin\Concerns\DelegatesToApiJson;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\EventoController as ApiEventoController;
@@ -24,6 +25,7 @@ use Illuminate\View\View;
 class ItemBodegaController extends Controller
 {
     use DelegatesToApiJson;
+    use AuthorizesEventoScope;
 
     public function index(Evento $event, ApiEventoController $apiEvento, ApiItemBodegaController $apiItemBodega): View
     {
@@ -78,18 +80,6 @@ class ItemBodegaController extends Controller
 
         return redirect(route('admin.eventos.edit', $event->id) . '#tipos')
             ->with('status', 'Ítem asignado — cargá su precio, si viene incluido, y su stock propio desde ahí.');
-    }
-
-    /**
-     * Mismo criterio que Admin\NumeracionController::assertCanViewEvento.
-     */
-    private function assertCanViewEvento(int $evento): void
-    {
-        $admin = session('admin_user');
-
-        if (($admin['rol'] ?? null) !== 'super_admin' && (int) ($admin['evento_id'] ?? 0) !== $evento) {
-            abort(403, 'No tiene acceso a este evento.');
-        }
     }
 
     /** Igual que DelegatesToApiJson::extractErrors(), ver EventoController. */

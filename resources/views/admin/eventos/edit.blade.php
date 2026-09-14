@@ -127,6 +127,10 @@
                 class="shrink-0 whitespace-nowrap px-4 py-3 text-sm font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-600 focus-visible:-outline-offset-2">
             Tipos de formulario
         </button>
+        <button type="button" role="tab" id="tab-equipos" data-tab-id="equipos" aria-controls="panel-equipos" aria-selected="false" tabindex="-1"
+                class="shrink-0 whitespace-nowrap px-4 py-3 text-sm font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-600 focus-visible:-outline-offset-2">
+            Equipos
+        </button>
         <button type="button" role="tab" id="tab-mapa" data-tab-id="mapa" aria-controls="panel-mapa" aria-selected="false" tabindex="-1"
                 class="shrink-0 whitespace-nowrap px-4 py-3 text-sm font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-600 focus-visible:-outline-offset-2">
             Mapa
@@ -367,6 +371,23 @@
                         </span>
                     </label>
                 </div>
+                {{-- Purgar datos de Persona/Participante en inscripciones canceladas
+                     (01/09/2026, sincronizado 14/09/2026) — a diferencia del resto de
+                     los checkboxes de esta página, este nace TILDADO por default
+                     (mantener_datos_persona default true en la BD — apagarlo es la
+                     excepción, no lo contrario). Ver PurgarDatosPersonaCanceladaAction. --}}
+                <div class="col-span-2">
+                    <label class="flex items-center gap-2 text-sm font-semibold">
+                        <input type="checkbox" name="mantenerDatosPersona" value="1"
+                               {{ ($evento['mantenerDatosPersona'] ?? true) ? 'checked' : '' }}>
+                        Mantener datos de persona
+                        <span class="font-normal text-slate-500">
+                            (si se destilda, una inscripción de este evento que termine cancelada
+                            borra automáticamente al participante y, si no tiene otra inscripción
+                            vigente en ningún otro evento, también su cuenta de persona)
+                        </span>
+                    </label>
+                </div>
                 <div class="col-span-2">
                     <label class="block text-sm font-semibold mb-1">Deslinde de responsabilidad</label>
                     <textarea name="deslinde" rows="2"
@@ -466,6 +487,18 @@
                         <input type="color" name="color" value="{{ $categoria['color'] ?: '#022858' }}" class="flex-1 h-8 border border-slate-300 rounded">
                         <button type="submit" class="text-xs bg-brand-600 hover:bg-brand-700 text-white px-2 py-1 rounded">Guardar</button>
                     </div>
+                    {{-- Categorías por form_type (27/08/2026, sincronizado 14/09/2026) —
+                         "General" (vacío) = categoría compartida por todos los form_types
+                         del evento (comportamiento previo, default). --}}
+                    <div class="col-span-2">
+                        <label class="block text-xs font-semibold mb-1">Tipo de formulario</label>
+                        <select name="formulario_id" class="w-full border border-slate-300 rounded px-2 py-1 text-sm">
+                            <option value="">General (todos los tipos de este evento)</option>
+                            @foreach ($evento['formTypes'] as $formType)
+                                <option value="{{ $formType['id'] }}" @selected(($categoria['formulario_id'] ?? null) == $formType['id'])>{{ $formType['name'] }}</option>
+                            @endforeach
+                        </select>
+                    </div>
                 </form>
                 <form method="POST" action="{{ route('admin.categorias.destroy', $categoria['id']) }}" class="mt-1 inline"
                       onsubmit="return confirm('¿Eliminar esta categoría?')">
@@ -509,6 +542,15 @@
                 <div class="flex items-end gap-2">
                     <input type="color" name="color" value="#022858" class="flex-1 h-8 border border-slate-300 rounded">
                     <button type="submit" class="text-xs bg-brand-600 hover:bg-brand-700 text-white px-2 py-1 rounded">Agregar</button>
+                </div>
+                <div class="col-span-2">
+                    <label class="block text-xs font-semibold mb-1">Tipo de formulario</label>
+                    <select name="formulario_id" class="w-full border border-slate-300 rounded px-2 py-1 text-sm">
+                        <option value="">General (todos los tipos de este evento)</option>
+                        @foreach ($evento['formTypes'] as $formType)
+                            <option value="{{ $formType['id'] }}">{{ $formType['name'] }}</option>
+                        @endforeach
+                    </select>
                 </div>
             </form>
         </div>
@@ -602,6 +644,31 @@
                         <label class="inline-flex items-center gap-2 text-sm">
                             <input type="checkbox" name="requiere_contacto_emergencia" value="1" {{ ($formType['requiereContactoEmergencia'] ?? true) ? 'checked' : '' }}>
                             Pide contacto de emergencia <span class="text-slate-400">(desmarcar en congresos/talleres donde no aplica — oculta esos 3 campos en el formulario público y en Caja)</span>
+                        </label>
+                    </div>
+                    {{-- Ocultar Dirección/Ciudad/Teléfono/Alias por tipo de formulario
+                         (01/09/2026, sincronizado 14/09/2026) — a diferencia de los
+                         checkboxes de arriba, estos 4 ya son opcionales en TODOS los
+                         eventos (no bloquean el envío si quedan vacíos); esto además los
+                         saca del formulario. --}}
+                    @php($camposOcultos = $formType['camposOcultos'] ?? [])
+                    <div class="flex flex-wrap gap-4 mt-2">
+                        <span class="text-xs font-semibold text-slate-500 w-full">Ocultar del formulario público:</span>
+                        <label class="inline-flex items-center gap-2 text-sm">
+                            <input type="checkbox" name="campos_ocultos[]" value="direccion" {{ in_array('direccion', $camposOcultos) ? 'checked' : '' }}>
+                            Dirección
+                        </label>
+                        <label class="inline-flex items-center gap-2 text-sm">
+                            <input type="checkbox" name="campos_ocultos[]" value="ciudad" {{ in_array('ciudad', $camposOcultos) ? 'checked' : '' }}>
+                            Ciudad
+                        </label>
+                        <label class="inline-flex items-center gap-2 text-sm">
+                            <input type="checkbox" name="campos_ocultos[]" value="telefono" {{ in_array('telefono', $camposOcultos) ? 'checked' : '' }}>
+                            Teléfono
+                        </label>
+                        <label class="inline-flex items-center gap-2 text-sm">
+                            <input type="checkbox" name="campos_ocultos[]" value="alias" {{ in_array('alias', $camposOcultos) ? 'checked' : '' }}>
+                            Alias <span class="text-slate-400">(en tipos "congreso" este campo también es el Título — ocultarlo lo saca a los dos)</span>
                         </label>
                     </div>
                     <button type="submit" class="text-xs bg-brand-600 hover:bg-brand-700 text-white px-3 py-1.5 rounded">Guardar</button>
@@ -829,7 +896,81 @@
                         Pide contacto de emergencia <span class="text-slate-400">(desmarcar en congresos/talleres donde no aplica)</span>
                     </label>
                 </div>
+                {{-- Ocultar Dirección/Ciudad/Teléfono/Alias por tipo de formulario
+                     (01/09/2026, sincronizado 14/09/2026) — a diferencia de los
+                     checkboxes de arriba, estos 4 ya son opcionales en TODOS los
+                     eventos (no bloquean el envío si quedan vacíos); esto además los
+                     saca del formulario. --}}
+                <div class="flex flex-wrap gap-4 mt-2">
+                    <span class="text-xs font-semibold text-slate-500 w-full">Ocultar del formulario público:</span>
+                    <label class="inline-flex items-center gap-2 text-sm">
+                        <input type="checkbox" name="campos_ocultos[]" value="direccion">
+                        Dirección
+                    </label>
+                    <label class="inline-flex items-center gap-2 text-sm">
+                        <input type="checkbox" name="campos_ocultos[]" value="ciudad">
+                        Ciudad
+                    </label>
+                    <label class="inline-flex items-center gap-2 text-sm">
+                        <input type="checkbox" name="campos_ocultos[]" value="telefono">
+                        Teléfono
+                    </label>
+                    <label class="inline-flex items-center gap-2 text-sm">
+                        <input type="checkbox" name="campos_ocultos[]" value="alias">
+                        Alias <span class="text-slate-400">(en tipos "congreso" este campo también es el Título — ocultarlo lo saca a los dos)</span>
+                    </label>
+                </div>
                 <button type="submit" class="text-sm bg-brand-600 hover:bg-brand-700 text-white px-3 py-1.5 rounded-md">Agregar tipo de formulario</button>
+            </form>
+        </div>
+    </div>
+
+    {{-- 3 bis. Equipos (catálogo por evento, para tipos de formulario "Con
+         equipo") — 01/09/2026, sincronizado 14/09/2026. --}}
+    <div id="panel-equipos" role="tabpanel" aria-labelledby="tab-equipos" tabindex="0" class="p-6" hidden>
+        <p class="text-sm text-slate-500 mb-4">
+            Solo importa para tipos de formulario marcados "Con equipo" — el participante elige uno
+            de esta lista al inscribirse. Un nombre que coincide con un club del catálogo global se
+            vincula automáticamente.
+        </p>
+
+        @forelse ($evento['equipos'] as $equipo)
+            <div class="border border-slate-200 rounded-md p-3 mb-2">
+                <form method="POST" action="{{ route('admin.equipos.update', $equipo['id']) }}" class="grid grid-cols-4 gap-2 items-end">
+                    @csrf
+                    @method('PUT')
+                    <input type="hidden" name="evento_id" value="{{ $evento['id'] }}">
+                    <div class="col-span-2">
+                        <label class="block text-xs font-semibold mb-1">Nombre</label>
+                        <input type="text" name="nombre" value="{{ $equipo['nombre'] }}" required class="w-full border border-slate-300 rounded px-2 py-1 text-sm">
+                    </div>
+                    <div class="text-xs text-slate-500">
+                        @if ($equipo['clubId'])
+                            <span class="inline-block bg-slate-100 rounded px-2 py-1">Vinculado a club</span>
+                        @endif
+                    </div>
+                    <div>
+                        <button type="submit" class="text-xs bg-brand-600 hover:bg-brand-700 text-white px-2 py-1 rounded">Guardar</button>
+                    </div>
+                </form>
+                <form method="POST" action="{{ route('admin.equipos.destroy', $equipo['id']) }}" class="mt-1"
+                      onsubmit="return confirm('¿Eliminar este equipo?')">
+                    @csrf
+                    @method('DELETE')
+                    <input type="hidden" name="evento_id" value="{{ $evento['id'] }}">
+                    <button type="submit" class="text-xs text-red-600 hover:underline">Eliminar equipo</button>
+                </form>
+            </div>
+        @empty
+            <p class="text-sm text-slate-500 mb-3">Todavía no hay equipos cargados para este evento.</p>
+        @endforelse
+
+        <div class="border border-dashed border-slate-300 rounded-md p-3 mt-3">
+            <p class="text-xs font-semibold text-slate-500 mb-2">+ Agregar equipos</p>
+            <form method="POST" action="{{ route('admin.equipos.store', $evento['id']) }}">
+                @csrf
+                <textarea name="nombres" rows="4" placeholder="Un equipo por línea" class="w-full border border-slate-300 rounded px-2 py-1 text-sm mb-2"></textarea>
+                <button type="submit" class="text-xs bg-brand-600 hover:bg-brand-700 text-white px-2 py-1 rounded">Agregar</button>
             </form>
         </div>
     </div>

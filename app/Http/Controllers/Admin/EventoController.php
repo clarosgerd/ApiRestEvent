@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Actions\CrearEventoAction;
+use App\Http\Controllers\Admin\Concerns\AuthorizesEventoScope;
 use App\Http\Controllers\Admin\Concerns\DelegatesToApiJson;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\EventoController as ApiEventoController;
@@ -28,6 +29,7 @@ use Symfony\Component\HttpFoundation\Response;
 class EventoController extends Controller
 {
     use DelegatesToApiJson;
+    use AuthorizesEventoScope;
 
     public function create(): View
     {
@@ -200,15 +202,6 @@ class EventoController extends Controller
         return $api->certificadosPdf($event);
     }
 
-    private function assertCanViewEvento(int $eventoId): void
-    {
-        $admin = session('admin_user');
-
-        if (($admin['rol'] ?? null) !== 'super_admin' && (int) ($admin['evento_id'] ?? 0) !== $eventoId) {
-            abort(403, 'No tiene acceso a este evento.');
-        }
-    }
-
     /**
      * `UpdateEventosRequest` tampoco se type-hintea directo — igual que en
      * store(), `feePctPorcentaje` (humano, "5") tiene que convertirse a
@@ -226,6 +219,11 @@ class EventoController extends Controller
             'aceptaUsd' => $request->boolean('aceptaUsd'),
             'usdPrecioFijo' => $request->boolean('usdPrecioFijo'),
             'talleresConCosto' => $request->boolean('talleresConCosto'),
+            // Purgar datos de Persona/Participante en inscripciones
+            // canceladas (01/09/2026, sincronizado 14/09/2026) — mismo
+            // motivo que aceptaUsd: se manda siempre para que destildear
+            // también persista.
+            'mantenerDatosPersona' => $request->boolean('mantenerDatosPersona'),
         ];
 
         if ($request->input('organizador_id') === '') {

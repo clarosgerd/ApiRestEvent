@@ -43,6 +43,7 @@
                 @if (Route::has('admin.organizadores.index'))
                     <a class="hover:underline" href="{{ route('admin.organizadores.index') }}">Organizadores</a>
                 @endif
+                <a class="hover:underline" href="{{ route('admin.sip-bancos.index') }}">Bancos SIP</a>
                 @if (Route::has('admin.presupuesto-categorias.index'))
                     <a class="hover:underline" href="{{ route('admin.presupuesto-categorias.index') }}">Categorías de presupuesto</a>
                 @endif

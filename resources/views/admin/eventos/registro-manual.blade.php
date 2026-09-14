@@ -48,11 +48,8 @@
             </div>
             <div>
                 <label class="block text-sm font-semibold mb-1">Categoría</label>
-                <select name="categoria" required class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm">
+                <select name="categoria" id="categoriaSelect" required class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm">
                     <option value="">Seleccionar…</option>
-                    @foreach ($evento['categories'] ?? [] as $cat)
-                        <option value="{{ $cat['name'] }}">{{ $cat['name'] }} — {{ $cat['price'] }}</option>
-                    @endforeach
                 </select>
             </div>
         </div>
@@ -100,6 +97,36 @@
         </button>
     </form>
 </section>
+
+{{-- Categorías por form_type (27/08/2026, sincronizado 14/09/2026) — el
+     select de categoría se puebla en JS según el tipo de formulario
+     elegido (formulario_id null = compartida por todos, se muestra
+     siempre). El backend (RegistroManualController::store()) ya rechaza
+     igual cualquier combinación inválida — esto es solo para no dejar
+     elegir a mano una combinación que el servidor va a rechazar. --}}
+<script>
+(function () {
+    // Directiva Blade "at-json", NUNCA un echo escapado dentro de un
+    // script — corrompe las comillas del JSON (bug real encontrado el
+    // 27/08/2026 en caja/_formulario.blade.php, mismo motivo).
+    const CATEGORIES = @json($evento['categories'] ?? []);
+    const formTypeSelect = document.querySelector('select[name="form_types_id"]');
+    const categoriaSelect = document.getElementById('categoriaSelect');
+
+    function renderCategorias() {
+        const formTypeId = formTypeSelect.value;
+        const disponibles = CATEGORIES.filter(
+            c => c.formulario_id == null || String(c.formulario_id) === String(formTypeId)
+        );
+        categoriaSelect.innerHTML = '<option value="">Seleccionar…</option>' + disponibles.map(
+            c => `<option value="${c.name}">${c.name} — ${c.price}</option>`
+        ).join('');
+    }
+
+    formTypeSelect.addEventListener('change', renderCategorias);
+    renderCategorias();
+})();
+</script>
 
 @if (session('registroManualReporte'))
     @php($reporte = session('registroManualReporte'))

@@ -39,6 +39,11 @@ class FormTypeController extends Controller
         foreach (self::BOOLEAN_FIELDS as $field) {
             $merge[$field] = $request->boolean($field);
         }
+        // Ocultar Dirección/Ciudad/Teléfono/Alias por tipo de formulario
+        // (01/09/2026, sincronizado 14/09/2026) — es un array, no un
+        // boolean; "nada tildado" ya manda [] naturalmente, no necesita el
+        // patrón request->boolean() de los flags de arriba.
+        $merge['campos_ocultos'] = $request->input('campos_ocultos', []);
 
         $validated = $this->mergeAndValidate(StoreFormTypeRequest::class, $request, $merge);
 
@@ -51,6 +56,7 @@ class FormTypeController extends Controller
         foreach (self::BOOLEAN_FIELDS as $field) {
             $merge[$field] = $request->boolean($field);
         }
+        $merge['campos_ocultos'] = $request->input('campos_ocultos', []);
 
         $validated = $this->mergeAndValidate(UpdateFormTypeRequest::class, $request, $merge);
 

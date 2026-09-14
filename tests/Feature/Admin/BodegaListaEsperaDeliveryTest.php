@@ -40,7 +40,7 @@ class BodegaListaEsperaDeliveryTest extends TestCase
         ]);
         $this->adminSession = [
             'admin_token' => $admin->createToken('t')->plainTextToken,
-            'admin_user' => ['id' => $admin->id, 'rol' => 'admin', 'evento_id' => $this->evento->id],
+            'admin_user' => ['id' => $admin->id, 'rol' => 'admin', 'evento_id' => $this->evento->id, 'eventoIds' => [$this->evento->id]],
         ];
     }
 

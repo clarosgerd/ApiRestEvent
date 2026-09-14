@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Http\Controllers\Admin\Concerns\AuthorizesEventoScope;
 use App\Http\Controllers\Admin\Concerns\DelegatesToApiJson;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\EventoController as ApiEventoController;
@@ -27,6 +28,7 @@ use Illuminate\View\View;
 class SesionCongresoController extends Controller
 {
     use DelegatesToApiJson;
+    use AuthorizesEventoScope;
 
     public function index(
         Evento $event,
@@ -114,18 +116,6 @@ class SesionCongresoController extends Controller
         $this->assertCanViewEvento($event->id);
 
         return $this->redirectFromApiResponse($api->destroy($event, $sesion), 'admin.sesiones.index', [$event->id]);
-    }
-
-    /**
-     * Mismo criterio que Admin\NumeracionController::assertCanViewEvento.
-     */
-    private function assertCanViewEvento(int $evento): void
-    {
-        $admin = session('admin_user');
-
-        if (($admin['rol'] ?? null) !== 'super_admin' && (int) ($admin['evento_id'] ?? 0) !== $evento) {
-            abort(403, 'No tiene acceso a este evento.');
-        }
     }
 
     /** Igual que DelegatesToApiJson::extractErrors(), ver EventoController. */

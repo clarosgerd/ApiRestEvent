@@ -29,13 +29,14 @@ class CategoryPricePeriodController extends Controller
 
     public function index(Request $request, Category $category, ApiCategoryController $apiCategory): View
     {
-        // CategoryController::show() devuelve un JsonResource directo, no
-        // una JsonResponse envuelta en {success,data} como el resto de los
-        // controllers de la API delegados en esta fase — pero al pasar por
-        // ->response(), Laravel igual lo envuelve en {"data": {...}}
-        // (comportamiento default de JsonResource, sin withoutWrapping()),
-        // así que hay que desenvolver un nivel más.
-        $categoria = $apiCategory->show($category)->response()->getData(true)['data'];
+        // Sync 14/09/2026 (Lote 1, cherry-pick 24fb412) — CategoryController::
+        // show() dejó de devolver un JsonResource "pelado" y pasó a devolver
+        // un JsonResponse ya armado ({'success', 'category' => ...}), fix de
+        // un bug real donde el wrapper default de JsonResource ({"data":...})
+        // no calzaba con lo que este mismo controller esperaba en 'category'.
+        // Ya no hace falta ->response() (eso solo existe en objetos
+        // Responsable, no en un JsonResponse ya construido).
+        $categoria = $apiCategory->show($category)->getData(true)['category'];
 
         return view('admin.categorias.periodos', [
             'categoryId' => $category->id,

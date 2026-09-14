@@ -29,6 +29,7 @@
                 <th class="px-4 py-2">Precio USD</th>
                 <th class="px-4 py-2">Sesiones</th>
                 <th class="px-4 py-2">Activo</th>
+                <th class="px-4 py-2">Permite inscripción</th>
                 <th class="px-4 py-2"></th>
             </tr>
         </thead>
@@ -63,6 +64,17 @@
                     <td class="px-4 py-2">
                         {{ $taller['activo'] ? 'Sí' : 'No' }}
                     </td>
+                    <td class="px-4 py-2">
+                        {{-- Deshabilitar un taller sin ocultarlo (28/08/2026,
+                             sincronizado 14/09/2026) — distinto de "Activo": esto
+                             no afecta si el taller se ve, solo si se puede
+                             elegir. --}}
+                        @if ($taller['permite_inscripcion'] ?? true)
+                            Sí
+                        @else
+                            <span class="text-amber-600 font-semibold">No</span>
+                        @endif
+                    </td>
                     <td class="px-4 py-2 text-right space-x-2 whitespace-nowrap">
                         <a href="#edit-taller-{{ $taller['id'] }}" class="text-brand-600 hover:underline">Editar</a>
                         <form method="POST" action="{{ route('admin.talleres.destroy', [$evento['id'], $taller['id']]) }}" class="inline"
@@ -74,7 +86,7 @@
                     </td>
                 </tr>
             @empty
-                <tr><td colspan="7" class="px-4 py-6 text-center text-slate-400">No hay talleres registrados todavía.</td></tr>
+                <tr><td colspan="8" class="px-4 py-6 text-center text-slate-400">No hay talleres registrados todavía.</td></tr>
             @endforelse
         </tbody>
     </table>

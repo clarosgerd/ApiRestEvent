@@ -32,8 +32,18 @@ class DashboardController extends Controller
             $eventos = $payload['eventos'] ?? [];
             $pagination = $payload['pagination'] ?? null;
         } else {
-            $evento = $api->show(\App\Models\Evento::findOrFail($admin['evento_id']))->getData(true)['eventos'] ?? null;
-            $eventos = $evento ? [$evento] : [];
+            // Admin de evento asignado a varios eventos (28/08/2026,
+            // sincronizado 14/09/2026) — 'eventoIds' es evento principal +
+            // adicionales, deduplicado (ver AdminUser::eventoIds()); un
+            // admin sin eventos adicionales sigue viendo exactamente su
+            // único evento, como antes.
+            $eventos = [];
+            foreach ($admin['eventoIds'] ?? [] as $eventoId) {
+                $evento = $api->show(\App\Models\Evento::findOrFail($eventoId))->getData(true)['eventos'] ?? null;
+                if ($evento) {
+                    $eventos[] = $evento;
+                }
+            }
             $pagination = null;
         }
 

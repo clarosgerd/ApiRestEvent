@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Http\Controllers\Admin\Concerns\AuthorizesEventoScope;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\EventoController as ApiEventoController;
 use App\Http\Controllers\ParticipanteController as ApiParticipanteController;
@@ -21,6 +22,8 @@ use Illuminate\View\View;
  */
 class AcreditacionController extends Controller
 {
+    use AuthorizesEventoScope;
+
     public function index(Request $request, Evento $event, ApiEventoController $apiEvento, ApiParticipanteController $apiParticipante): View
     {
         $this->assertCanViewEvento($event->id);
@@ -59,17 +62,5 @@ class AcreditacionController extends Controller
         $this->assertCanViewEvento($event->id);
 
         return $api->checkin($participante);
-    }
-
-    /**
-     * Mismo criterio que Admin\NumeracionController::assertCanViewEvento.
-     */
-    private function assertCanViewEvento(int $evento): void
-    {
-        $admin = session('admin_user');
-
-        if (($admin['rol'] ?? null) !== 'super_admin' && (int) ($admin['evento_id'] ?? 0) !== $evento) {
-            abort(403, 'No tiene acceso a este evento.');
-        }
     }
 }

@@ -263,7 +263,15 @@
         const select = document.getElementById('categoria');
         if (!ft || !ft.requiereCategoria) { section.style.display = 'none'; select.innerHTML = ''; return; }
         section.style.display = '';
-        select.innerHTML = '<option value="">— seleccionar —</option>' + (EVENTO.categories || []).map(c =>
+        // Categorías por form_type (27/08/2026, sincronizado 14/09/2026) —
+        // formulario_id null = compartida por todos los form_types del
+        // evento (comportamiento previo, sin cambios); con un valor, solo
+        // se muestra para ese form_type. Mismo filtro que el formulario
+        // público (elascenso/event/index.php).
+        const categoriasDelFormType = (EVENTO.categories || []).filter(
+            c => c.formulario_id == null || String(c.formulario_id) === String(ft.id)
+        );
+        select.innerHTML = '<option value="">— seleccionar —</option>' + categoriasDelFormType.map(c =>
             `<option value="${c.id}" data-precio="${c.precio_vigente}">${c.name} (${Number(c.precio_vigente).toFixed(2)})</option>`
         ).join('');
         const pre = {{ json_encode($prefill['categoria'] ?? null) }};

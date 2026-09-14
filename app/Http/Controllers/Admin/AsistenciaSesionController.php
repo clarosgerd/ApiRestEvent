@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Http\Controllers\Admin\Concerns\AuthorizesEventoScope;
 use App\Http\Controllers\AsistenciaSesionController as ApiAsistenciaSesionController;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\EventoController as ApiEventoController;
@@ -24,6 +25,8 @@ use Illuminate\View\View;
  */
 class AsistenciaSesionController extends Controller
 {
+    use AuthorizesEventoScope;
+
     public function index(
         Evento $event,
         SesionCongreso $sesion,
@@ -95,17 +98,5 @@ class AsistenciaSesionController extends Controller
             'totalParticipantesPagados' => $payload['totalParticipantesPagados'] ?? 0,
             'sesiones' => $payload['data'] ?? [],
         ]);
-    }
-
-    /**
-     * Mismo criterio que Admin\NumeracionController::assertCanViewEvento.
-     */
-    private function assertCanViewEvento(int $evento): void
-    {
-        $admin = session('admin_user');
-
-        if (($admin['rol'] ?? null) !== 'super_admin' && (int) ($admin['evento_id'] ?? 0) !== $evento) {
-            abort(403, 'No tiene acceso a este evento.');
-        }
     }
 }
