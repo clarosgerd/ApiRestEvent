@@ -183,7 +183,23 @@ class ActualizarInscripcionPagadaAction
                 );
                 $deltaCategoria += $cambioCategoria['delta'];
 
-                $idsAnteriores = $anterior->talleresSesiones->pluck('sesion_congreso_id')->map(fn ($id) => (int) $id)->all();
+                // Bug real en UAT (17/09/2026, incidente CIACRUZ LA-CD34EA70)
+                // — un taller agregado pero todavía `pago_pendiente=true`
+                // (nunca cobrado) contaba como "ya existente" en cualquier
+                // reintento posterior (ej. doble click del participante, o
+                // Caja reabriendo la edición antes de cobrar), perdiendo su
+                // delta por completo. Solo los talleres YA COBRADOS
+                // (pago_pendiente=false) cuentan como "anteriores" — uno
+                // pendiente de pago sigue contando como "a cobrar" hasta
+                // que efectivamente se pague. Efecto colateral aceptado
+                // (confirmado con el usuario): un taller pendiente, no
+                // cobrado todavía, ahora SÍ se puede quitar — antes el
+                // chequeo de abajo lo bloqueaba también a él, más estricto
+                // de lo necesario (no hay razón de negocio para impedir
+                // que alguien se arrepienta antes de pagar).
+                $idsAnteriores = $anterior->talleresSesiones
+                    ->where('pago_pendiente', false)
+                    ->pluck('sesion_congreso_id')->map(fn ($id) => (int) $id)->all();
                 $idsNuevos = collect($participantData['talleres'] ?? [])->pluck('sesion_congreso_id')->map(fn ($id) => (int) $id)->all();
 
                 if (! empty(array_diff($idsAnteriores, $idsNuevos))) {
