@@ -28,7 +28,9 @@ use App\Http\Controllers\AsistenciaSesionController;
 use App\Http\Controllers\TallerCongresoController;
 use App\Http\Controllers\ItemBodegaController;
 use App\Http\Controllers\ItemStockController;
+use App\Http\Controllers\CalculoEdadController;
 use App\Http\Controllers\CategoryPricePeriodController;
+use App\Http\Controllers\NumeracionRangoController;
 use App\Http\Controllers\ListaEsperaController;
 use App\Http\Controllers\OrganizadorController;
 use App\Http\Controllers\DeliveryController;
@@ -63,6 +65,10 @@ Route::group(['prefix' => 'v1','namespace' => 'App\Http\Controllers'], function 
     // PLAN-GENERO-CATALOGO-CAMPOS-OPCIONALES-31082026.md. NO confundir con
     // /catalogos/sexos (admin-only, más abajo) — son catálogos distintos.
     Route::get('/generos', [GeneroController::class, 'index']);
+    // Aviso de numeración vs. género/edad real en entrega de kit
+    // (16/09/2026) — mismo criterio que /generos: público, catálogo fijo,
+    // sin CRUD (ver CalculoEdadController).
+    Route::get('/calculo-edades', [CalculoEdadController::class, 'index']);
     Route::apiResource('/event',EventoController::class)->only(['index', 'show']);
     Route::get('/event/{event}/agenda-pdf', [EventoController::class, 'agendaPdf']);
     Route::get('/event/{event}/agenda-ics', [EventoController::class, 'agendaIcs']);
@@ -139,6 +145,14 @@ Route::group(['prefix' => 'v1','namespace' => 'App\Http\Controllers'], function 
         Route::post('/category/{category}/periodos', [CategoryPricePeriodController::class, 'store']);
         Route::put('/category-price-period/{categoryPricePeriod}', [CategoryPricePeriodController::class, 'update']);
         Route::delete('/category-price-period/{categoryPricePeriod}', [CategoryPricePeriodController::class, 'destroy']);
+
+        // Aviso de numeración vs. género/edad real en entrega de kit
+        // (16/09/2026) — mismo criterio que periodos arriba: sin index
+        // propio, la lista ya viaja embebida en
+        // CategoryResource.numeracion_rangos.
+        Route::post('/category/{category}/numeracion-rangos', [NumeracionRangoController::class, 'store']);
+        Route::put('/numeracion-rango/{numeracionRango}', [NumeracionRangoController::class, 'update']);
+        Route::delete('/numeracion-rango/{numeracionRango}', [NumeracionRangoController::class, 'destroy']);
         Route::apiResource('/form-type', FormTypeController::class)->only(['store', 'update', 'destroy']);
         Route::apiResource('/promo-code', PromoCodeController::class)->only(['store', 'update', 'destroy']);
         Route::apiResource('/souvenir', SouvenirController::class)->only(['store', 'update', 'destroy']);
