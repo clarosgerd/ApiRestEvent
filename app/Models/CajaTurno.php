@@ -54,4 +54,20 @@ class CajaTurno extends Model
     {
         return (float) $this->movimientos()->sum('monto');
     }
+
+    /**
+     * Método de pago en Caja (18/09/2026) — el cierre de turno compara
+     * "esperado" contra lo que el cajero cuenta FÍSICAMENTE en el cajón,
+     * así que solo el efectivo real entra en esa cuenta (ver
+     * CajaTurnoController::cerrar()). El QR nunca pasa por el cajón.
+     */
+    public function totalEfectivo(): float
+    {
+        return (float) $this->movimientos()->where('metodo_pago', 'EFECTIVO')->sum('monto');
+    }
+
+    public function totalQr(): float
+    {
+        return (float) $this->movimientos()->where('metodo_pago', 'QR')->sum('monto');
+    }
 }

@@ -17,6 +17,9 @@ class UpdatePaidRegistrationRequest extends FormRequest
     {
         return [
             'confirmacion'                              => ['required', 'boolean'],
+            // Método de pago en Caja (18/09/2026) — ver
+            // StoreInscripcionCajaRequest / CajaController::editarPagada().
+            'metodo_pago'                                => ['nullable', 'string', Rule::in(['EFECTIVO', 'QR'])],
 
             'participantes'                              => ['required', 'array', 'min:1'],
             'participantes.*.nombre'                     => ['required', 'string'],

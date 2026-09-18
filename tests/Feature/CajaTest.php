@@ -838,4 +838,162 @@ class CajaTest extends TestCase
         $this->assertSame($this->evento->id, $cajero->evento_id);
         $this->assertIsInt($cajero->evento_id);
     }
+
+    /**
+     * Método de pago en Caja (18/09/2026) — Efectivo o QR (QR bancario
+     * único del evento, ya impreso, no uno nuevo por transacción). Sin
+     * mandar el campo, sigue dando 'EFECTIVO' (compatibilidad con
+     * cualquier caller viejo).
+     */
+    public function test_inscripcion_nueva_sin_metodo_pago_usa_efectivo_por_defecto(): void
+    {
+        $this->actingAsCajero();
+        $this->postJson("/api/v1/event/{$this->evento->id}/caja/turno/abrir", ['fondo_inicial' => 0]);
+
+        $this->postJson("/api/v1/event/{$this->evento->id}/caja/inscripcion", [
+            'form_types_id' => $this->formType->id,
+            'participante' => $this->participanteData('88880001'),
+            'totales' => $this->totalesData(),
+        ])->assertStatus(201);
+
+        $this->assertDatabaseHas('caja_movimientos', ['tipo' => 'inscripcion_nueva', 'metodo_pago' => 'EFECTIVO']);
+    }
+
+    public function test_inscripcion_nueva_puede_cobrarse_por_qr(): void
+    {
+        $this->actingAsCajero();
+        $this->postJson("/api/v1/event/{$this->evento->id}/caja/turno/abrir", ['fondo_inicial' => 0]);
+
+        $this->postJson("/api/v1/event/{$this->evento->id}/caja/inscripcion", [
+            'form_types_id' => $this->formType->id,
+            'participante' => $this->participanteData('88880002'),
+            'totales' => $this->totalesData(),
+            'metodo_pago' => 'QR',
+        ])->assertStatus(201);
+
+        $this->assertDatabaseHas('caja_movimientos', ['tipo' => 'inscripcion_nueva', 'metodo_pago' => 'QR']);
+    }
+
+    public function test_inscripcion_nueva_rechaza_metodo_pago_invalido(): void
+    {
+        $this->actingAsCajero();
+        $this->postJson("/api/v1/event/{$this->evento->id}/caja/turno/abrir", ['fondo_inicial' => 0]);
+
+        $this->postJson("/api/v1/event/{$this->evento->id}/caja/inscripcion", [
+            'form_types_id' => $this->formType->id,
+            'participante' => $this->participanteData('88880003'),
+            'totales' => $this->totalesData(),
+            'metodo_pago' => 'TARJETA',
+        ])->assertStatus(422);
+    }
+
+    public function test_cobrar_pendiente_por_qr(): void
+    {
+        $this->actingAsCajero();
+        $this->postJson("/api/v1/event/{$this->evento->id}/caja/turno/abrir", ['fondo_inicial' => 0]);
+
+        $registration = app(CrearInscripcionAction::class)->handle(RegistrationDTO::fromArray([
+            'referencia' => 'LA-TEST-' . uniqid(),
+            'fecha' => now()->toDateTimeString(),
+            'evento_id' => $this->evento->id,
+            'evento_nombre' => $this->evento->nombre,
+            'form_types_id' => $this->formType->id,
+            'tipo_pago' => 'pendiente',
+            'pago_status' => 'pending',
+            'pay_order_number' => null,
+            'totales' => $this->totalesData(),
+            'participantes' => [$this->participanteData('88880004')],
+        ]));
+
+        $this->postJson("/api/v1/registrations/{$registration->referencia}/caja/cobrar-pendiente", [
+            'metodo_pago' => 'QR',
+        ])->assertStatus(200)->assertJson(['success' => true]);
+
+        $this->assertDatabaseHas('caja_movimientos', [
+            'registration_id' => $registration->id,
+            'tipo' => 'cobro_pendiente',
+            'metodo_pago' => 'QR',
+        ]);
+    }
+
+    public function test_editar_pagada_puede_cobrar_el_adicional_por_qr(): void
+    {
+        $cajero = $this->actingAsCajero();
+        $this->postJson("/api/v1/event/{$this->evento->id}/caja/turno/abrir", ['fondo_inicial' => 0]);
+
+        $registration = app(CrearInscripcionAction::class)->handle(RegistrationDTO::fromArray([
+            'referencia' => 'LA-TEST-' . uniqid(),
+            'fecha' => now()->toDateTimeString(),
+            'evento_id' => $this->evento->id,
+            'evento_nombre' => $this->evento->nombre,
+            'form_types_id' => $this->formType->id,
+            'tipo_pago' => 'pendiente',
+            'pago_status' => 'pending',
+            'pay_order_number' => null,
+            'totales' => $this->totalesData(),
+            'participantes' => [$this->participanteData('88880005')],
+        ]));
+        $registration->update(['pago_status' => 'paid']);
+
+        $this->patchJson("/api/v1/registrations/{$registration->referencia}/caja/editar-pagada", [
+            'confirmacion' => true,
+            'participantes' => [$this->participanteData('88880005', ['nombre' => 'Editado QR'])],
+            'totales' => $this->totalesData(),
+            'metodo_pago' => 'QR',
+        ])->assertStatus(200)->assertJson(['success' => true, 'costo_adicion' => 10]);
+
+        $this->assertDatabaseHas('caja_movimientos', [
+            'registration_id' => $registration->id,
+            'tipo' => 'edicion_pagada',
+            'metodo_pago' => 'QR',
+        ]);
+    }
+
+    /**
+     * El hallazgo real de esta feature: el QR nunca pasa por el cajón
+     * físico, así que "monto esperado" (comparado contra lo que el cajero
+     * cuenta a mano al cerrar) debe excluirlo — si no, cada cierre con
+     * algún cobro por QR mostraría un "faltante" falso igual al QR cobrado.
+     */
+    public function test_cerrar_turno_excluye_el_qr_del_monto_esperado(): void
+    {
+        $this->actingAsCajero();
+        $turnoId = $this->postJson("/api/v1/event/{$this->evento->id}/caja/turno/abrir", ['fondo_inicial' => 100])
+            ->json('turno.id');
+
+        $this->postJson("/api/v1/event/{$this->evento->id}/caja/inscripcion", [
+            'form_types_id' => $this->formType->id,
+            'participante' => $this->participanteData('88880006'),
+            'totales' => $this->totalesData(),
+            'metodo_pago' => 'EFECTIVO',
+        ])->assertStatus(201);
+
+        $this->postJson("/api/v1/event/{$this->evento->id}/caja/inscripcion", [
+            'form_types_id' => $this->formType->id,
+            'participante' => $this->participanteData('88880007'),
+            'totales' => $this->totalesData(),
+            'metodo_pago' => 'QR',
+        ])->assertStatus(201);
+
+        // Esperado = 100 (fondo) + 52.5 (SOLO el efectivo) = 152.5 — el
+        // segundo cobro (QR, también 52.5) queda afuera. Si el cajero
+        // cuenta exactamente 152.5 en el cajón, la diferencia debe dar 0,
+        // no -52.5 (que sería el bug: tratar el QR como si fuera efectivo).
+        $response = $this->postJson("/api/v1/caja/turno/{$turnoId}/cerrar", ['monto_contado' => 152.5]);
+
+        $response->assertStatus(200)->assertJson([
+            'success' => true,
+            'turno' => [
+                'montoEsperado' => 152.5,
+                'montoContado' => 152.5,
+                'diferencia' => 0,
+                'estado' => 'cerrado',
+            ],
+        ]);
+
+        $turno = $response->json('turno');
+        $this->assertEquals(52.5, $turno['totalEfectivo']);
+        $this->assertEquals(52.5, $turno['totalQr']);
+        $this->assertEquals(105.0, $turno['totalCobrado']);
+    }
 }
