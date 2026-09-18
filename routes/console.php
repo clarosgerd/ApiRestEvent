@@ -89,3 +89,14 @@ Schedule::command('notificaciones:recordatorio-dashboard-organizador')->daily()-
 // reciente de todos modos, pero mantiene el orden lógico.
 Schedule::command('backup:run --only-db')->daily()->appendOutputTo($schedulerLog);
 Schedule::command('backup:clean')->daily()->appendOutputTo($schedulerLog);
+
+// ── Sync periódico (pull) de participantes de eventos con fuente externa
+// propia (17/09/2026) — a diferencia del webhook de COLABIOCLI (push, sin
+// programación acá), acá SOMOS nosotros quienes llamamos a la fuente.
+// Primer `->hourly()` de esta app (el resto usa daily/everyFiveMinutes) —
+// el propio comando recorre todas las EventoSyncExternoConfig activas, una
+// fuente que falla no frena a las demás.
+Schedule::command('participantes-externos:sincronizar-fuentes')
+    ->hourly()
+    ->withoutOverlapping()
+    ->appendOutputTo($schedulerLog);

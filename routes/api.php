@@ -21,6 +21,7 @@ use App\Http\Controllers\SocioController;
 use App\Http\Controllers\LiquidacionController;
 use App\Http\Controllers\PresupuestoEventoController;
 use App\Http\Controllers\PresupuestoCategoriaController;
+use App\Http\Controllers\SyncExternoConfigController;
 use App\Http\Controllers\SesionCongresoController;
 use App\Http\Controllers\SesionCongresoStaffController;
 use App\Http\Controllers\AsistenciaSesionController;
@@ -234,6 +235,13 @@ Route::group(['prefix' => 'v1','namespace' => 'App\Http\Controllers'], function 
         Route::post('/event/{event}/presupuesto', [PresupuestoEventoController::class, 'store']);
         Route::put('/event/{event}/presupuesto/{presupuesto}', [PresupuestoEventoController::class, 'update']);
         Route::delete('/event/{event}/presupuesto/{presupuesto}', [PresupuestoEventoController::class, 'destroy']);
+
+        // Sync periódico (pull) de participantes de un evento con registro
+        // propio externo (17/09/2026) — solo super_admin (token de
+        // integración sensible, ver SyncExternoConfigController).
+        Route::get('/event/{event}/sync-externo', [SyncExternoConfigController::class, 'show']);
+        Route::post('/event/{event}/sync-externo', [SyncExternoConfigController::class, 'store']);
+        Route::post('/event/{event}/sync-externo/sincronizar-ahora', [SyncExternoConfigController::class, 'sincronizarAhora']);
 
         // Agenda y sesiones de congreso — ver
         // PRD-Agenda-sessiones-onlycongresos.md y elascenso/event/brain/
