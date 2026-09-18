@@ -28,6 +28,20 @@ class CategoryResource extends JsonResource
         // hacer N+1 en listados.
         $vigente = PrecioVigenteData::paraCategoria($this->resource);
 
+        // Aviso de numeración vs. género/edad real (16/09/2026) — mismo
+        // criterio que pricePeriods() arriba: se consulta fresco, no
+        // depende de eager-load previo del controller.
+        $numeracionRangos = $this->numeracionRangos()->orderBy('genero_id')->orderBy('edad_min')->get()
+            ->map(fn ($r) => [
+                'id'         => $r->id,
+                'genero_id'  => $r->genero_id,
+                'edad_min'   => $r->edad_min,
+                'edad_max'   => $r->edad_max,
+                'color'      => $r->color,
+                'numero_min' => $r->numero_min,
+                'numero_max' => $r->numero_max,
+            ]);
+
         return [
             'id'                          => $this->id,
             'name'                        => $this->name,
@@ -46,6 +60,12 @@ class CategoryResource extends JsonResource
             'priceUsd'                    => $this->price_usd,
             'description'                 => $this->description,
             'color'                       => $this->color,
+            // Aviso de numeración vs. género/edad real (16/09/2026) — cierra
+            // el gap write-only que tenía calculo_edad_id (se guardaba vía
+            // API pero nunca se devolvía). sexo_id/edad_min/edad_max NO se
+            // exponen acá a propósito, siguen fuera de esta feature.
+            'calculo_edad_id'             => $this->calculo_edad_id,
+            'numeracion_rangos'           => $numeracionRangos,
             // Deshabilitar una categoría sin ocultarla (04/09/2026) — mismo
             // patrón/nombre de campo que TallerResource::permiteInscripcion.
             // false = sigue visible en elascenso/event, pero no se puede

@@ -52,4 +52,16 @@ class Category extends Model
     {
         return $this->hasMany(CategoryPricePeriod::class);
     }
+
+    // Aviso de numeración vs. género/edad real (16/09/2026) — ver
+    // migración create_numeracion_rangos_table.
+    public function numeracionRangos()
+    {
+        return $this->hasMany(NumeracionRango::class);
+    }
+
+    public function calculoEdad()
+    {
+        return $this->belongsTo(CalculoEdad::class);
+    }
 }

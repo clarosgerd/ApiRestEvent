@@ -39,6 +39,13 @@ class EventoResource extends JsonResource
      //       'status'                    =>$this->estado_evento_id,
     //        'pais_id'                   =>$this->pais_id,
     //        'ciudad_id'                 =>$this->ciudad_id,
+            // Export ChronoTrack (18/09/2026) — necesita el país del evento
+            // (no existe nacionalidad de participante) para COUNTRY_NAME/
+            // COUNTRY_CODE/SMScountycode1. Solo viene si se hizo whenLoaded.
+            'pais'                      =>$this->whenLoaded('pais', fn() => $this->pais ? [
+                'nombre' => $this->pais->nombre,
+                'iso2'   => $this->pais->iso2,
+            ] : null),
             'name'                      =>$this->nombre,
             'date'                      =>$this->fecha_inicio,
             'localTime'                 =>Carbon::parse($this->localTime)->format('H:i:s'),

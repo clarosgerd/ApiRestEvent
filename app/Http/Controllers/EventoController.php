@@ -323,7 +323,7 @@ return response()->json([
                 'formTypes.formularioCampos.options',
                 'organizador.formasPagoSeleccionadas',
                 'auspiciadores', 'agendaItems', 'equipos',
-                'tipoEvento', 'subtipoEvento',
+                'tipoEvento', 'subtipoEvento', 'pais',
                 'talleres' => fn ($q) => $q->where('activo', true)->orderBy('orden')->orderBy('id'),
                 'talleres.sesiones' => fn ($q) => $q->where('activa', true),
             ])),
