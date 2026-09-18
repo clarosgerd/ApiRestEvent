@@ -23,6 +23,11 @@ class StoreInscripcionCajaRequest extends FormRequest
     {
         return [
             'form_types_id'                         => ['required', 'integer'],
+            // Método de pago en Caja (18/09/2026) — Efectivo o QR (QR
+            // bancario único, ya generado/impreso, no dinámico por
+            // transacción). Default 'EFECTIVO' si no viene, ver
+            // CajaController::inscripcion().
+            'metodo_pago'                            => ['nullable', 'string', Rule::in(['EFECTIVO', 'QR'])],
 
             'participante.nombre'                    => ['required', 'string'],
             'participante.apellido'                  => ['required', 'string'],

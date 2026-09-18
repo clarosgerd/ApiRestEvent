@@ -94,7 +94,11 @@ class CajaTurnoController extends Controller
             ], 422);
         }
 
-        $montoEsperado = (float) $turno->fondo_inicial + $turno->totalMovimientos();
+        // Método de pago en Caja (18/09/2026) — "esperado" se compara
+        // contra el efectivo que el cajero cuenta físicamente, así que
+        // excluye los cobros por QR (nunca pasan por el cajón) — ver
+        // CajaTurno::totalEfectivo().
+        $montoEsperado = (float) $turno->fondo_inicial + $turno->totalEfectivo();
         $montoContado  = (float) $request->validated('monto_contado');
 
         $turno->update([

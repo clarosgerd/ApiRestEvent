@@ -20,6 +20,7 @@ use App\Models\Registration;
 use App\Services\RegistrationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 /**
  * Caja de cobro presencial — ver PLAN-CAJA-COBRO-PRESENCIAL-14082026.md.
@@ -191,7 +192,9 @@ class CajaController extends Controller
             'admin_user_id'    => $admin->id,
             'tipo'             => 'inscripcion_nueva',
             'monto'            => (float) $data['totales']['grand_total'],
-            'metodo_pago'      => 'EFECTIVO',
+            // Método de pago en Caja (18/09/2026) — Efectivo o QR (QR
+            // bancario único, ya generado/impreso, elegido por el cajero).
+            'metodo_pago'      => $data['metodo_pago'] ?? 'EFECTIVO',
         ]);
 
         $registration = $this->registrationService->updatePaymentStatus($registration->referencia, 'paid');
@@ -204,11 +207,15 @@ class CajaController extends Controller
     }
 
     /**
-     * Cobra en efectivo una inscripción `pending` existente (creada
-     * online o por caja antes).
+     * Cobra (efectivo o QR — 18/09/2026) una inscripción `pending`
+     * existente (creada online o por caja antes).
      */
-    public function cobrarPendiente(string $reference): JsonResponse
+    public function cobrarPendiente(Request $request, string $reference): JsonResponse
     {
+        $data = $request->validate([
+            'metodo_pago' => ['nullable', 'string', Rule::in(['EFECTIVO', 'QR'])],
+        ]);
+
         $registration = Registration::with('totals')->where('referencia', $reference)->firstOrFail();
         $event = Evento::findOrFail($registration->evento_id);
 
@@ -232,7 +239,7 @@ class CajaController extends Controller
             'admin_user_id'    => $admin->id,
             'tipo'             => 'cobro_pendiente',
             'monto'            => (float) ($registration->totals?->grand_total ?? 0),
-            'metodo_pago'      => 'EFECTIVO',
+            'metodo_pago'      => $data['metodo_pago'] ?? 'EFECTIVO',
         ]);
 
         $registration = $this->registrationService->updatePaymentStatus($reference, 'paid');
@@ -313,7 +320,7 @@ class CajaController extends Controller
                 'admin_user_id'    => $admin->id,
                 'tipo'             => 'edicion_pagada',
                 'monto'            => (float) $result['costo_adicion'],
-                'metodo_pago'      => 'EFECTIVO',
+                'metodo_pago'      => $request->validated()['metodo_pago'] ?? 'EFECTIVO',
             ]);
         }
 
