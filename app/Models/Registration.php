@@ -31,6 +31,7 @@ class Registration extends Model
         'tipo_cambio_aplicado',
         'total_pagado',
         'origen_legado', // ETL de datos históricos 2014-hoy, ver elascenso/event/brain/
+        'origen_sync_externo', // Sync pull con id externo estable (23/09/2026), ver SincronizarParticipanteExternoAction
     ];
 
     protected $casts = [

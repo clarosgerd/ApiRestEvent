@@ -71,11 +71,23 @@ use Illuminate\Support\Facades\DB;
  * (`Souvenir`/`Taller`/`SesionCongreso`) — best-effort, un nombre que no
  * matchea se omite sin tumbar el resto del participante, mismo criterio que
  * `guardarRespuestaAdicional()`.
+ *
+ * Id externo estable, opcional (23/09/2026) — hallazgo real: `numero_documento`
+ * es a la vez un dato normal Y la clave de matching de "¿ya existe?"; si la
+ * fuente corrige un typo de documento de alguien ya sincronizado, la
+ * búsqueda por el documento nuevo no encuentra la fila vieja y crea un
+ * participante duplicado. `SyncExternoPullService` arma opcionalmente
+ * `$fila['_origen_sync_externo']` (clave interna, scopeada por config, no
+ * viaja en el contrato público de `$fila`) — cuando viene, es la clave de
+ * matching PRIMARIA (antes que numero_documento), lo que permite actualizar
+ * numero_documento/tipo_documento con seguridad. COLABIOCLI nunca la manda
+ * (push, contrato fijo) — sin ella, el comportamiento es idéntico al de
+ * siempre.
  */
 class SincronizarParticipanteExternoAction
 {
     /**
-     * @param array{nombre?: string, apellido?: string, correo?: string, telefono?: string, categoria?: string, nombre_curso?: string, ubicacion?: string, nombre_certificado?: string, id_curso?: string, numero_documento?: string, tipo_documento?: string, genero?: string, fecha_nacimiento?: string, souvenirs?: array, talleres?: array} $fila
+     * @param array{nombre?: string, apellido?: string, correo?: string, telefono?: string, categoria?: string, nombre_curso?: string, ubicacion?: string, nombre_certificado?: string, id_curso?: string, numero_documento?: string, tipo_documento?: string, genero?: string, fecha_nacimiento?: string, souvenirs?: array, talleres?: array, _origen_sync_externo?: string} $fila
      * @return array{resultado: 'creado'|'actualizado'|'omitido', motivo?: string, participanteId?: int}
      */
     public function run(Evento $evento, FormType $formType, array $fila): array
@@ -152,6 +164,8 @@ class SincronizarParticipanteExternoAction
         $telefono = trim((string) ($fila['telefono'] ?? ''));
         $ubicacion = trim((string) ($fila['ubicacion'] ?? ''));
         $correo = $tieneCorreoValido ? $correoCrudo : '';
+        // Clave de matching estable, opcional — ver docblock de la clase.
+        $origenSyncExterno = trim((string) ($fila['_origen_sync_externo'] ?? ''));
         $nombreCertificado = trim((string) ($fila['nombre_certificado'] ?? ''));
         // Fusión de inscripciones duplicadas por persona — curso
         // pre-congreso (16/09/2026) — a diferencia de nombre_curso (que ya
@@ -163,23 +177,61 @@ class SincronizarParticipanteExternoAction
         $souvenirsCrudo = is_array($fila['souvenirs'] ?? null) ? $fila['souvenirs'] : [];
         $talleresCrudo = is_array($fila['talleres'] ?? null) ? $fila['talleres'] : [];
 
-        return DB::transaction(function () use ($evento, $formType, $nombre, $apellido, $numeroDocumento, $tipoDocumento, $genero, $fechaNacimiento, $edad, $correo, $categoria, $telefono, $ubicacion, $nombreCertificado, $idCurso, $souvenirsCrudo, $talleresCrudo) {
-            $participante = Participante::whereHas(
-                'registration',
-                fn ($q) => $q->where('evento_id', $evento->id)->where('form_types_id', $formType->id)
-            )->where('numero_documento', $numeroDocumento)->first();
+        return DB::transaction(function () use ($evento, $formType, $nombre, $apellido, $numeroDocumento, $tipoDocumento, $genero, $fechaNacimiento, $edad, $correo, $categoria, $telefono, $ubicacion, $origenSyncExterno, $nombreCertificado, $idCurso, $souvenirsCrudo, $talleresCrudo) {
+            $participante = null;
+
+            // Id externo estable (23/09/2026) — matching PRIMARIO cuando
+            // viene, para que un cambio de numero_documento en la fuente no
+            // cree un duplicado (ver docblock de la clase).
+            if ($origenSyncExterno !== '') {
+                $registrationPorClave = Registration::where('evento_id', $evento->id)
+                    ->where('form_types_id', $formType->id)
+                    ->where('origen_sync_externo', $origenSyncExterno)
+                    ->first();
+
+                if ($registrationPorClave) {
+                    $participante = Participante::where('registration_id', $registrationPorClave->id)->first();
+                }
+            }
+
+            // Fallback de siempre — también resuelve el auto-backfill: una
+            // fila creada antes de que la fuente mandara external_id se
+            // encuentra acá, y más abajo se le graba la clave por primera vez.
+            if (! $participante) {
+                $participante = Participante::whereHas(
+                    'registration',
+                    fn ($q) => $q->where('evento_id', $evento->id)->where('form_types_id', $formType->id)
+                )->where('numero_documento', $numeroDocumento)->first();
+            }
 
             if ($participante) {
                 $participante->update([
                     'nombre' => $nombre,
                     'apellido' => $apellido,
+                    // numero_documento/tipo_documento: solo se pisan cuando
+                    // la identidad ya está confirmada por la clave externa
+                    // estable — si no, numero_documento es también la
+                    // clave de matching del fallback de arriba, pisarlo a
+                    // ciegas rompería el próximo match.
+                    'numero_documento' => $origenSyncExterno !== '' ? $numeroDocumento : $participante->numero_documento,
+                    'tipo_documento' => $origenSyncExterno !== '' ? $tipoDocumento : $participante->tipo_documento,
                     'genero' => $genero !== 'Otro' ? $genero : $participante->genero,
                     'fecha_nacimiento' => $fechaNacimiento !== '1900-01-01' ? $fechaNacimiento : $participante->fecha_nacimiento,
                     'edad' => $fechaNacimiento !== '1900-01-01' ? $edad : $participante->edad,
                     'categoria' => $categoria !== '' ? $categoria : $participante->categoria,
+                    'correo' => $correo !== '' ? $correo : $participante->correo,
                     'telefono' => $telefono !== '' ? $telefono : $participante->telefono,
                     'ciudad' => $ubicacion !== '' ? $ubicacion : $participante->ciudad,
                 ]);
+
+                // Auto-backfill (23/09/2026) — la fuente ya manda
+                // external_id pero esta fila todavía no tiene la clave
+                // grabada (se encontró por el fallback de numero_documento)
+                // — grabarla ahora, sin necesitar backfill manual, para que
+                // quede protegida contra un futuro cambio de documento.
+                if ($origenSyncExterno !== '' && $participante->registration->origen_sync_externo !== $origenSyncExterno) {
+                    $participante->registration->update(['origen_sync_externo' => $origenSyncExterno]);
+                }
 
                 if ($nombreCertificado !== '') {
                     $this->guardarRespuestaAdicional($formType, $participante, 'nombre_certificado', $nombreCertificado);
@@ -206,6 +258,7 @@ class SincronizarParticipanteExternoAction
                 // pago procesado por nuestras pasarelas.
                 'tipo_pago' => 'externo',
                 'pago_status' => 'paid',
+                'origen_sync_externo' => $origenSyncExterno !== '' ? $origenSyncExterno : null,
             ]);
 
             $participante = Participante::create([

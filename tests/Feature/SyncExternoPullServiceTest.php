@@ -194,4 +194,35 @@ class SyncExternoPullServiceTest extends TestCase
         $this->assertNotNull($fresh->ultima_sincronizacion_at);
         $this->assertSame(1, $fresh->ultimo_resultado['creados']);
     }
+
+    /**
+     * Fix (23/09/2026) — external_id opcional, scopeado por config, evita
+     * que un cambio de numero_documento en la fuente cree un duplicado.
+     * Ver SincronizarParticipanteExternoActionExtendedTest para la
+     * cobertura del matching en sí; acá solo se confirma que el Service
+     * arma y pasa la clave correctamente de punta a punta.
+     */
+    public function test_external_id_evita_duplicado_cuando_la_fuente_corrige_el_documento(): void
+    {
+        // Http::fake() llamado 2 veces con el mismo patrón de URL NO
+        // reemplaza el primer stub (Laravel los apila y usa el primero que
+        // matchea) — hace falta fakeSequence() para simular 2 respuestas
+        // distintas de la fuente en el mismo test.
+        Http::fakeSequence('fuente-externa.test/*')
+            ->push(['participantes' => [
+                ['nombre' => 'Ana', 'apellido' => 'Gutierrez', 'numero_documento' => '111', 'external_id' => 'FUENTE-42'],
+            ]])
+            ->push(['participantes' => [
+                ['nombre' => 'Ana', 'apellido' => 'Gutierrez', 'numero_documento' => '222', 'external_id' => 'FUENTE-42'],
+            ]]);
+
+        app(SyncExternoPullService::class)->sincronizar($this->config);
+        $resumen = app(SyncExternoPullService::class)->sincronizar($this->config);
+
+        $this->assertSame(0, $resumen['creados']);
+        $this->assertSame(1, $resumen['actualizados']);
+        $this->assertDatabaseCount('participantes', 1);
+        $this->assertDatabaseHas('participantes', ['numero_documento' => '222']);
+        $this->assertDatabaseHas('registrations', ['origen_sync_externo' => "pull:{$this->config->id}:FUENTE-42"]);
+    }
 }
