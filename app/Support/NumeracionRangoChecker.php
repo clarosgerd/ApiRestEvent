@@ -55,6 +55,14 @@ class NumeracionRangoChecker
             return null;
         }
 
+        // numero_min/numero_max opcionales (23/09/2026) — un rango cargado
+        // solo para recategorización (sin numeración/color) no tiene nada
+        // contra qué comparar el bib, mismo criterio que "sin fila
+        // configurada" de arriba.
+        if ($esperado->numero_min === null || $esperado->numero_max === null) {
+            return null;
+        }
+
         $numero = (int) $participante->numero_corredor;
 
         if ($numero >= $esperado->numero_min && $numero <= $esperado->numero_max) {

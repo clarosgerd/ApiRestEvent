@@ -100,6 +100,49 @@ class ParticipantesPorEventoTest extends TestCase
         $this->assertCount(2, $response->json('participantes'));
     }
 
+    /**
+     * Recategorización visual por edad/género (23/09/2026) — ver plan y
+     * memoria del proyecto. Con `per_page`, cubre también el bug real
+     * encontrado durante la implementación: `edad` no estaba en el
+     * `select()` acotado de la paginación, necesaria para
+     * RecategorizacionResolver.
+     */
+    public function test_expone_categoria_recalculada_cuando_hay_numeracion_rango(): void
+    {
+        $categoria10k = Category::factory()->create(['event_id' => $this->evento->id, 'name' => '10K']);
+        $femenino = \App\Models\Genero::where('nombre', 'Femenino')->first();
+        \App\Models\NumeracionRango::create([
+            'category_id' => $categoria10k->id, 'genero_id' => $femenino->id,
+            'edad_min' => 25, 'edad_max' => 35, 'color' => '#abcdef',
+        ]);
+        $this->crearInscripcion(['fecha_nacimiento' => now()->subYears(30)->toDateString(), 'edad' => 30]);
+
+        $admin = $this->actingAsAdmin();
+        $admin->update(['rol' => 'admin', 'evento_id' => $this->evento->id]);
+
+        // Con per_page (paginado) — el caso que rompía por el select acotado.
+        $response = $this->getJson("/api/v1/event/{$this->evento->id}/participantes?per_page=10")
+            ->assertStatus(200);
+
+        $p = $response->json('participantes')[0];
+        $this->assertSame('10K', $p['categoriaRecalculada']);
+        $this->assertSame('#abcdef', $p['categoriaRecalculadaColor']);
+    }
+
+    public function test_categoria_recalculada_es_null_sin_numeracion_rango_configurado(): void
+    {
+        $this->crearInscripcion();
+
+        $admin = $this->actingAsAdmin();
+        $admin->update(['rol' => 'admin', 'evento_id' => $this->evento->id]);
+
+        $response = $this->getJson("/api/v1/event/{$this->evento->id}/participantes")->assertStatus(200);
+
+        $p = $response->json('participantes')[0];
+        $this->assertNull($p['categoriaRecalculada']);
+        $this->assertNull($p['categoriaRecalculadaColor']);
+    }
+
     public function test_filtra_por_pago_status(): void
     {
         $this->crearInscripcion(['pago_status' => 'paid']);

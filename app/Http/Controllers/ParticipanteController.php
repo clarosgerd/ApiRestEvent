@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\Evento;
+use App\Models\Genero;
+use App\Models\NumeracionRango;
 use App\Models\Participante;
 use App\Http\Requests\StoreParticipanteRequest;
 use App\Http\Requests\UpdateParticipanteRequest;
@@ -13,6 +15,7 @@ use App\Http\Resources\ParticipanteResource;
 use App\Http\Resources\ParticipanteCollection;
 use App\Http\Controllers\Concerns\AuthorizesEventoScope;
 use App\Services\AdminAuditLogger;
+use App\Support\RecategorizacionResolver;
 use App\Support\TallaPoleraData;
 
 class ParticipanteController extends Controller
@@ -243,7 +246,7 @@ class ParticipanteController extends Controller
         $columnas = [
             'id', 'registration_id', 'nombre', 'apellido', 'alias', 'numero_documento',
             'categoria', 'numero_corredor', 'chip', 'correo', 'telefono', 'direccion',
-            'ciudad', 'genero', 'fecha_nacimiento', 'polera', 'checked_in_at', 'subtotal',
+            'ciudad', 'genero', 'fecha_nacimiento', 'edad', 'polera', 'checked_in_at', 'subtotal',
         ];
 
         // Precio USD fijo (24/08/2026) — "Detalle de inscritos" mostraba el
@@ -260,7 +263,20 @@ class ParticipanteController extends Controller
         // un souvenir normal.
         $souvenirIdsPolera = TallaPoleraData::souvenirIdsPolera($event->formTypes()->pluck('id')->all());
 
-        $mapear = function (Participante $p) use ($categoriasPorId, $souvenirIdsPolera) {
+        // Recategorización visual por edad/género (23/09/2026) — expuesta
+        // acá (y no recalculada en admin-eventos) porque ChronoTrackExportController
+        // no tiene acceso a `edad`/`calculo_edad_id` para replicar
+        // CalculoEdadResolver del lado del cliente. Precargado una sola vez
+        // (no por participante) para no hacer N+1 — ver RecategorizacionResolver.
+        // Solo visual: nunca toca `categoria`/`subtotal` reales de arriba.
+        $numeracionRangosDelEvento = NumeracionRango::whereHas(
+            'category',
+            fn ($q) => $q->where('event_id', $event->id)
+        )->with('category')->get();
+        $hayRecategorizacion = $numeracionRangosDelEvento->isNotEmpty();
+        $generosPorNombre = $hayRecategorizacion ? Genero::all()->keyBy('nombre') : collect();
+
+        $mapear = function (Participante $p) use ($categoriasPorId, $souvenirIdsPolera, $event, $hayRecategorizacion, $numeracionRangosDelEvento, $generosPorNombre) {
             $esUsdFijo = $p->registration->moneda_pago === 'USD';
             $importe = (float) $p->subtotal;
             $importeTaller = round((float) $p->talleresSesiones->sum('total'), 2);
@@ -273,6 +289,18 @@ class ParticipanteController extends Controller
                     ),
                     2
                 );
+            }
+
+            $categoriaRecalculada = null;
+            $categoriaRecalculadaColor = null;
+            if ($hayRecategorizacion) {
+                $recategorizacion = RecategorizacionResolver::paraParticipante(
+                    $p, $event, $numeracionRangosDelEvento, $generosPorNombre, $categoriasPorId
+                );
+                if ($recategorizacion) {
+                    $categoriaRecalculada = $recategorizacion['category']->name;
+                    $categoriaRecalculadaColor = $recategorizacion['color'];
+                }
             }
 
             return [
@@ -314,6 +342,11 @@ class ParticipanteController extends Controller
             'importeTaller'   => $importeTaller,
             'importeTotal'    => round($importe + $importeTaller, 2),
             'fechaInscripcion' => optional($p->registration->fecha)->toIso8601String(),
+            // Recategorización visual por edad/género (23/09/2026) — null
+            // si el evento no tiene NumeracionRango cargado, o si no matchea
+            // ningún rango para el género/edad real de este participante.
+            'categoriaRecalculada'      => $categoriaRecalculada,
+            'categoriaRecalculadaColor' => $categoriaRecalculadaColor,
             ];
         };
 
