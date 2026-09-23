@@ -4,12 +4,15 @@ namespace App\Http\Controllers;
 
 use App\Models\Answer;
 use App\Models\Evento;
+use App\Models\Genero;
+use App\Models\NumeracionRango;
 use App\Models\Participante;
 use App\Services\RegistrationService;
 use App\Support\BalanceEventoData;
 use App\Support\CalculoEdadResolver;
 use App\Support\DashboardInscripcionesData;
 use App\Support\NumeracionRangoChecker;
+use App\Support\RecategorizacionResolver;
 use App\Support\ReporteInscritosData;
 use App\Support\TallaPoleraData;
 use Illuminate\Database\Eloquent\Builder;
@@ -247,13 +250,26 @@ class OrganizadorDashboardController extends Controller
         // (dashboard-inscripciones.blade.php) para ocultar su propio botón.
         $incluyeColumnasNumeracion = $usaNumeracion === '1';
 
+        // Recategorización visual por edad/género (23/09/2026) — a pedido
+        // del usuario, solo se agregan las 2 columnas si el evento tiene
+        // AL MENOS un NumeracionRango cargado en alguna de sus categorías
+        // (mismo criterio de presencia de datos que el resto de este CSV).
+        // Precargado una sola vez (no por participante) para no hacer N+1
+        // — ver RecategorizacionResolver, que acepta estas colecciones.
+        $numeracionRangosDelEvento = NumeracionRango::whereHas(
+            'category',
+            fn ($q) => $q->where('event_id', $evento->id)
+        )->with('category')->get();
+        $incluyeColumnaRecategorizacion = $numeracionRangosDelEvento->isNotEmpty();
+        $generosPorNombre = $incluyeColumnaRecategorizacion ? Genero::all()->keyBy('nombre') : collect();
+
         // Talla real de la polera (03/09/2026) — ver TallaPoleraData: esta
         // columna leía directo `participantes.polera` (legacy), que queda
         // siempre en el sentinel 'No shirt' para eventos que ya modelan la
         // polera como un souvenir normal.
         $souvenirIdsPolera = TallaPoleraData::souvenirIdsPolera($evento->formTypes()->pluck('id')->all());
 
-        return response()->streamDownload(function () use ($participantes, $evento, $nombresCategorias, $categoriasPorId, $souvenirIdsPolera, $cursoInfoPorDocumento, $usaNumeracion, $incluyeColumnasNumeracion, $incluyeColumnasCurso) {
+        return response()->streamDownload(function () use ($participantes, $evento, $nombresCategorias, $categoriasPorId, $souvenirIdsPolera, $cursoInfoPorDocumento, $usaNumeracion, $incluyeColumnasNumeracion, $incluyeColumnasCurso, $incluyeColumnaRecategorizacion, $numeracionRangosDelEvento, $generosPorNombre) {
             $out = fopen('php://output', 'w');
             fputcsv($out, [
                 // 'Monto categoría'/'Monto souvenir' (02/09/2026) — pedido
@@ -289,6 +305,12 @@ class OrganizadorDashboardController extends Controller
                 // presente (a diferencia de las condicionales de arriba)
                 // porque delivery ya depende de que siempre esté ahí.
                 'UsaNumeracion',
+                // Recategorización visual por edad/género (23/09/2026) —
+                // solo si el evento tiene algún NumeracionRango cargado
+                // (ver $incluyeColumnaRecategorizacion). Nunca toca
+                // participantes.categoria ni precio_categoria — es
+                // puramente informativo para ChronoTrack/delivery.
+                ...($incluyeColumnaRecategorizacion ? ['CategoriaRecalculada', 'CategoriaRecalculadaColor'] : []),
             ]);
             foreach ($participantes as $p) {
                 // Cobro en sitio (12/08/2026) — ver
@@ -316,6 +338,14 @@ class OrganizadorDashboardController extends Controller
                     : '';
 
                 $cursoInfo = $cursoInfoPorDocumento[$p->numero_documento] ?? null;
+
+                if ($incluyeColumnaRecategorizacion) {
+                    $recategorizacion = RecategorizacionResolver::paraParticipante(
+                        $p, $evento, $numeracionRangosDelEvento, $generosPorNombre, $categoriasPorId
+                    );
+                    $categoriaRecalculada = $recategorizacion['category']->name ?? ($nombresCategorias[$p->categoria] ?? $p->categoria);
+                    $categoriaRecalculadaColor = $recategorizacion['color'] ?? '';
+                }
 
                 fputcsv($out, [
                     $p->nombre,
@@ -359,6 +389,7 @@ class OrganizadorDashboardController extends Controller
                     ...($incluyeColumnasNumeracion ? [NumeracionRangoChecker::alertaPara($p, $evento) ?? ''] : []),
                     ...($incluyeColumnasCurso ? [$cursoInfo['nombreCurso'] ?? '', $cursoInfo['idCurso'] ?? ''] : []),
                     $usaNumeracion,
+                    ...($incluyeColumnaRecategorizacion ? [$categoriaRecalculada, $categoriaRecalculadaColor] : []),
                 ]);
             }
             fclose($out);

@@ -6,6 +6,8 @@ use App\Models\Category;
 use App\Models\Ciudad;
 use App\Models\Evento;
 use App\Models\FormType;
+use App\Models\Genero;
+use App\Models\NumeracionRango;
 use App\Models\Organizador;
 use App\Models\Pais;
 use App\Models\Participante;
@@ -70,12 +72,16 @@ class OrganizadorDashboardExportCsvTest extends TestCase
         ], $overrides));
     }
 
-    private function header(Evento $evento): array
+    private function csv(Evento $evento): array
     {
         $url = URL::signedRoute('organizador.dashboard.export', ['evento' => $evento->id]);
-        $csv = $this->get($url)->assertOk()->streamedContent();
 
-        return str_getcsv(explode("\n", trim($csv))[0]);
+        return array_map('str_getcsv', explode("\n", trim($this->get($url)->assertOk()->streamedContent())));
+    }
+
+    private function header(Evento $evento): array
+    {
+        return $this->csv($evento)[0];
     }
 
     public function test_evento_carrera_sin_curso_no_trae_columnas_de_curso(): void
@@ -151,5 +157,51 @@ class OrganizadorDashboardExportCsvTest extends TestCase
         foreach (['NumeroCorredor', 'Chip', 'ActualizarNumeracionUrl', 'AlertaNumeracion', 'NombreCurso', 'IdCurso'] as $col) {
             $this->assertContains($col, $header, "Falta la columna {$col}");
         }
+    }
+
+    /**
+     * Recategorización visual por edad/género (23/09/2026) — ver
+     * plan/memoria del proyecto. Columnas nuevas solo si el evento tiene
+     * algún NumeracionRango configurado (presencia de datos).
+     */
+    public function test_sin_numeracion_rango_configurado_no_trae_columnas_de_recategorizacion(): void
+    {
+        $evento = $this->crearEvento();
+        $formType = FormType::factory()->create(['event_id' => $evento->id]);
+        $categoria = Category::factory()->create(['event_id' => $evento->id, 'name' => '5K']);
+        $this->crearInscripcion($evento, $formType, $categoria);
+
+        $header = $this->header($evento);
+
+        $this->assertNotContains('CategoriaRecalculada', $header);
+        $this->assertNotContains('CategoriaRecalculadaColor', $header);
+    }
+
+    public function test_con_numeracion_rango_configurado_trae_la_categoria_recalculada(): void
+    {
+        $evento = $this->crearEvento();
+        $formType = FormType::factory()->create(['event_id' => $evento->id]);
+        $categoria5k = Category::factory()->create(['event_id' => $evento->id, 'name' => '5K']);
+        $categoria10k = Category::factory()->create(['event_id' => $evento->id, 'name' => '10K']);
+        $femenino = Genero::where('nombre', 'Femenino')->first();
+
+        // El rango real (por edad/género) está en 10K, la participante eligió 5K.
+        NumeracionRango::create([
+            'category_id' => $categoria10k->id, 'genero_id' => $femenino->id,
+            'edad_min' => 25, 'edad_max' => 35, 'color' => '#abcdef',
+        ]);
+
+        $this->crearInscripcion($evento, $formType, $categoria5k, [
+            'genero' => 'Femenino', 'fecha_nacimiento' => now()->subYears(30)->toDateString(), 'edad' => 30,
+        ]);
+
+        $rows = $this->csv($evento);
+        $header = $rows[0];
+        $fila = array_combine($header, $rows[1]);
+
+        $this->assertSame('10K', $fila['CategoriaRecalculada']);
+        $this->assertSame('#abcdef', $fila['CategoriaRecalculadaColor']);
+        // La columna original de categoría sigue mostrando lo que eligió.
+        $this->assertSame('5K', $fila['Categoría']);
     }
 }
