@@ -245,4 +245,106 @@ class SincronizarParticipanteExternoActionExtendedTest extends TestCase
 
         $this->assertDatabaseCount('participante_taller_sesion', 1);
     }
+
+    /**
+     * Fix (23/09/2026) — correo/categoria nunca se actualizaban después de
+     * creado el participante (solo se grababan en el alta). Ver memoria
+     * del proyecto / plan del fix.
+     */
+    public function test_correo_se_actualiza_cuando_la_fuente_manda_un_valor_nuevo(): void
+    {
+        $this->runAction([
+            'nombre' => 'Ana', 'apellido' => 'Test', 'numero_documento' => '111',
+            'correo' => 'viejo@test.net',
+        ]);
+        $this->runAction([
+            'nombre' => 'Ana', 'apellido' => 'Test', 'numero_documento' => '111',
+            'correo' => 'nuevo@test.net',
+        ]);
+
+        $this->assertDatabaseCount('participantes', 1);
+        $this->assertDatabaseHas('participantes', ['numero_documento' => '111', 'correo' => 'nuevo@test.net']);
+    }
+
+    public function test_correo_se_preserva_cuando_la_fuente_lo_omite(): void
+    {
+        $this->runAction([
+            'nombre' => 'Ana', 'apellido' => 'Test', 'numero_documento' => '111',
+            'correo' => 'ana@test.net',
+        ]);
+        $this->runAction(['nombre' => 'Ana', 'apellido' => 'Test Actualizado', 'numero_documento' => '111']);
+
+        $this->assertDatabaseHas('participantes', [
+            'numero_documento' => '111', 'apellido' => 'Test Actualizado', 'correo' => 'ana@test.net',
+        ]);
+    }
+
+    /**
+     * Categoria ya se actualizaba antes de este fix (texto libre, sin
+     * resolver contra el catálogo) — se agrega como test de regresión
+     * formal a pedido del usuario, no había cobertura dedicada.
+     */
+    public function test_categoria_se_actualiza_cuando_la_fuente_la_cambia(): void
+    {
+        $this->runAction(['nombre' => 'Ana', 'apellido' => 'Test', 'numero_documento' => '111', 'categoria' => '5K']);
+        $this->runAction(['nombre' => 'Ana', 'apellido' => 'Test', 'numero_documento' => '111', 'categoria' => '10K']);
+
+        $this->assertDatabaseHas('participantes', ['numero_documento' => '111', 'categoria' => '10K']);
+    }
+
+    /**
+     * Hallazgo real: numero_documento es a la vez un dato normal Y la
+     * clave de matching — si la fuente lo corrige (ej. typo de CI), el
+     * sync sin external_id no reconoce la fila vieja y crea un duplicado.
+     */
+    public function test_sin_external_id_un_cambio_de_documento_crea_duplicado_comportamiento_preexistente(): void
+    {
+        $this->runAction(['nombre' => 'Juan', 'apellido' => 'Perez', 'numero_documento' => '111']);
+        $this->runAction(['nombre' => 'Juan', 'apellido' => 'Perez', 'numero_documento' => '222']);
+
+        $this->assertDatabaseCount('participantes', 2);
+    }
+
+    public function test_con_external_id_un_cambio_de_documento_actualiza_el_mismo_participante_no_duplica(): void
+    {
+        $this->runAction([
+            'nombre' => 'Juan', 'apellido' => 'Perez', 'numero_documento' => '111',
+            '_origen_sync_externo' => 'pull:1:EXT-777',
+        ]);
+        $this->runAction([
+            'nombre' => 'Juan', 'apellido' => 'Perez', 'numero_documento' => '222',
+            '_origen_sync_externo' => 'pull:1:EXT-777',
+        ]);
+
+        $this->assertDatabaseCount('participantes', 1);
+        $this->assertDatabaseHas('participantes', ['numero_documento' => '222']);
+        $this->assertDatabaseHas('registrations', ['origen_sync_externo' => 'pull:1:EXT-777']);
+    }
+
+    /**
+     * Auto-backfill: una fila creada SIN external_id que en una corrida
+     * posterior sí lo trae, lo graba en esa misma fila — así una config
+     * real que ya está corriendo en UAT queda protegida apenas la fuente
+     * arranque a mandarlo, sin necesitar backfill manual.
+     */
+    public function test_external_id_que_llega_despues_se_graba_en_la_fila_existente_sin_duplicar(): void
+    {
+        $this->runAction(['nombre' => 'Juan', 'apellido' => 'Perez', 'numero_documento' => '111']);
+        $this->runAction([
+            'nombre' => 'Juan', 'apellido' => 'Perez', 'numero_documento' => '111',
+            '_origen_sync_externo' => 'pull:1:EXT-888',
+        ]);
+
+        $this->assertDatabaseCount('participantes', 1);
+        $this->assertDatabaseHas('registrations', ['origen_sync_externo' => 'pull:1:EXT-888']);
+
+        // Y a partir de acá, un cambio de documento con la misma clave ya
+        // no duplica — confirma que el backfill quedó realmente activo.
+        $this->runAction([
+            'nombre' => 'Juan', 'apellido' => 'Perez', 'numero_documento' => '333',
+            '_origen_sync_externo' => 'pull:1:EXT-888',
+        ]);
+        $this->assertDatabaseCount('participantes', 1);
+        $this->assertDatabaseHas('participantes', ['numero_documento' => '333']);
+    }
 }

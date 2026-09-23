@@ -64,6 +64,9 @@ class SyncExternoPullService
             'participantes.*.categoria' => ['nullable', 'string', 'max:255'],
             'participantes.*.numero_documento' => ['nullable', 'string', 'max:255'],
             'participantes.*.tipo_documento' => ['nullable', 'string', 'max:50'],
+            // Id externo estable, opcional (23/09/2026) — ver docblock de
+            // sincronizar() más abajo y SincronizarParticipanteExternoAction.
+            'participantes.*.external_id' => ['nullable', 'string', 'max:255'],
             'participantes.*.genero' => ['nullable', 'string', 'max:50'],
             'participantes.*.fecha_nacimiento' => ['nullable', 'string', 'max:30'],
             'participantes.*.form_type' => ['nullable', 'string', 'max:255'],
@@ -89,6 +92,16 @@ class SyncExternoPullService
 
         foreach ($data['participantes'] as $i => $fila) {
             $formType = $this->resolverFormType($fila, $formTypesPorNombre, $config);
+
+            // Id externo estable, opcional (23/09/2026) — scopeado por
+            // config (no solo el id crudo) para que 2 fuentes distintas no
+            // puedan colisionar por casualidad. Inyectado como clave
+            // interna (guion bajo) para no mezclarse con el contrato
+            // público de $fila que ve el resto de la Action.
+            $externalId = trim((string) ($fila['external_id'] ?? ''));
+            if ($externalId !== '') {
+                $fila['_origen_sync_externo'] = "pull:{$config->id}:{$externalId}";
+            }
 
             $resultado = $this->action->run($config->evento, $formType, $fila);
 
