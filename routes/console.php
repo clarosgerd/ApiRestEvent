@@ -65,6 +65,12 @@ Schedule::command('notificaciones:recordatorio-kit')->daily()->appendOutputTo($s
 // pendiente); idempotente, correrlo de más nunca duplica nada.
 Schedule::command('notificaciones:pago-confirmado-faltante')->daily()->appendOutputTo($schedulerLog);
 
+// ── SmartStand (25/09/2026) — credenciales de expositor sin enviar ──────
+// Reintenta las cuentas cuyo correo de acceso falló al darse de alta (SMTP
+// caído dentro del callback de la pasarela). Diario alcanza; el comando ya
+// ignora cuentas recién creadas para no pisar un primer envío en curso.
+Schedule::command('expositores:reenviar-credenciales-faltantes')->daily()->appendOutputTo($schedulerLog);
+
 // ── WhatsApp OpenWA (§2.5 fase 7) ────────────────────────────────────────
 // SendWhatsappMessageJob es ShouldQueue (QUEUE_CONNECTION=database) — sin un
 // worker corriendo, los jobs se acumulan en la tabla `jobs` sin procesarse.

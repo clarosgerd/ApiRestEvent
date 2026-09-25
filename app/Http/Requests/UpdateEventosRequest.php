@@ -88,6 +88,12 @@ class UpdateEventosRequest extends FormRequest
             'gafeteConfig.per_row'    => 'sometimes|integer|min:1|max:6',
             'gafeteConfig.paper'      => 'sometimes|in:a4,letter',
             'gafeteConfig.orientation' => 'sometimes|in:portrait,landscape',
+            // SmartStand (25/09/2026) — configuración de expositores del evento.
+            'expositoresConfig'                  => 'sometimes|nullable|array',
+            'expositoresConfig.app_url_ios'      => 'sometimes|nullable|url|max:500',
+            'expositoresConfig.app_url_android'  => 'sometimes|nullable|url|max:500',
+            'expositoresConfig.instrucciones'    => 'sometimes|nullable|string|max:1000',
+            'expositoresConfig.dashboard_url'    => 'sometimes|nullable|url|max:500',
             'video'            => 'sometimes|nullable|string|max:255',
             'image'            => 'sometimes|nullable|string|max:255',
             'colorHex'         => 'sometimes|nullable|string|max:7',

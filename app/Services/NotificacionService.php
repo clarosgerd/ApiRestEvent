@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Actions\ProvisionarCuentaExpositorAction;
 use App\Jobs\SendWhatsappMessageJob;
 use App\Mail\CupoRevertidoMail;
 use App\Mail\InscripcionPendienteMail;
@@ -64,6 +65,28 @@ class NotificacionService
             'pago_confirmado',
             fn () => new PagoConfirmadoMail($registration)
         );
+
+        $this->provisionarCuentaExpositorSiCorresponde($registration);
+    }
+
+    /**
+     * SmartStand (25/09/2026) — si la inscripción es de un form_type
+     * `es_expositor`, crea la cuenta de la empresa y le manda su acceso. Es
+     * un efecto aparte del comprobante de pago: aislado en try/catch para que
+     * NUNCA pueda romper la confirmación de un pago (este método lo llaman
+     * los callbacks de las pasarelas). La idempotencia y el manejo del fallo
+     * de envío viven en ProvisionarCuentaExpositorAction.
+     */
+    private function provisionarCuentaExpositorSiCorresponde(Registration $registration): void
+    {
+        try {
+            app(ProvisionarCuentaExpositorAction::class)->handle($registration);
+        } catch (\Throwable $e) {
+            Log::error('SmartStand: falló el alta automática de la cuenta de expositor', [
+                'registration_id' => $registration->id,
+                'error'           => $e->getMessage(),
+            ]);
+        }
     }
 
     /**

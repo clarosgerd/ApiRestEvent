@@ -71,6 +71,8 @@ class EventoService
             // EventoController::gafetesPdf()/certificadosPdf().
             'certificadoSoloNombre' => 'certificado_solo_nombre',
             'gafeteConfig'          => 'gafete_config',
+            // SmartStand (25/09/2026).
+            'expositoresConfig'     => 'expositores_config',
         ];
 
         // Columnas NOT NULL sin default en la migración original de `eventos`

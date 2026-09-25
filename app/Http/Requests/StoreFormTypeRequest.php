@@ -58,6 +58,7 @@ class StoreFormTypeRequest extends FormRequest
             'has_promo_code'             => 'nullable|boolean',
             'es_staff'                   => 'nullable|boolean',
             'es_ponente'                 => 'nullable|boolean',
+            'es_expositor'               => 'nullable|boolean',
             'requiere_contacto_emergencia' => 'nullable|boolean',
             // Ocultar Dirección/Ciudad/Teléfono/Alias por tipo de
             // formulario (01/09/2026) — ver PLAN-OCULTAR-CAMPOS-FORM-TYPE-01092026.md.

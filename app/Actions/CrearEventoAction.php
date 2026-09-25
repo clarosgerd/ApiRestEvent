@@ -242,6 +242,7 @@ class CrearEventoAction
                 'has_promo_code'             => $formTypeDTO->hasPromoCode,
                 'es_staff'                   => $formTypeDTO->esStaff,
                 'es_ponente'                 => $formTypeDTO->esPonente,
+                'es_expositor'               => $formTypeDTO->esExpositor,
                 'requiere_categoria'         => $formTypeDTO->requiereCategoria,
             ]);
 
