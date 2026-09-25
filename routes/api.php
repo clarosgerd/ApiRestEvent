@@ -73,6 +73,10 @@ Route::group(['prefix' => 'v1','namespace' => 'App\Http\Controllers'], function 
     Route::get('/event/{event}/agenda-pdf', [EventoController::class, 'agendaPdf']);
     Route::get('/event/{event}/agenda-ics', [EventoController::class, 'agendaIcs']);
     Route::get('/event/{event}/gafetes-pdf', [EventoController::class, 'gafetesPdf']);
+    // Gafete por demanda (23/09/2026) — un solo participante, para
+    // Acreditación. Mismo grupo/criterio de acceso que gafetes-pdf de
+    // arriba (la protección real la da admin-eventos, que sí exige login).
+    Route::get('/event/{event}/participantes/{participante}/gafete-pdf', [EventoController::class, 'gafetePdfParticipante']);
     Route::get('/event/{event}/certificados-pdf', [EventoController::class, 'certificadosPdf']);
     Route::apiResource('/coordinate',CoordinateController::class)->only(['index', 'show']);
     Route::apiResource('/route',RouteController::class)->only(['index', 'show']);
