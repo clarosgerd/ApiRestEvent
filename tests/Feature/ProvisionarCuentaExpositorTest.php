@@ -89,6 +89,27 @@ class ProvisionarCuentaExpositorTest extends TestCase
         $this->assertStringContainsString('El organizador te enviará el link de descarga', $html);
     }
 
+    /** Con panel web configurado, escanear desde el navegador es lo principal y la app queda como opción. */
+    public function test_con_link_de_panel_el_correo_invita_a_escanear_desde_el_navegador(): void
+    {
+        $evento = $this->crearEvento(['expositores_config' => [
+            'dashboard_url'   => 'https://eventos.test/expositor.php',
+            'app_url_android' => 'https://play.google.com/store/apps/details?id=x',
+        ]]);
+        $html = (new ExpositorCredencialesMail($this->crearCuenta($evento), 'Abc123xyz789'))->render();
+
+        $this->assertStringContainsString('Escanea desde tu celular', $html);
+        $this->assertStringContainsString('https://eventos.test/expositor.php', $html);
+        $this->assertStringContainsString('O usa la app de escaneo', $html);
+
+        // Con panel y SIN links de app no se promete una app que no existe.
+        $soloPanel = $this->crearEvento(['expositores_config' => ['dashboard_url' => 'https://eventos.test/expositor.php']]);
+        $html2 = (new ExpositorCredencialesMail($this->crearCuenta($soloPanel), 'Abc123xyz789'))->render();
+        $this->assertStringContainsString('Escanea desde tu celular', $html2);
+        $this->assertStringNotContainsString('link de descarga de la app', $html2);
+        $this->assertStringNotContainsString('Descarga la app', $html2);
+    }
+
     public function test_usa_la_razon_social_de_las_preguntas_custom(): void
     {
         Mail::fake();

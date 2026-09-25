@@ -37,9 +37,26 @@
     </p>
   </td></tr>
 
+  {{-- Panel web (25/09/2026): con un link de panel configurado, escanear desde
+       el navegador del celular es la herramienta principal; la app nativa queda
+       como opción. Sin panel configurado, el correo sigue como antes. --}}
+  @if ($dashboardUrl)
+    <tr><td style="padding:16px 32px 8px;">
+      <p style="font-size:14px;color:#1a2a3a;margin:0 0 10px;"><strong>Escanea desde tu celular</strong></p>
+      <p style="margin:0 0 10px;">
+        <a href="{{ $dashboardUrl }}" style="display:inline-block;background:#022858;color:#ffffff;text-decoration:none;font-size:13px;font-weight:700;padding:10px 18px;border-radius:6px;">Abrir mi panel</a>
+      </p>
+      <p style="font-size:13px;color:#607080;margin:0;">
+        Abre ese link en el navegador de tu celular, inicia sesión con el usuario y la contraseña de arriba y usa
+        la pestaña <strong>Escanear</strong> para leer el QR del gafete de cada visitante. Ahí mismo ves los contactos
+        capturados y puedes exportarlos.
+      </p>
+    </td></tr>
+  @endif
+
   <tr><td style="padding:16px 32px 8px;">
-    <p style="font-size:14px;color:#1a2a3a;margin:0 0 10px;"><strong>Descarga la app de escaneo</strong></p>
     @if ($appUrlAndroid || $appUrlIos)
+      <p style="font-size:14px;color:#1a2a3a;margin:0 0 10px;"><strong>{{ $dashboardUrl ? 'O usa la app de escaneo' : 'Descarga la app de escaneo' }}</strong></p>
       <p style="margin:0;">
         @if ($appUrlAndroid)
           <a href="{{ $appUrlAndroid }}" style="display:inline-block;background:#022858;color:#ffffff;text-decoration:none;font-size:13px;font-weight:700;padding:10px 18px;border-radius:6px;margin:0 8px 8px 0;">Android</a>
@@ -48,7 +65,8 @@
           <a href="{{ $appUrlIos }}" style="display:inline-block;background:#022858;color:#ffffff;text-decoration:none;font-size:13px;font-weight:700;padding:10px 18px;border-radius:6px;margin:0 8px 8px 0;">iPhone (iOS)</a>
         @endif
       </p>
-    @else
+    @elseif (! $dashboardUrl)
+      <p style="font-size:14px;color:#1a2a3a;margin:0 0 10px;"><strong>Descarga la app de escaneo</strong></p>
       <p style="font-size:13px;color:#607080;margin:0;">
         El organizador te enviará el link de descarga de la app antes del evento.
       </p>
@@ -58,15 +76,6 @@
   @if ($instrucciones)
     <tr><td style="padding:8px 32px;">
       <p style="font-size:13px;color:#1a2a3a;margin:0;white-space:pre-line;">{{ $instrucciones }}</p>
-    </td></tr>
-  @endif
-
-  @if ($dashboardUrl)
-    <tr><td style="padding:8px 32px;">
-      <p style="font-size:13px;color:#1a2a3a;margin:0;">
-        También puedes ver los contactos capturados y exportarlos desde tu panel:
-        <a href="{{ $dashboardUrl }}" style="color:#00bad2;">{{ $dashboardUrl }}</a>
-      </p>
     </td></tr>
   @endif
 

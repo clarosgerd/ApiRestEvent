@@ -545,6 +545,10 @@ Route::group(['prefix' => 'v1','namespace' => 'App\Http\Controllers'], function 
         Route::post('/leads', [EmpresaExpositoraLeadController::class, 'store']);
         Route::get('/leads', [EmpresaExpositoraLeadController::class, 'index']);
         Route::get('/leads/export.csv', [EmpresaExpositoraLeadController::class, 'exportCsv']);
+        // Alias SIN extensión (25/09/2026): el hosting de UAT ya devolvió un 403
+        // genérico sobre otro endpoint que termina en `.csv` (delivery.csv);
+        // el proxy de elascenso/event (expositor_export.php) usa este.
+        Route::get('/leads/exportar', [EmpresaExpositoraLeadController::class, 'exportCsv']);
         Route::get('/dashboard', [EmpresaExpositoraLeadController::class, 'dashboard']);
     });
 

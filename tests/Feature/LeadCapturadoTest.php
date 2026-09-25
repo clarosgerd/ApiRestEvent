@@ -144,6 +144,23 @@ class LeadCapturadoTest extends TestCase
         $this->assertStringNotContainsString('Beto', $contenido);
     }
 
+    /** Alias sin extensión (el hosting de UAT bloqueó otro endpoint `.csv` con un 403): mismo contenido, mismo guard. */
+    public function test_el_alias_exportar_sin_extension_devuelve_el_mismo_csv_y_exige_token(): void
+    {
+        $evento = $this->crearEvento();
+        $cuenta = $this->crearCuenta($evento);
+        $asistente = $this->crearAsistente($evento, ['nombre' => 'Ana']);
+        LeadCapturado::create(['empresa_expositora_id' => $cuenta->id, 'participante_id' => $asistente->id, 'capturado_at' => now()]);
+
+        $this->getJson('/api/v1/expositor/leads/exportar')->assertStatus(401);
+
+        $this->comoExpositor($cuenta);
+        $alias = $this->get('/api/v1/expositor/leads/exportar');
+        $alias->assertOk();
+        $this->assertStringContainsString('text/csv', $alias->headers->get('Content-Type'));
+        $this->assertStringContainsString('Ana', $alias->streamedContent());
+    }
+
     public function test_el_csv_neutraliza_formulas_de_excel(): void
     {
         $evento = $this->crearEvento();
