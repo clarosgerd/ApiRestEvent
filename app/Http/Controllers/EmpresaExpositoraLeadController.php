@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Jobs\EnviarSeguimientoLeadJob;
 use App\Models\Answer;
 use App\Models\Category;
 use App\Models\EmpresaExpositora;
@@ -114,11 +115,29 @@ class EmpresaExpositoraLeadController extends Controller
         }
         $lead->save();
 
+        // Fase 4 — correo de seguimiento: solo al CREAR el lead (re-escanear no
+        // reenvía) y solo si el evento lo habilitó y la empresa lo activó.
+        // afterResponse(): corre DESPUÉS de contestarle al celular, así el staff
+        // no espera al SMTP, y sin depender de la cola (que corre cada 8 h).
+        if ($creado && $this->seguimientoAplica($cuenta)) {
+            dispatch(new EnviarSeguimientoLeadJob($lead->id))->afterResponse();
+        }
+
         return response()->json([
             'success' => true,
             'creado'  => $creado,
-            'lead'    => $this->presentarLead($lead->load('participante'), $this->categoriasDelEvento($cuenta)),
+            'lead'    => $this->presentarLead(
+                $lead->load('participante'),
+                $this->categoriasDelEvento($cuenta),
+                LeadsCapturadosData::respuestasDe($cuenta->evento, collect([$participante->id])),
+            ),
         ], $creado ? 201 : 200);
+    }
+
+    private function seguimientoAplica(EmpresaExpositora $cuenta): bool
+    {
+        return $cuenta->seguimiento_activo
+            && (bool) (($cuenta->evento->expositores_config ?? [])['seguimiento_habilitado'] ?? false);
     }
 
     /** Leads propios, paginados (más recientes primero). */
@@ -134,10 +153,11 @@ class EmpresaExpositoraLeadController extends Controller
             ->paginate($porPagina);
 
         $categorias = $this->categoriasDelEvento($cuenta);
+        $respuestas = LeadsCapturadosData::respuestasDe($cuenta->evento, $paginador->getCollection()->pluck('participante_id'));
 
         return response()->json([
             'success' => true,
-            'data'    => $paginador->getCollection()->map(fn ($l) => $this->presentarLead($l, $categorias))->values(),
+            'data'    => $paginador->getCollection()->map(fn ($l) => $this->presentarLead($l, $categorias, $respuestas))->values(),
             'meta'    => [
                 'page'     => $paginador->currentPage(),
                 'perPage'  => $paginador->perPage(),
@@ -166,22 +186,40 @@ class EmpresaExpositoraLeadController extends Controller
             ->orderBy('capturado_at')
             ->get();
 
-        return response()->streamDownload(function () use ($leads, $categorias) {
+        // Fase 4: las columnas Especialidad/Institución solo aparecen si el
+        // organizador indicó esas preguntas (mismo criterio que los CSV del
+        // organizador: columnas condicionales por presencia de datos).
+        $campos = LeadsCapturadosData::camposConfigurados($cuenta->evento);
+        $respuestas = LeadsCapturadosData::respuestasDe($cuenta->evento, $leads->pluck('participante_id'));
+
+        return response()->streamDownload(function () use ($leads, $categorias, $campos, $respuestas) {
             $out = fopen('php://output', 'w');
-            fputcsv($out, ['Nombre', 'Apellido', 'Correo', 'Teléfono', 'Ciudad', 'Categoría', 'Calificación', 'Nota', 'Capturado']);
+            fputcsv($out, array_merge(
+                ['Nombre', 'Apellido', 'Correo', 'Teléfono', 'Ciudad', 'Categoría'],
+                $campos['especialidad'] !== null ? ['Especialidad'] : [],
+                $campos['institucion'] !== null ? ['Institución'] : [],
+                ['Calificación', 'Nota', 'Capturado'],
+            ));
             foreach ($leads as $lead) {
                 $p = $lead->participante;
-                fputcsv($out, array_map([self::class, 'celdaSegura'], [
-                    $p->nombre,
-                    $p->apellido,
-                    $p->correo,
-                    $p->telefono,
-                    $p->ciudad,
-                    $categorias->get((string) $p->categoria) ?? $p->categoria,
-                    $lead->calificacion,
-                    $lead->nota,
-                    optional($lead->capturado_at)->format('Y-m-d H:i'),
-                ]));
+                $extra = $respuestas[(int) $p->id] ?? [];
+                fputcsv($out, array_map([self::class, 'celdaSegura'], array_merge(
+                    [
+                        $p->nombre,
+                        $p->apellido,
+                        $p->correo,
+                        $p->telefono,
+                        $p->ciudad,
+                        $categorias->get((string) $p->categoria) ?? $p->categoria,
+                    ],
+                    $campos['especialidad'] !== null ? [$extra['especialidad'] ?? ''] : [],
+                    $campos['institucion'] !== null ? [$extra['institucion'] ?? ''] : [],
+                    [
+                        $lead->calificacion,
+                        $lead->nota,
+                        optional($lead->capturado_at)->format('Y-m-d H:i'),
+                    ],
+                )));
             }
             fclose($out);
         }, 'leads-' . $cuenta->id . '.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
@@ -214,23 +252,31 @@ class EmpresaExpositoraLeadController extends Controller
             ->mapWithKeys(fn ($nombre, $id) => [(string) $id => $nombre]);
     }
 
-    private function presentarLead(LeadCapturado $lead, Collection $categorias): array
+    /** @param array<int, array<string, string>> $respuestas  ver LeadsCapturadosData::respuestasDe() */
+    private function presentarLead(LeadCapturado $lead, Collection $categorias, array $respuestas = []): array
     {
         $p = $lead->participante;
+        $extra = $respuestas[(int) $p->id] ?? [];
 
         return [
             'id'           => $lead->id,
             'capturadoAt'  => optional($lead->capturado_at)->toIso8601String(),
             'nota'         => $lead->nota,
             'calificacion' => $lead->calificacion,
+            'seguimiento'  => [
+                'estado' => $lead->seguimiento_estado,
+                'motivo' => $lead->seguimiento_motivo,
+            ],
             'participante' => [
-                'id'        => $p->id,
-                'nombre'    => $p->nombre,
-                'apellido'  => $p->apellido,
-                'correo'    => $p->correo,
-                'telefono'  => $p->telefono,
-                'ciudad'    => $p->ciudad,
-                'categoria' => $categorias->get((string) $p->categoria) ?? $p->categoria,
+                'id'           => $p->id,
+                'nombre'       => $p->nombre,
+                'apellido'     => $p->apellido,
+                'correo'       => $p->correo,
+                'telefono'     => $p->telefono,
+                'ciudad'       => $p->ciudad,
+                'categoria'    => $categorias->get((string) $p->categoria) ?? $p->categoria,
+                'especialidad' => $extra['especialidad'] ?? null,
+                'institucion'  => $extra['institucion'] ?? null,
             ],
         ];
     }

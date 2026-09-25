@@ -20,11 +20,18 @@ class LeadCapturado extends Model
         'nota',
         'calificacion',
         'capturado_at',
+        // Fase 4 — estado del correo de seguimiento (ver EnviarSeguimientoLeadAction).
+        'seguimiento_estado',
+        'seguimiento_motivo',
+        'seguimiento_intentos',
+        'seguimiento_at',
     ];
 
     protected $casts = [
-        'calificacion' => 'integer',
-        'capturado_at' => 'datetime',
+        'calificacion'         => 'integer',
+        'capturado_at'         => 'datetime',
+        'seguimiento_intentos' => 'integer',
+        'seguimiento_at'       => 'datetime',
     ];
 
     public function empresa(): BelongsTo

@@ -30,6 +30,12 @@ class EmpresaExpositora extends Authenticatable
         'stand',
         'activo',
         'credenciales_enviadas_at',
+        // Fase 4 — correo de seguimiento (ver ExpositorSeguimientoController).
+        'seguimiento_activo',
+        'seguimiento_asunto',
+        'seguimiento_mensaje',
+        'seguimiento_url',
+        'seguimiento_reply_to',
     ];
 
     protected $hidden = ['password'];
@@ -37,6 +43,7 @@ class EmpresaExpositora extends Authenticatable
     protected $casts = [
         'activo'                   => 'boolean',
         'credenciales_enviadas_at' => 'datetime',
+        'seguimiento_activo'       => 'boolean',
     ];
 
     public function evento(): BelongsTo

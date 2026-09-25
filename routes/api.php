@@ -16,6 +16,10 @@ use App\Http\Controllers\ClubController;
 use App\Http\Controllers\EmpresaExpositoraController;
 use App\Http\Controllers\EmpresaExpositoraAuthController;
 use App\Http\Controllers\EmpresaExpositoraLeadController;
+use App\Http\Controllers\ExpositorSeguimientoController;
+use App\Http\Controllers\ExpositorSorteoController;
+use App\Http\Controllers\PasaporteController;
+use App\Http\Controllers\SeguimientoBajaController;
 use App\Http\Controllers\AdminAuthController;
 use App\Http\Controllers\AdminUserController;
 use App\Http\Controllers\AdminAuditLogController;
@@ -215,6 +219,9 @@ Route::group(['prefix' => 'v1','namespace' => 'App\Http\Controllers'], function 
         Route::delete('/empresas-expositoras/{empresaExpositora}', [EmpresaExpositoraController::class, 'destroy']);
         Route::post('/empresas-expositoras/{empresaExpositora}/reenviar-credenciales', [EmpresaExpositoraController::class, 'reenviarCredenciales']);
         Route::get('/empresas-expositoras/{empresaExpositora}/dashboard', [EmpresaExpositoraController::class, 'dashboard']);
+        // Fase 4 — pasaporte médico: sorteo general entre asistentes que visitaron ≥ N stands.
+        Route::get('/event/{event}/pasaporte', [PasaporteController::class, 'show']);
+        Route::post('/event/{event}/pasaporte/sorteo', [PasaporteController::class, 'sortear']);
 
         Route::apiResource('/agenda-item', AgendaItemController::class)->only(['store', 'update', 'destroy']);
 
@@ -550,7 +557,17 @@ Route::group(['prefix' => 'v1','namespace' => 'App\Http\Controllers'], function 
         // el proxy de elascenso/event (expositor_export.php) usa este.
         Route::get('/leads/exportar', [EmpresaExpositoraLeadController::class, 'exportCsv']);
         Route::get('/dashboard', [EmpresaExpositoraLeadController::class, 'dashboard']);
+        // Fase 4 — sorteo entre los propios contactos y correo de seguimiento.
+        Route::get('/sorteos', [ExpositorSorteoController::class, 'index']);
+        Route::post('/sorteos', [ExpositorSorteoController::class, 'store']);
+        Route::get('/seguimiento', [ExpositorSeguimientoController::class, 'show']);
+        Route::put('/seguimiento', [ExpositorSeguimientoController::class, 'update']);
     });
+
+    // Baja del correo de seguimiento: pública pero FIRMADA (el link va en cada correo).
+    Route::get('/seguimiento/baja/{lead}', [SeguimientoBajaController::class, 'baja'])
+        ->name('seguimiento.baja')
+        ->middleware('signed');
 
 
     Route::get('/promo/{id}/code/{promocode}',[PromoCodeController::class, 'promoCode']);
