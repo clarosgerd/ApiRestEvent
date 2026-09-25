@@ -72,8 +72,14 @@ class EmpresaExpositoraAuthController extends Controller
     private function presentar(EmpresaExpositora $cuenta): array
     {
         $cuenta->loadMissing(['evento', 'categoria']);
+        $config = $cuenta->evento?->expositores_config ?? [];
+        $link = fn ($v) => is_string($v) && trim($v) !== '' ? trim($v) : null;
 
         return [
+            // Links de descarga de la app de escaneo (26/09/2026): los mismos
+            // del correo de credenciales; expositor.php los muestra en el panel.
+            'appUrlAndroid' => $link($config['app_url_android'] ?? null),
+            'appUrlIos'     => $link($config['app_url_ios'] ?? null),
             'id'         => $cuenta->id,
             'nombre'     => $cuenta->nombre,
             'email'      => $cuenta->email,

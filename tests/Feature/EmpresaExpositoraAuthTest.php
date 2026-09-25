@@ -33,6 +33,37 @@ class EmpresaExpositoraAuthTest extends TestCase
         $this->assertNotEmpty($response->json('data.token'));
     }
 
+    /** Los links de descarga de la app que configuró el organizador viajan en login y en /me. */
+    public function test_login_y_me_incluyen_los_links_de_descarga_de_la_app(): void
+    {
+        $evento = $this->crearEvento(['expositores_config' => [
+            'app_url_android' => 'https://play.google.com/store/apps/details?id=x',
+            'app_url_ios'     => 'https://apps.apple.com/app/x',
+        ]]);
+        $this->crearCuenta($evento, ['email' => 'a@empresa.test'], 'secreta-123');
+
+        $login = $this->postJson('/api/v1/expositor/login', ['email' => 'a@empresa.test', 'password' => 'secreta-123'])
+            ->assertOk()
+            ->assertJsonPath('data.empresa.appUrlAndroid', 'https://play.google.com/store/apps/details?id=x')
+            ->assertJsonPath('data.empresa.appUrlIos', 'https://apps.apple.com/app/x');
+
+        $this->getJson('/api/v1/expositor/me', ['Authorization' => 'Bearer ' . $login->json('data.token')])
+            ->assertOk()
+            ->assertJsonPath('data.appUrlAndroid', 'https://play.google.com/store/apps/details?id=x')
+            ->assertJsonPath('data.appUrlIos', 'https://apps.apple.com/app/x');
+    }
+
+    public function test_sin_links_de_app_configurados_vienen_en_null(): void
+    {
+        $evento = $this->crearEvento(['expositores_config' => ['app_url_ios' => '  ']]);
+        $this->crearCuenta($evento, ['email' => 'a@empresa.test'], 'secreta-123');
+
+        $this->postJson('/api/v1/expositor/login', ['email' => 'a@empresa.test', 'password' => 'secreta-123'])
+            ->assertOk()
+            ->assertJsonPath('data.empresa.appUrlAndroid', null)
+            ->assertJsonPath('data.empresa.appUrlIos', null);
+    }
+
     public function test_login_con_contrasena_incorrecta_da_401(): void
     {
         $evento = $this->crearEvento();

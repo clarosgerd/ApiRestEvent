@@ -26,7 +26,7 @@ class UpdatePaidRegistrationRequest extends FormRequest
             'participantes.*.apellido'                   => ['required', 'string'],
             'participantes.*.alias'                      => ['nullable', 'string'],
             // Género por catálogo (31/08/2026) — ver StoreRegistrationRequest.
-            'participantes.*.genero'                     => ['nullable', 'string', Rule::in(Genero::where('activo', true)->pluck('nombre'))],
+            'participantes.*.genero'                     => ['nullable', 'string', Rule::in(Genero::nombresAceptados())],
             'participantes.*.tipoDocumento'              => ['nullable', 'string'],
             'participantes.*.numeroDocumento'            => ['required', 'string'],
             'participantes.*.polera'                     => ['nullable', 'string'],

@@ -46,6 +46,9 @@
       <p style="margin:0 0 10px;">
         <a href="{{ $dashboardUrl }}" style="display:inline-block;background:#022858;color:#ffffff;text-decoration:none;font-size:13px;font-weight:700;padding:10px 18px;border-radius:6px;">Abrir mi panel</a>
       </p>
+      <p style="font-size:12px;color:#607080;margin:0 0 10px;word-break:break-all;">
+        Si el botón no abre, copia este link en tu navegador: <a href="{{ $dashboardUrl }}" style="color:#022858;">{{ $dashboardUrl }}</a>
+      </p>
       <p style="font-size:13px;color:#607080;margin:0;">
         Abre ese link en el navegador de tu celular, inicia sesión con el usuario y la contraseña de arriba y usa
         la pestaña <strong>Escanear</strong> para leer el QR del gafete de cada visitante. Ahí mismo ves los contactos

@@ -77,4 +77,12 @@ return [
         'secret' => env('EXTERNAL_QR_LOOKUP_SECRET'),
     ],
 
+    // SmartStand (26/09/2026) — link de ingreso de las empresas expositoras
+    // (expositor.php del sitio público). Se usa en el correo de credenciales
+    // cuando el evento no configuró su propio `dashboard_url`: sin link, la
+    // empresa recibe usuario y contraseña pero no sabe dónde ingresarlos.
+    'smartstand' => [
+        'panel_url' => env('SMARTSTAND_PANEL_URL', 'https://events.inscrito.net/expositor.php'),
+    ],
+
 ];
