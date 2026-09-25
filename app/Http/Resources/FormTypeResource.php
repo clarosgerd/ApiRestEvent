@@ -47,6 +47,8 @@ class FormTypeResource extends JsonResource
             // flags, ver project_bug_cast_bool_hasshirt_formtyperesource.
             'esStaff'                    => (bool) $this->es_staff,
             'esPonente'                  => (bool) $this->es_ponente,
+            // SmartStand (25/09/2026) — (bool) explícito, mismo motivo que el resto.
+            'esExpositor'                => (bool) $this->es_expositor,
             'requiereCategoria'          => (bool) $this->requiere_categoria,
             // Caja para eventos tipo congreso (20/08/2026) — ver migración
             // add_requiere_contacto_emergencia_to_form_types_table.

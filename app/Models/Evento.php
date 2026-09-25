@@ -105,6 +105,8 @@ class Evento extends Model
         // eventos existentes intactos (defaults false/null).
         'certificado_solo_nombre',
         'gafete_config',
+        // SmartStand (25/09/2026) — links de app/instrucciones para expositores.
+        'expositores_config',
     ];
 
 protected $casts = [
@@ -122,6 +124,7 @@ protected $casts = [
     'secciones_orden'   => 'array',
     'certificado_solo_nombre' => 'boolean',
     'gafete_config'     => 'array',
+    'expositores_config' => 'array',
 ];
     /**
      * Permite que las rutas `{event}` (GET/PUT/DELETE /event/{event}, y

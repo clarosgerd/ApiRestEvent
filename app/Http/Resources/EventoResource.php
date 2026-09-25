@@ -162,6 +162,8 @@ class EventoResource extends JsonResource
             // EventoController::gafetesPdf()/certificadosPdf().
             'certificadoSoloNombre'      =>(bool) $this->certificado_solo_nombre,
             'gafeteConfig'               =>$this->gafete_config,
+            // SmartStand (25/09/2026) — no sensible (links de tiendas de apps).
+            'expositoresConfig'          =>$this->expositores_config,
             'equipos'                    =>EquipoResource::collection($this->whenLoaded('equipos')),  // Catálogo de equipos (precargado por el organizador) para form_types con hasTeam
     //        'contador_visitas'          =>$this->contador_visitas
     ];

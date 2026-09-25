@@ -51,6 +51,11 @@ return [
         'driver' => 'sanctum',
         'provider' => 'clubes',
     ],
+    // SmartStand (25/09/2026) — empresas expositoras, mismo molde que clubes.
+    'expositores' => [
+        'driver' => 'sanctum',
+        'provider' => 'expositores',
+    ],
     'admins' => [
         'driver' => 'sanctum',
         'provider' => 'admins',
@@ -92,6 +97,10 @@ return [
         'clubes' => [
             'driver' => 'eloquent',
             'model' => App\Models\Club::class,
+        ],
+        'expositores' => [
+            'driver' => 'eloquent',
+            'model' => App\Models\EmpresaExpositora::class,
         ],
         'admins' => [
             'driver' => 'eloquent',

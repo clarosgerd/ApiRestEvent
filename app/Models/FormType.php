@@ -38,6 +38,8 @@ class FormType extends Model
         'has_promo_code',
         'es_staff',
         'es_ponente',
+        // SmartStand (25/09/2026) — inscripción de una empresa expositora.
+        'es_expositor',
         'requiere_contacto_emergencia',
         // Ocultar Dirección/Ciudad/Teléfono/Alias por tipo de formulario
         // (01/09/2026) — array de strings entre direccion/ciudad/telefono/alias.
@@ -65,6 +67,7 @@ class FormType extends Model
         'has_promo_code'                => 'boolean',
         'es_staff'                      => 'boolean',
         'es_ponente'                    => 'boolean',
+        'es_expositor'                  => 'boolean',
         'requiere_contacto_emergencia'  => 'boolean',
         'campos_ocultos'                => 'array',
         'edicion_solo_extras'           => 'boolean',

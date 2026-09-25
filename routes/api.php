@@ -13,6 +13,9 @@ use App\Http\Controllers\ParticipanteController;
 use App\Http\Controllers\ResultadoController;
 use App\Http\Controllers\EquipoController;
 use App\Http\Controllers\ClubController;
+use App\Http\Controllers\EmpresaExpositoraController;
+use App\Http\Controllers\EmpresaExpositoraAuthController;
+use App\Http\Controllers\EmpresaExpositoraLeadController;
 use App\Http\Controllers\AdminAuthController;
 use App\Http\Controllers\AdminUserController;
 use App\Http\Controllers\AdminAuditLogController;
@@ -203,6 +206,16 @@ Route::group(['prefix' => 'v1','namespace' => 'App\Http\Controllers'], function 
         Route::get('/event/{event}/delivery', [DeliveryController::class, 'indexForAdmin']);
 
         Route::apiResource('/auspiciador', AuspiciadorController::class)->only(['store', 'update', 'destroy']);
+
+        // SmartStand (25/09/2026) — empresas expositoras del evento, gestionadas
+        // por el organizador (el scoping real vive en el controller).
+        Route::get('/event/{event}/empresas-expositoras', [EmpresaExpositoraController::class, 'index']);
+        Route::post('/event/{event}/empresas-expositoras', [EmpresaExpositoraController::class, 'store']);
+        Route::put('/empresas-expositoras/{empresaExpositora}', [EmpresaExpositoraController::class, 'update']);
+        Route::delete('/empresas-expositoras/{empresaExpositora}', [EmpresaExpositoraController::class, 'destroy']);
+        Route::post('/empresas-expositoras/{empresaExpositora}/reenviar-credenciales', [EmpresaExpositoraController::class, 'reenviarCredenciales']);
+        Route::get('/empresas-expositoras/{empresaExpositora}/dashboard', [EmpresaExpositoraController::class, 'dashboard']);
+
         Route::apiResource('/agenda-item', AgendaItemController::class)->only(['store', 'update', 'destroy']);
 
         // Numeración de corredor/chip (panel de administración) — ver
@@ -517,6 +530,23 @@ Route::group(['prefix' => 'v1','namespace' => 'App\Http\Controllers'], function 
     Route::post('/club/logout', [ClubController::class, 'logout'])->middleware('auth:sanctum');
     Route::get('/club/me', [ClubController::class, 'me'])->middleware('auth:sanctum');
     Route::get('/club/me/landing', [ClubController::class, 'landing'])->middleware('auth:sanctum');
+
+    // SmartStand (25/09/2026) — login propio de la empresa expositora y captura
+    // de leads (la usa la app de escaneo del staff). A diferencia de /club/*,
+    // acá el middleware es `auth:expositores` y no el `auth:sanctum` genérico:
+    // el guard de Sanctum valida que el token pertenezca al modelo del
+    // provider, así un token de admin/persona/club no puede llamar a estos
+    // endpoints (con `auth:sanctum` pasaría y `$request->user()` sería otro modelo).
+    Route::post('/expositor/login', [EmpresaExpositoraAuthController::class, 'login'])->middleware('throttle:10,1');
+    Route::middleware('auth:expositores')->prefix('expositor')->group(function () {
+        Route::post('/logout', [EmpresaExpositoraAuthController::class, 'logout']);
+        Route::get('/me', [EmpresaExpositoraAuthController::class, 'me']);
+        Route::get('/participantes/{referencia}', [EmpresaExpositoraLeadController::class, 'buscar']);
+        Route::post('/leads', [EmpresaExpositoraLeadController::class, 'store']);
+        Route::get('/leads', [EmpresaExpositoraLeadController::class, 'index']);
+        Route::get('/leads/export.csv', [EmpresaExpositoraLeadController::class, 'exportCsv']);
+        Route::get('/dashboard', [EmpresaExpositoraLeadController::class, 'dashboard']);
+    });
 
 
     Route::get('/promo/{id}/code/{promocode}',[PromoCodeController::class, 'promoCode']);

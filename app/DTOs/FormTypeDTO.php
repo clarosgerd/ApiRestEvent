@@ -31,6 +31,7 @@ class FormTypeDTO
         public bool $hasPromoCode,
         public bool $esStaff,
         public bool $esPonente,
+        public bool $esExpositor,
         public bool $requiereCategoria,
         /** @var SouvenirFormDTO[] */
         public array $souvenirs,
@@ -68,6 +69,8 @@ class FormTypeDTO
             esStaff: (bool) ($data['esStaff'] ?? $data['es_staff'] ?? false),
             // Ver brain/PLAN-VINCULACION-PONENTES-SESIONES-CONGRESO-13082026.md
             esPonente: (bool) ($data['esPonente'] ?? $data['es_ponente'] ?? false),
+            // SmartStand (25/09/2026).
+            esExpositor: (bool) ($data['esExpositor'] ?? $data['es_expositor'] ?? false),
             requiereCategoria: (bool) ($data['requiere_categoria'] ?? true),
             souvenirs: array_map(
                 fn(array $s) => SouvenirFormDTO::fromArray($s),
