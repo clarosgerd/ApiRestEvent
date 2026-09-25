@@ -373,6 +373,10 @@ return response()->json([
                     ->whereNotNull('chip')
                     ->get(['nombre', 'apellido', 'alias', 'genero', 'categoria', 'numero_corredor', 'chip']);
 
+                // id => nombre de las categorías del evento (ya cargadas con
+                // `with('categories…')`): evita un Category::find() por participante.
+                $nombresCategoria = $evento->categories->pluck('name', 'id');
+
                 return [
                     'id' => $evento->id,
                     'name' => $evento->nombre,
@@ -390,6 +394,7 @@ return response()->json([
                         'categoria' => $p->categoria,
                         'numeroCorredor' => $p->numero_corredor,
                         'chip' => $p->chip,
+                        'name' => $nombresCategoria->get($p->categoria) ?? $p->categoria,
                     ]),
                 ];
             }),
