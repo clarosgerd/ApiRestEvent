@@ -5,6 +5,7 @@ namespace App\Support\Taller;
 use App\DTOs\ParticipantDTO;
 use App\DTOs\RegistrationDTO;
 use App\Models\Evento;
+use App\Models\FormType;
 use App\Models\ParticipanteTallerSesion;
 use App\Models\SesionCongreso;
 use App\Models\Taller;
@@ -305,6 +306,15 @@ class ValidarSeleccionesTallerAction
             ->get();
 
         if ($requeridos->isEmpty()) {
+            return;
+        }
+
+        // Empresa expositora (26/09/2026): no es un asistente del programa, no
+        // ve el selector de talleres (elascenso/event, getEventTalleres()), así
+        // que tampoco se le puede exigir un taller obligatorio. Va DESPUÉS del
+        // return de arriba a propósito: solo se consulta `es_expositor` en los
+        // eventos que de verdad tienen talleres obligatorios.
+        if (FormType::where('id', $dto->formId)->where('es_expositor', true)->exists()) {
             return;
         }
 
