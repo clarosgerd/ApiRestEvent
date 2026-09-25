@@ -70,6 +70,7 @@ Schedule::command('notificaciones:pago-confirmado-faltante')->daily()->appendOut
 // caído dentro del callback de la pasarela). Diario alcanza; el comando ya
 // ignora cuentas recién creadas para no pisar un primer envío en curso.
 Schedule::command('expositores:reenviar-credenciales-faltantes')->daily()->appendOutputTo($schedulerLog);
+Schedule::command('expositores:reintentar-seguimientos')->daily()->appendOutputTo($schedulerLog);
 
 // ── WhatsApp OpenWA (§2.5 fase 7) ────────────────────────────────────────
 // SendWhatsappMessageJob es ShouldQueue (QUEUE_CONNECTION=database) — sin un

@@ -94,6 +94,18 @@ class UpdateEventosRequest extends FormRequest
             'expositoresConfig.app_url_android'  => 'sometimes|nullable|url|max:500',
             'expositoresConfig.instrucciones'    => 'sometimes|nullable|string|max:1000',
             'expositoresConfig.dashboard_url'    => 'sometimes|nullable|url|max:500',
+            // Fase 4 (26/09/2026): mapa de especialidades, pasaporte médico y correo de seguimiento.
+            'expositoresConfig.especialidad_pregunta'        => 'sometimes|nullable|string|max:255',
+            'expositoresConfig.institucion_pregunta'         => 'sometimes|nullable|string|max:255',
+            'expositoresConfig.pasaporte_min_stands'         => 'sometimes|nullable|integer|between:1,50',
+            // Sin la confirmación de Términos el seguimiento no se puede encender.
+            'expositoresConfig.seguimiento_habilitado'       => ['sometimes', 'nullable', 'boolean', function ($attribute, $value, $fail) {
+                if (filter_var($value, FILTER_VALIDATE_BOOLEAN) && ! $this->input('expositoresConfig.seguimiento_tyc_confirmado_at')) {
+                    $fail('Para habilitar el correo de seguimiento debes confirmar que los Términos y Condiciones del evento informan que los expositores pueden contactar al asistente.');
+                }
+            }],
+            'expositoresConfig.seguimiento_tyc_confirmado_at' => 'sometimes|nullable|date',
+            'expositoresConfig.seguimiento_max_por_asistente' => 'sometimes|nullable|integer|between:1,100',
             'video'            => 'sometimes|nullable|string|max:255',
             'image'            => 'sometimes|nullable|string|max:255',
             'colorHex'         => 'sometimes|nullable|string|max:7',
