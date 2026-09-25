@@ -257,6 +257,25 @@ class TallerSeleccionInscripcionTest extends TestCase
     }
 
     /**
+     * Empresa expositora (26/09/2026): el formulario público no le muestra los
+     * talleres, así que tampoco se le puede exigir uno obligatorio. Un tipo de
+     * formulario normal del mismo evento sigue exigiéndolo.
+     */
+    public function test_taller_required_no_se_exige_a_una_empresa_expositora(): void
+    {
+        $this->formType->update(['es_expositor' => true]);
+        $sinTalleres = $this->makeParticipantDTO([]);
+
+        ValidarSeleccionesTallerAction::runRequeridos($this->makeRegistrationDTO($sinTalleres));
+        $this->assertTrue(true); // no lanzó
+
+        $this->formType->update(['es_expositor' => false]);
+        $this->expectException(\DomainException::class);
+        $this->expectExceptionMessageMatches('/obligatorio/');
+        ValidarSeleccionesTallerAction::runRequeridos($this->makeRegistrationDTO($sinTalleres));
+    }
+
+    /**
      * Deshabilitar un taller sin ocultarlo (28/08/2026) — ver
      * PLAN-TALLER-PERMITE-INSCRIPCION-28082026.md. Distinto de `activo`
      * (ese además lo oculta del participante) — acá el taller sigue
