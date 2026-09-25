@@ -537,11 +537,6 @@ return response()->json([
      */
     public function gafetesPdf(Evento $event)
     {
-        // Nombres de categoría (20/08/2026) — participante->categoria guarda
-        // el ID, no el nombre (mismo bug que ya se resolvió en
-        // certificadosPdf() y en el email de participantes, ver
-        // BUG-FILTRO-CATEGORIA-NUMERACION-10082026.md). Sin este mapa, el
-        // gafete mostraría "1" en vez de "5K"/"Ponente".
         $event->loadMissing('categories');
         $categoryNames = $event->categories->pluck('name', 'id');
 
@@ -552,44 +547,99 @@ return response()->json([
 
         $items = [];
         foreach ($registrations as $registration) {
-            $color = $this->safeHex($registration->formType->color ?? null);
-
             foreach ($registration->participants as $participante) {
-                $items[] = [
-                    'nombre'     => trim($participante->nombre . ' ' . $participante->apellido),
-                    // 'rol' (tipo de inscripción, ej. "Individual"/"Staff")
-                    // y 'categoria' (categoría real del participante, ej.
-                    // "5K"/"Ponente") — antes el gafete repetía el mismo
-                    // valor dos veces en las dos líneas del rol-cell.
-                    'rol'        => $registration->formType->name ?? '',
-                    'categoria'  => $categoryNames[$participante->categoria] ?? $participante->categoria,
-                    'referencia' => $registration->referencia,
-                    'qr'         => ReferenceQrService::toBase64Png($registration->referencia),
-                    'color'      => $color,
-                ];
+                $items[] = $this->construirItemGafete($participante, $registration, $categoryNames);
             }
         }
 
-        // Gafete físico de 7x5cm por default (ver figura de referencia del
-        // organizador) — sin logo/nombre de evento/foto/referencia, solo
-        // nombre + QR + rol. A4 horizontal (mismo patrón que
-        // certificadosPdf) para que entren 3 gafetes por fila con margen de
-        // sobra; en A4 vertical con los márgenes default de dompdf, 3×7cm
-        // queda muy justo/desborda.
-        //
         // Tamaño/layout parametrizable por evento (13/09/2026, pedido real
         // de COLABIOCLI 2026) — $event->gafete_config null usa exactamente
         // los defaults de siempre, así que CIACRUZ y el resto de eventos
         // existentes no cambian.
         $dims = $this->gafeteDims($event->gafete_config);
 
+        return $this->renderGafetesPdf($event, $items, $dims, 'gafetes-' . Str::slug($event->nombre) . '.pdf');
+    }
+
+    /**
+     * Gafete de UN participante puntual (23/09/2026) — impresión "por
+     * demanda" desde Acreditación, a diferencia de gafetesPdf() (bulk, todo
+     * el evento). Mismo criterio de scoping evento+participante que ya usa
+     * PosController::entregar() en elascenso/delivery: los 2 ids bindean
+     * independiente, hay que cruzarlos a mano.
+     */
+    public function gafetePdfParticipante(Evento $event, Participante $participante)
+    {
+        abort_if($participante->registration->evento_id !== $event->id, 404);
+
+        $event->loadMissing('categories');
+        $categoryNames = $event->categories->pluck('name', 'id');
+
+        $item = $this->construirItemGafete($participante, $participante->registration, $categoryNames);
+        $dims = $this->gafeteDims($event->gafete_config);
+
+        return $this->renderGafetesPdf($event, [$item], $dims, 'gafete-' . Str::slug($participante->nombre . ' ' . $participante->apellido) . '.pdf');
+    }
+
+    /**
+     * Arma los datos de un gafete/pegatina a partir de un participante —
+     * extraído (23/09/2026) para reusar entre el bulk (gafetesPdf) y el
+     * de-demanda (gafetePdfParticipante), antes duplicado inline.
+     *
+     * Color por gafete: **no** usa la marca del evento (`color_hex`) — cada
+     * gafete toma el color de `form_types.color`, así que un evento con
+     * varios tipos de formulario (Individual, Grupal, Voluntario...) puede
+     * distinguirlos a simple vista en la mesa de acreditación. Sin color
+     * propio en el form_type, cae al navy por defecto. Ignorado en modo
+     * "label" (la pegatina es solo QR, ver renderGafetesPdf()).
+     */
+    private function construirItemGafete(Participante $participante, Registration $registration, $categoryNames): array
+    {
+        return [
+            'nombre'     => trim($participante->nombre . ' ' . $participante->apellido),
+            // 'rol' (tipo de inscripción, ej. "Individual"/"Staff") y
+            // 'categoria' (categoría real del participante, ej.
+            // "5K"/"Ponente") — participante->categoria guarda el ID, no
+            // el nombre (mismo bug que ya se resolvió en certificadosPdf()
+            // y en el email de participantes, ver
+            // BUG-FILTRO-CATEGORIA-NUMERACION-10082026.md).
+            'rol'        => $registration->formType->name ?? '',
+            'categoria'  => $categoryNames[$participante->categoria] ?? $participante->categoria,
+            'referencia' => $registration->referencia,
+            'qr'         => ReferenceQrService::toBase64Png($registration->referencia),
+            'color'      => $this->safeHex($registration->formType->color ?? null),
+        ];
+    }
+
+    /**
+     * Genera el PDF final a partir de items ya armados — bifurca por
+     * `dims['tipo']` (23/09/2026): 'completo' es el gafete de siempre
+     * (nombre+QR+rol, grilla en A4/Carta); 'label' es solo el QR, un
+     * tamaño de página EXACTO por pegatina (impresora de etiquetas, no
+     * hoja con grilla) — confirmado con el usuario, sin texto.
+     */
+    private function renderGafetesPdf(Evento $evento, array $items, array $dims, string $filename)
+    {
+        if ($dims['tipo'] === 'label') {
+            // dompdf acepta un tamaño de página custom como array de
+            // puntos [x1, y1, x2, y2] en vez de un nombre ('a4'/'letter') —
+            // 1cm = 28.3465pt. Una página por pegatina, sin grilla.
+            $widthPt = $dims['width_cm'] * 28.3465;
+            $heightPt = $dims['height_cm'] * 28.3465;
+
+            $pdf = Pdf::loadView('tickets.gafete-label', ['items' => $items, 'dims' => $dims])
+                ->setPaper([0, 0, $widthPt, $heightPt], 'portrait');
+
+            return $pdf->stream($filename);
+        }
+
         $pdf = Pdf::loadView('tickets.gafetes', [
-            'evento' => $event,
+            'evento' => $evento,
             'filas'  => array_chunk($items, $dims['per_row']),
             'dims'   => $dims,
         ])->setPaper($dims['paper'], $dims['orientation']);
 
-        return $pdf->stream('gafetes-' . Str::slug($event->nombre) . '.pdf');
+        return $pdf->stream($filename);
     }
 
     /**
@@ -601,8 +651,10 @@ return response()->json([
     private function gafeteDims(?array $config): array
     {
         $paper = $config['paper'] ?? 'a4';
+        $tipo = $config['tipo'] ?? 'completo';
 
         return [
+            'tipo'        => in_array($tipo, ['completo', 'label'], true) ? $tipo : 'completo',
             'width_cm'    => (float) ($config['width_cm'] ?? 7.0),
             'height_cm'   => (float) ($config['height_cm'] ?? 5.0),
             'per_row'     => max(1, min(6, (int) ($config['per_row'] ?? 3))),

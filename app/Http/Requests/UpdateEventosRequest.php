@@ -78,8 +78,13 @@ class UpdateEventosRequest extends FormRequest
             // pedido real de COLABIOCLI 2026, ver EventoService::update().
             'certificadoSoloNombre'   => 'sometimes|boolean',
             'gafeteConfig'            => 'sometimes|nullable|array',
-            'gafeteConfig.width_cm'   => 'sometimes|numeric|min:3|max:15',
-            'gafeteConfig.height_cm'  => 'sometimes|numeric|min:3|max:15',
+            // tipo (23/09/2026) — 'completo' (default, nombre+QR+rol) vs
+            // 'label' (solo QR, para impresora de etiquetas/pegatinas
+            // sobre un gafete físico predefinido). min bajado de 3 a 2:
+            // una pegatina de QR puede ser más chica que un gafete completo.
+            'gafeteConfig.tipo'       => 'sometimes|in:completo,label',
+            'gafeteConfig.width_cm'   => 'sometimes|numeric|min:2|max:15',
+            'gafeteConfig.height_cm'  => 'sometimes|numeric|min:2|max:15',
             'gafeteConfig.per_row'    => 'sometimes|integer|min:1|max:6',
             'gafeteConfig.paper'      => 'sometimes|in:a4,letter',
             'gafeteConfig.orientation' => 'sometimes|in:portrait,landscape',
