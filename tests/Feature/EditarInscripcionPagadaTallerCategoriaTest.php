@@ -225,40 +225,70 @@ class EditarInscripcionPagadaTallerCategoriaTest extends TestCase
     }
 
     /**
-     * Un taller marcado pago_pendiente=true no debe perder esa marca en
-     * una edición posterior que no lo toca — createParticipantFromData()
-     * recrea la fila desde cero en cada edición (borra y vuelve a crear
-     * TODOS los participantes), así que sin el snapshot/restauración
-     * explícita el flag se resetearía a false en cualquier edición
-     * siguiente, aunque nadie haya cobrado nada todavía.
+     * Un taller pago_pendiente=true (nunca cobrado) sigue contando como "a
+     * cobrar" en cualquier edición posterior — regla vigente desde el fix
+     * del incidente CIACRUZ (17/09/2026, `LA-CD34EA70`): antes contaba como
+     * "ya existente" y un reintento perdía su cobro por completo. Cómo queda
+     * la marca depende de QUIÉN reenvía el taller (ver los dos tests de abajo):
+     * el flag no se conserva "a ciegas", lo decide $requierePagoEnSitio.
+     * createParticipantFromData() recrea la fila desde cero en cada edición.
      */
-    public function test_pago_pendiente_se_mantiene_en_una_edicion_posterior_que_no_lo_toca(): void
+    private function agregarTallerPendienteYReeditar(string $documento, bool $segundaEsCaja): array
     {
-        $registration = $this->crearInscripcionPagadaSinTaller('20000012');
+        $registration = $this->crearInscripcionPagadaSinTaller($documento);
+        $talleres = [['taller_id' => $this->taller->id, 'sesion_congreso_id' => $this->sesion->id]];
+        $totales = $this->totalesData(['talleres' => 30, 'fee' => 4, 'grand_total' => 84]);
 
+        // 1.ª edición: autoservicio con "pagar en el evento" → taller pendiente.
         app(ActualizarInscripcionPagadaAction::class)->handle($registration->referencia, [
-            'participantes' => [$this->participanteData('20000012', [
-                'talleres' => [['taller_id' => $this->taller->id, 'sesion_congreso_id' => $this->sesion->id]],
-            ])],
-            'totales' => $this->totalesData(['talleres' => 30, 'fee' => 4, 'grand_total' => 84]),
+            'participantes' => [$this->participanteData($documento, ['talleres' => $talleres])],
+            'totales' => $totales,
             '_usuario' => 'participante@test.net',
         ], requierePagoEnSitio: true);
+        $this->assertDatabaseHas('participante_taller_sesion', ['sesion_congreso_id' => $this->sesion->id, 'pago_pendiente' => true]);
 
-        // Segunda edición (ej. Caja corrigiendo un dato personal cualquiera)
-        // que manda el mismo taller sin cambios — no debe resetear el flag.
-        app(ActualizarInscripcionPagadaAction::class)->handle($registration->referencia, [
-            'participantes' => [$this->participanteData('20000012', [
-                'apellido' => 'Corregida',
-                'talleres' => [['taller_id' => $this->taller->id, 'sesion_congreso_id' => $this->sesion->id]],
-            ])],
-            'totales' => $this->totalesData(['talleres' => 30, 'fee' => 4, 'grand_total' => 84]),
-            '_usuario' => 'cajero@test.net',
-        ], modoCategoria: 'libre');
+        // 2.ª edición: reenvía el mismo taller pendiente, con un dato personal corregido.
+        $datos = [
+            'participantes' => [$this->participanteData($documento, ['apellido' => 'Corregida', 'talleres' => $talleres])],
+            'totales' => $totales,
+        ];
+
+        return $segundaEsCaja
+            ? app(ActualizarInscripcionPagadaAction::class)->handle($registration->referencia, $datos + ['_usuario' => 'cajero@test.net'], modoCategoria: 'libre')
+            : app(ActualizarInscripcionPagadaAction::class)->handle($registration->referencia, $datos + ['_usuario' => 'participante@test.net'], requierePagoEnSitio: true);
+    }
+
+    /**
+     * Caja reabre la edición y reenvía el taller pendiente: lo cobra en ese
+     * momento (taller 30 + cargo de servicio 1.5 + cargo fijo de edición 10)
+     * y queda marcado como cobrado. Es el flujo que pedía el incidente de
+     * CIACRUZ ("Caja reabriendo la edición antes de cobrar").
+     */
+    public function test_caja_que_reenvia_un_taller_pendiente_lo_cobra_y_deja_de_estar_pendiente(): void
+    {
+        $result = $this->agregarTallerPendienteYReeditar('20000012', segundaEsCaja: true);
+
+        $this->assertEquals(41.5, $result['costo_adicion']);
+        $this->assertDatabaseHas('participante_taller_sesion', [
+            'sesion_congreso_id' => $this->sesion->id,
+            'pago_pendiente' => false,
+        ]);
+        $this->assertDatabaseCount('participante_taller_sesion', 1);
+    }
+
+    /**
+     * Autoservicio con "pagar en el evento" que reedita y reenvía el taller
+     * todavía sin cobrar: nadie cobró nada, así que sigue pendiente.
+     */
+    public function test_autoservicio_en_sitio_que_reenvia_un_taller_pendiente_lo_mantiene_pendiente(): void
+    {
+        $this->agregarTallerPendienteYReeditar('20000013', segundaEsCaja: false);
 
         $this->assertDatabaseHas('participante_taller_sesion', [
             'sesion_congreso_id' => $this->sesion->id,
             'pago_pendiente' => true,
         ]);
+        $this->assertDatabaseCount('participante_taller_sesion', 1);
     }
 
     /**
