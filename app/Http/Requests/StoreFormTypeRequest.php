@@ -69,6 +69,8 @@ class StoreFormTypeRequest extends FormRequest
             'campos_ocultos.*'           => 'string|in:direccion,ciudad,telefono,alias,nacimiento,genero,apellido',
             // Edición restringida a solo souvenirs/talleres (04/09/2026).
             'edicion_solo_extras'        => 'nullable|boolean',
+            // Solo un participante por inscripción (26/09/2026).
+            'un_solo_participante'       => 'nullable|boolean',
 
             'souvenirs'                  => 'nullable|array',
             'souvenirs.*.name'           => 'required_with:souvenirs|string|max:255',

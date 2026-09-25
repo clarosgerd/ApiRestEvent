@@ -373,6 +373,16 @@ class CrearInscripcionAction
             );
         }
 
+        // Cantidad de participantes y descuento de grupo (26/09/2026): "solo un
+        // participante" (empresa expositora, staff, ponente) y la inscripción
+        // grupal (tope N + % de descuento). Fuente de verdad: el front y el
+        // proxy solo evitan el viaje. Ver FormType::validarParticipantes().
+        $formType->validarParticipantes(
+            count($dto->participants),
+            $dto->totals->registration,
+            $dto->totals->groupDiscount
+        );
+
         $selecciones = [];
         foreach ($dto->participants as $participant) {
             foreach ($participant->souvenirs as $souvenir) {

@@ -50,6 +50,9 @@ class FormType extends Model
         // categoría al editar su inscripción (pendiente o pagada) — solo
         // puede agregar souvenirs/talleres.
         'edicion_solo_extras',
+        // Solo un participante por inscripción (26/09/2026) — ver migración
+        // add_un_solo_participante_to_form_types_table.
+        'un_solo_participante',
         'max_integrantes_grupo',
         'descuento_registrante_pct',
         'hasQuestion',
@@ -71,6 +74,7 @@ class FormType extends Model
         'requiere_contacto_emergencia'  => 'boolean',
         'campos_ocultos'                => 'array',
         'edicion_solo_extras'           => 'boolean',
+        'un_solo_participante'          => 'boolean',
         // Bug real (19/08/2026) — mismo patrón ya visto antes con
         // evento_id (memoria: "403 falso solo en UAT por driver PDO
         // devolviendo string"): sin cast, PDO en el hosting real devuelve
@@ -116,6 +120,47 @@ class FormType extends Model
     public function cupoDisponible(): int
     {
         return max(0, $this->cupo_total - $this->inscritosVigentes());
+    }
+
+    /**
+     * Reglas de cantidad de participantes y descuento de grupo de este tipo
+     * (26/09/2026). Antes solo las aplicaban el front y el proxy de
+     * elascenso/event (`_registro_validacion.php`); la API aceptaba cualquier
+     * cantidad y cualquier `descuento_registrante`. Las mismas reglas:
+     *
+     *  - `un_solo_participante`: más de 1 → error (gana sobre lo grupal).
+     *  - inscripción grupal activa con `max_integrantes_grupo` = N: más de N →
+     *    error, y el descuento de grupo solo existe al llegar a N, como
+     *    máximo `inscripcion × descuento_registrante_pct`.
+     *  - sin inscripción grupal: sin tope y sin descuento de grupo.
+     *
+     * El descuento es una COTA SUPERIOR: Caja/POS y la sync externa mandan 0 y
+     * siguen pasando; solo se rechaza uno mayor al configurado.
+     *
+     * @throws \DomainException  (el controller la devuelve como 422)
+     */
+    public function validarParticipantes(int $participantes, float $inscripcion, float $descuentoGrupal): void
+    {
+        if ($this->un_solo_participante && $participantes > 1) {
+            throw new \DomainException('Este tipo de inscripción admite un solo participante.');
+        }
+
+        $max = (int) $this->max_integrantes_grupo;
+        $grupal = (bool) $this->permite_inscripcion_grupal && $max > 0;
+
+        if ($grupal && $participantes > $max) {
+            throw new \DomainException("Máximo {$max} participantes por inscripción.");
+        }
+
+        $permitido = ($grupal && $participantes >= $max)
+            ? round($inscripcion * (float) $this->descuento_registrante_pct, 2)
+            : 0.0;
+
+        if ($descuentoGrupal > $permitido + 0.02) {
+            throw new \DomainException(
+                'El descuento de grupo no coincide con el configurado para este tipo de inscripción.'
+            );
+        }
     }
 
 }
