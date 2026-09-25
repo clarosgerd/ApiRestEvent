@@ -79,8 +79,35 @@ class ProvisionarCuentaExpositorTest extends TestCase
         $this->assertStringContainsString('Retira tu credencial en la mesa 2.', $html);
     }
 
+    /** Sin `dashboard_url` en el evento, el correo igual trae el link de ingreso del sitio público. */
+    public function test_sin_dashboard_url_del_evento_el_correo_trae_el_link_de_ingreso_por_defecto(): void
+    {
+        config(['services.smartstand.panel_url' => 'https://sitio.test/expositor.php']);
+        $cuenta = $this->crearCuenta($this->crearEvento());
+
+        $html = (new ExpositorCredencialesMail($cuenta, 'Abc123xyz789'))->render();
+
+        $this->assertStringContainsString('Abrir mi panel', $html);
+        $this->assertStringContainsString('href="https://sitio.test/expositor.php"', $html);
+        $this->assertStringContainsString('copia este link en tu navegador', $html);
+    }
+
+    /** El `dashboard_url` propio del evento tiene prioridad sobre el link por defecto. */
+    public function test_el_dashboard_url_del_evento_gana_sobre_el_link_por_defecto(): void
+    {
+        config(['services.smartstand.panel_url' => 'https://sitio.test/expositor.php']);
+        $evento = $this->crearEvento(['expositores_config' => ['dashboard_url' => 'https://otro.test/panel.php']]);
+
+        $html = (new ExpositorCredencialesMail($this->crearCuenta($evento), 'Abc123xyz789'))->render();
+
+        $this->assertStringContainsString('href="https://otro.test/panel.php"', $html);
+        $this->assertStringNotContainsString('sitio.test', $html);
+    }
+
     public function test_sin_links_de_app_el_correo_avisa_que_los_enviara_el_organizador(): void
     {
+        // Sin ningún link de ingreso (ni del evento ni por defecto): el aviso de siempre.
+        config(['services.smartstand.panel_url' => null]);
         $evento = $this->crearEvento();
         $cuenta = $this->crearCuenta($evento);
 

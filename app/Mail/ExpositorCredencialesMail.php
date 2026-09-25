@@ -42,7 +42,10 @@ class ExpositorCredencialesMail extends Mailable
                 'appUrlIos'    => $config['app_url_ios'] ?? null,
                 'appUrlAndroid' => $config['app_url_android'] ?? null,
                 'instrucciones' => $config['instrucciones'] ?? null,
-                'dashboardUrl' => $config['dashboard_url'] ?? null,
+                // Link de ingreso: el del evento y, si no lo configuró, el
+                // del sitio público (config/services.php). Sin él la empresa
+                // recibe usuario y contraseña pero no sabe dónde usarlos.
+                'dashboardUrl' => ($config['dashboard_url'] ?? null) ?: config('services.smartstand.panel_url'),
             ]);
     }
 }

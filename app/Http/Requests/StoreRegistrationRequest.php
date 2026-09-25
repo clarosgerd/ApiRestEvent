@@ -95,7 +95,7 @@ class StoreRegistrationRequest extends FormRequest
             // participantes.genero (bug real: el frontend ofrecía
             // "Non-binary"/"Prefer not to say", que rompían el INSERT). Ver
             // PLAN-GENERO-CATALOGO-CAMPOS-OPCIONALES-31082026.md.
-            '*.participantes.*.genero' => ['required','string', Rule::in(Genero::where('activo', true)->pluck('nombre'))],
+            '*.participantes.*.genero' => ['required','string', Rule::in(Genero::nombresAceptados())],
             // Bug real encontrado 01/09/2026 (probando en vivo el fix de
             // campos_ocultos): mismo patrón que genero arriba — estas 2
             // reglas nunca existieron acá, así que $request->validated()

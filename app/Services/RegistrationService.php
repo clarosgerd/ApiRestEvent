@@ -597,6 +597,13 @@ class RegistrationService
     {
         $participants = $registration->load('participants')->participants;
 
+        // Género/fecha de nacimiento ocultos por form_type (26/09/2026, ej.
+        // "empresa expositora"): el participante guarda valores neutros
+        // ('Otro' / 1900-01-01) porque las columnas son NOT NULL. Esos
+        // neutros NO deben pisar el dato real de una Persona que ya exista.
+        $ocultos = FormType::whereKey($registration->form_types_id)->value('campos_ocultos') ?? [];
+        $ocultos = is_array($ocultos) ? $ocultos : (json_decode((string) $ocultos, true) ?: []);
+
         foreach ($participants as $participante) {
             try {
                 // Bug real (01/09/2026, reportado por el usuario: "no se
@@ -635,6 +642,17 @@ class RegistrationService
                 ];
 
                 if ($persona) {
+                    if (in_array('genero', $ocultos, true)) {
+                        unset($data['sexo']);
+                    }
+                    if (in_array('nacimiento', $ocultos, true)) {
+                        unset($data['fecha_nacimiento']);
+                    }
+                    // Apellido oculto (ej. empresa expositora): el participante
+                    // guarda '-' y no debe pisar el apellido real de la Persona.
+                    if (in_array('apellido', $ocultos, true)) {
+                        unset($data['apellido']);
+                    }
                     $persona->update($data);
                 } else {
                     Persona::create(array_merge($data, [

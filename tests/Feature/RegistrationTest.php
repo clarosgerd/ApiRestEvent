@@ -108,6 +108,68 @@ class RegistrationTest extends TestCase
     // 3.1 CREAR INSCRIPCION
     // ==========================================
 
+    /**
+     * Form_type que oculta género/fecha de nacimiento (26/09/2026, ej.
+     * "empresa expositora"): el front manda los neutros y el alta pública
+     * (con todas sus reglas de validación) tiene que aceptarlos.
+     */
+    public function test_create_registration_con_genero_y_nacimiento_neutros_de_form_type_que_los_oculta(): void
+    {
+        $this->formType->update(['campos_ocultos' => ['nacimiento', 'genero', 'alias', 'direccion', 'ciudad', 'telefono']]);
+
+        $this->postJson('/api/v1/registrations', $this->validPayload([
+            'genero' => 'Otro',
+            'nacimiento' => ['dia' => 1, 'mes' => 1, 'anio' => 1900],
+            'edad' => 0,
+            'alias' => '', 'direccion' => '', 'ciudad' => '', 'telefono' => '',
+        ]))->assertCreated()->assertJsonPath('success', true);
+
+        $this->assertDatabaseHas('participantes', [
+            'correo' => 'ana@example.com', 'genero' => 'Otro', 'edad' => 0, 'fecha_nacimiento' => '1900-01-01',
+        ]);
+    }
+
+    /**
+     * Bug real 25/09/2026 (probando "Empresas Stands" en local): con el género
+     * "Otro" DESACTIVADO en el catálogo, un form_type que oculta el género
+     * mandaba 'Otro' y la alta daba 422. Desactivarlo solo lo saca de la lista.
+     */
+    /** Apellido oculto por form_type (26/09/2026): el front manda '-' y la alta pública lo acepta. */
+    public function test_create_registration_con_apellido_neutro_de_form_type_que_lo_oculta(): void
+    {
+        $this->formType->update(['campos_ocultos' => ['apellido']]);
+
+        $this->postJson('/api/v1/registrations', $this->validPayload(['apellido' => '-']))
+            ->assertCreated();
+
+        $this->assertDatabaseHas('participantes', ['correo' => 'ana@example.com', 'apellido' => '-']);
+    }
+
+    /** Los participantes normales siguen obligados: sin apellido, 422. */
+    public function test_create_registration_sin_apellido_sigue_rechazada_en_un_form_type_normal(): void
+    {
+        $this->postJson('/api/v1/registrations', $this->validPayload(['apellido' => '']))
+            ->assertUnprocessable();
+    }
+
+    public function test_genero_otro_desactivado_no_bloquea_a_un_form_type_que_oculta_el_genero(): void
+    {
+        \App\Models\Genero::where('nombre', 'Otro')->update(['activo' => false]);
+        $this->formType->update(['campos_ocultos' => ['nacimiento', 'genero']]);
+
+        $this->postJson('/api/v1/registrations', $this->validPayload([
+            'genero' => 'Otro',
+            'nacimiento' => ['dia' => 1, 'mes' => 1, 'anio' => 1900],
+            'edad' => 0,
+        ]))->assertCreated();
+    }
+
+    public function test_un_genero_inexistente_sigue_siendo_rechazado(): void
+    {
+        $this->postJson('/api/v1/registrations', $this->validPayload(['genero' => 'Non-binary']))
+            ->assertUnprocessable();
+    }
+
     public function test_create_registration_returns_201(): void
     {
         $this->postJson('/api/v1/registrations', $this->validPayload())
