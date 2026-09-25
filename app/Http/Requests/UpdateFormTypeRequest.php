@@ -67,6 +67,8 @@ class UpdateFormTypeRequest extends FormRequest
             'campos_ocultos.*'           => 'string|in:direccion,ciudad,telefono,alias,nacimiento,genero,apellido',
             // Edición restringida a solo souvenirs/talleres (04/09/2026).
             'edicion_solo_extras'        => 'sometimes|nullable|boolean',
+            // Solo un participante por inscripción (26/09/2026).
+            'un_solo_participante'       => 'sometimes|nullable|boolean',
         ];
     }
 }

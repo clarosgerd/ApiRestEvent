@@ -64,6 +64,8 @@ class FormTypeService
                 'campos_ocultos'             => $data['campos_ocultos'] ?? [],
                 // Edición restringida a solo souvenirs/talleres (04/09/2026).
                 'edicion_solo_extras'        => $data['edicion_solo_extras'] ?? false,
+                // Solo un participante por inscripción (26/09/2026).
+                'un_solo_participante'       => $data['un_solo_participante'] ?? false,
             ]);
 
             $this->createSouvenirs($formType, $data['souvenirs'] ?? []);

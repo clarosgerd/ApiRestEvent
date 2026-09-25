@@ -38,6 +38,15 @@ class ActualizarInscripcionAction
                 );
             }
 
+            // Cantidad de participantes y descuento de grupo (26/09/2026) — la
+            // edición de una pendiente puede agregar participantes: mismas
+            // reglas que al crear (ver FormType::validarParticipantes()).
+            $registration->formType->validarParticipantes(
+                count($data['participantes']),
+                (float) ($data['totales']['inscripcion'] ?? 0),
+                (float) ($data['totales']['descuento_registrante'] ?? 0)
+            );
+
             // Edición restringida a solo souvenirs/talleres (04/09/2026) —
             // ver App\Support\EdicionSoloExtrasData. Se aplica ACÁ, antes de
             // construir $registrationDto y de cualquier otra validación —
