@@ -46,6 +46,8 @@ class ActualizarInscripcionAction
                 (float) ($data['totales']['inscripcion'] ?? 0),
                 (float) ($data['totales']['descuento_registrante'] ?? 0)
             );
+            // Staff y ponente no pagan (26/09/2026).
+            $registration->formType->validarSinCosto((float) ($data['totales']['grand_total'] ?? 0));
 
             // Edición restringida a solo souvenirs/talleres (04/09/2026) —
             // ver App\Support\EdicionSoloExtrasData. Se aplica ACÁ, antes de

@@ -70,6 +70,7 @@ class FormTypeService
 
             $this->createSouvenirs($formType, $data['souvenirs'] ?? []);
             $this->createPreguntas($formType, $data['preguntas'] ?? []);
+            $this->asegurarPreguntasPonente($formType);
 
             return $formType->load(['souvenirs', 'formularioCampos.options']);
         });
@@ -82,6 +83,7 @@ class FormTypeService
     public function update(FormType $formType, array $data): FormType
     {
         $formType->update($data);
+        $this->asegurarPreguntasPonente($formType);
 
         return $formType->load(['souvenirs', 'formularioCampos.options']);
     }
@@ -100,6 +102,42 @@ class FormTypeService
         ], $souvenirs);
 
         Souvenir::insert($data);
+    }
+
+    /** Nombres de campo de las preguntas que se crean solas en un tipo de ponente. */
+    public const CAMPO_TALLER_DICTARA = 'taller_dictara';
+    public const CAMPO_TEMA_CHARLA    = 'tema_charla';
+
+    /**
+     * Ponente/expositor (26/09/2026): indica qué va a dictar con dos preguntas
+     * adicionales, opcionales y visibles en reportes — el organizador las usa
+     * para vincularlo a una sesión (esa vinculación sigue siendo manual, ver
+     * SesionCongresoStaffController). Idempotente: no duplica ni pisa lo que el
+     * organizador ya haya editado. Las opciones de `taller_dictara` NO se
+     * guardan: elascenso/event las arma con los talleres del evento para que no
+     * queden desactualizadas.
+     */
+    private function asegurarPreguntasPonente(FormType $formType): void
+    {
+        if (! $formType->es_ponente) {
+            return;
+        }
+
+        FormularioCampos::firstOrCreate(
+            ['form_types_id' => $formType->id, 'nombre_campo' => self::CAMPO_TALLER_DICTARA],
+            [
+                // `seccion` es un ENUM (personal|kit|encuesta|legal|otro) y `opciones` es JSON NOT NULL sin default.
+                'seccion' => 'otro', 'opciones' => '[]', 'etiqueta' => 'Taller o sesión que dictará', 'tipo_input' => 'select',
+                'placeholder' => 'Selecciona un taller', 'obligatorio' => false, 'visible_en_reporte' => true, 'orden' => 1,
+            ]
+        );
+        FormularioCampos::firstOrCreate(
+            ['form_types_id' => $formType->id, 'nombre_campo' => self::CAMPO_TEMA_CHARLA],
+            [
+                'seccion' => 'otro', 'opciones' => '[]', 'etiqueta' => 'Tema de la charla (si es distinto o no está en los talleres)', 'tipo_input' => 'textarea',
+                'placeholder' => 'Escribe el tema que dictarás', 'obligatorio' => false, 'visible_en_reporte' => true, 'orden' => 2,
+            ]
+        );
     }
 
     private function createPreguntas(FormType $formType, array $preguntas): void

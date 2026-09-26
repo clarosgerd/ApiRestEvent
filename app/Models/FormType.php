@@ -123,6 +123,57 @@ class FormType extends Model
     }
 
     /**
+     * Staff y ponente/expositor (`es_staff` / `es_ponente`, 26/09/2026): no
+     * eligen categoría ni pagan. Distinto de `es_expositor` (empresa que
+     * contrata un stand, que sí paga una categoría).
+     */
+    public function esSinCosto(): bool
+    {
+        return (bool) ($this->es_staff || $this->es_ponente);
+    }
+
+    /**
+     * Tipos que no se inscriben como asistentes a talleres/sesiones: la empresa
+     * expositora, el staff y el ponente (este último indica qué va a dictar con
+     * preguntas adicionales; la vinculación a la sesión la hace el organizador).
+     */
+    public function sinTalleres(): bool
+    {
+        return (bool) ($this->es_expositor || $this->esSinCosto());
+    }
+
+    /**
+     * Staff y ponente no pagan (26/09/2026): además de forzar precios 0 al
+     * guardar el tipo (ver `booted()`), una inscripción con total > 0 —por
+     * ejemplo por un souvenir con precio o una donación— se rechaza.
+     *
+     * @throws \DomainException  (el controller la devuelve como 422)
+     */
+    public function validarSinCosto(float $totalGeneral): void
+    {
+        if ($this->esSinCosto() && $totalGeneral > 0.01) {
+            throw new \DomainException('Este tipo de inscripción es sin costo.');
+        }
+    }
+
+    /**
+     * Staff y ponente son SIEMPRE sin categoría y sin costo: al guardar el tipo
+     * se fuerza `requiere_categoria=false`, `precio_base=0` y `costo_edicion=0`,
+     * así el formulario, el proxy, la API y los reportes lo ven como un tipo sin
+     * categoría y sin cargo sin ninguna rama especial (todos leen esas columnas).
+     */
+    protected static function booted(): void
+    {
+        static::saving(function (FormType $formType) {
+            if ($formType->esSinCosto()) {
+                $formType->requiere_categoria = false;
+                $formType->precio_base = 0;
+                $formType->costo_edicion = 0;
+            }
+        });
+    }
+
+    /**
      * Reglas de cantidad de participantes y descuento de grupo de este tipo
      * (26/09/2026). Antes solo las aplicaban el front y el proxy de
      * elascenso/event (`_registro_validacion.php`); la API aceptaba cualquier
