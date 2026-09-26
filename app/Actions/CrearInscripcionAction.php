@@ -382,6 +382,8 @@ class CrearInscripcionAction
             $dto->totals->registration,
             $dto->totals->groupDiscount
         );
+        // Staff y ponente no pagan (26/09/2026).
+        $formType->validarSinCosto($dto->totals->grandTotal);
 
         $selecciones = [];
         foreach ($dto->participants as $participant) {

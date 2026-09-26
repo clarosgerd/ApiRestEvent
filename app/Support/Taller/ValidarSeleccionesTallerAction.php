@@ -84,6 +84,15 @@ class ValidarSeleccionesTallerAction
             return;
         }
 
+        // Empresa expositora, staff y ponente (26/09/2026): no se inscriben como
+        // asistentes a talleres. Se eximen las sesiones que ya tenía (edición de
+        // una inscripción existente) para no romper datos previos. Solo se
+        // consulta el tipo cuando llega alguna selección de taller.
+        $nuevas = array_filter($p->talleres, fn ($t) => ! in_array($t->sesionCongresoId, $sesionIdsPrevias));
+        if ($nuevas && FormType::find($dto->formId)?->sinTalleres()) {
+            throw new \DomainException('Este tipo de inscripción no admite talleres.');
+        }
+
         $evento = Evento::find($dto->eventId);
         if (! $evento) {
             return; // chequeo previo del caller
@@ -309,12 +318,12 @@ class ValidarSeleccionesTallerAction
             return;
         }
 
-        // Empresa expositora (26/09/2026): no es un asistente del programa, no
-        // ve el selector de talleres (elascenso/event, getEventTalleres()), así
-        // que tampoco se le puede exigir un taller obligatorio. Va DESPUÉS del
-        // return de arriba a propósito: solo se consulta `es_expositor` en los
-        // eventos que de verdad tienen talleres obligatorios.
-        if (FormType::where('id', $dto->formId)->where('es_expositor', true)->exists()) {
+        // Empresa expositora, staff y ponente (26/09/2026): no son asistentes del
+        // programa, no ven el selector de talleres (elascenso/event,
+        // getEventTalleres()), así que tampoco se les puede exigir un taller
+        // obligatorio. Va DESPUÉS del return de arriba a propósito: solo se
+        // consulta el tipo en los eventos que de verdad tienen talleres obligatorios.
+        if (FormType::find($dto->formId)?->sinTalleres()) {
             return;
         }
 

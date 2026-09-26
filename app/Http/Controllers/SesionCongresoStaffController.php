@@ -4,7 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\AuthorizesEventoScope;
 use App\Models\Evento;
+use App\Models\Answer;
+use App\Models\FormularioCampos;
 use App\Models\Participante;
+use App\Services\FormTypeService;
 use App\Models\SesionCongreso;
 use App\Services\AdminAuditLogger;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -52,6 +55,29 @@ class SesionCongresoStaffController extends Controller
                 ->whereNotIn('pago_status', ['cancelled', 'failed'])
                 ->whereHas('formType', fn ($ft) => $ft->where($columna, true));
         })->get(['id', 'nombre', 'apellido', 'correo']);
+
+        // Ponente (26/09/2026): lo que dijo que va a dictar en el formulario (preguntas
+        // `taller_dictara` y `tema_charla`), para que el organizador lo tenga a la vista
+        // al vincularlo — la vinculación a la sesión sigue siendo manual.
+        if ($rol === 'ponente' && $disponibles->isNotEmpty()) {
+            $preguntas = FormularioCampos::whereIn('nombre_campo', [FormTypeService::CAMPO_TALLER_DICTARA, FormTypeService::CAMPO_TEMA_CHARLA])
+                ->pluck('nombre_campo', 'id');
+            $respuestas = Answer::whereIn('participante_id', $disponibles->pluck('id'))
+                ->whereIn('question_id', $preguntas->keys())
+                ->get(['participante_id', 'question_id', 'value'])
+                ->groupBy('participante_id');
+
+            $disponibles->each(function ($p) use ($respuestas, $preguntas) {
+                $p->taller_dictara = null;
+                $p->tema_charla = null;
+                foreach ($respuestas->get($p->id, []) as $r) {
+                    $campo = $preguntas[$r->question_id] ?? null;
+                    if ($campo !== null && trim((string) $r->value) !== '') {
+                        $p->{$campo} = trim((string) $r->value);
+                    }
+                }
+            });
+        }
 
         return response()->json([
             'success' => true,
