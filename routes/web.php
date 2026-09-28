@@ -75,6 +75,14 @@ Route::get('/organizador/evento/{evento}/participantes/{documento}/confirmar-pag
     ->name('organizador.dashboard.confirmar-pago-sitio')
     ->middleware('signed');
 
+// Editar datos del participante desde el POS de retiro en sitio de
+// elascenso/delivery (28/09/2026) — nombre/apellido/género/fecha de
+// nacimiento/categoría (esta última solo si el precio no cambia). Mismo
+// patrón que la numeración de arriba, firma validada a mano en el
+// controller para poder ignorar esos campos en la query string.
+Route::get('/organizador/evento/{evento}/participantes/{documento}/editar-datos', [OrganizadorDashboardController::class, 'editarDatosSitio'])
+    ->name('organizador.dashboard.editar-datos-sitio');
+
 // ── Panel de operaciones (/ops) — jobs, logs, backups a Google Drive,
 // enlaces de organizador/delivery. Login propio (guard `web` nativo,
 // tabla `users`), completamente aparte de admin-eventos (admin_users) y

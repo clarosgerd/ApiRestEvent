@@ -3,7 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Models\Answer;
+use App\Models\Category;
 use App\Models\Evento;
+use App\Models\FormType;
 use App\Models\Genero;
 use App\Models\NumeracionRango;
 use App\Models\Participante;
@@ -12,13 +14,17 @@ use App\Support\BalanceEventoData;
 use App\Support\CalculoEdadResolver;
 use App\Support\DashboardInscripcionesData;
 use App\Support\NumeracionRangoChecker;
+use App\Support\PrecioVigenteData;
 use App\Support\RecategorizacionResolver;
 use App\Support\ReporteInscritosData;
 use App\Support\TallaPoleraData;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\URL;
+use Illuminate\Validation\Rule;
 
 class OrganizadorDashboardController extends Controller
 {
@@ -269,7 +275,25 @@ class OrganizadorDashboardController extends Controller
         // polera como un souvenir normal.
         $souvenirIdsPolera = TallaPoleraData::souvenirIdsPolera($evento->formTypes()->pluck('id')->all());
 
-        return response()->streamDownload(function () use ($participantes, $evento, $nombresCategorias, $categoriasPorId, $souvenirIdsPolera, $cursoInfoPorDocumento, $usaNumeracion, $incluyeColumnasNumeracion, $incluyeColumnasCurso, $incluyeColumnaRecategorizacion, $numeracionRangosDelEvento, $generosPorNombre) {
+        // Editar datos del participante desde el POS de retiro en sitio
+        // (28/09/2026) — catálogo de categorías para el <select> de cambio
+        // de categoría en elascenso/delivery, agrupado por NOMBRE del tipo
+        // de formulario (retiros_sitio no guarda form_types_id, solo el
+        // nombre ya resuelto). Una categoría con formulario_id=null se
+        // repite en cada grupo (compartida por todo el evento, mismo
+        // criterio que ValidarCategoriaAction). Va SOLO en la fila 0 del
+        // CSV, igual que UsaNumeracion — es igual para todas las filas.
+        $catalogoCategorias = $evento->formTypes->mapWithKeys(function (FormType $ft) use ($evento) {
+            $items = $evento->categories
+                ->filter(fn (Category $c) => $c->formulario_id === null || (int) $c->formulario_id === $ft->id)
+                ->map(fn (Category $c) => ['id' => $c->id, 'name' => $c->name])
+                ->values();
+
+            return [$ft->name => $items];
+        })->toArray();
+        $catalogoCategoriasJson = json_encode($catalogoCategorias, JSON_UNESCAPED_UNICODE);
+
+        return response()->streamDownload(function () use ($participantes, $evento, $nombresCategorias, $categoriasPorId, $souvenirIdsPolera, $cursoInfoPorDocumento, $usaNumeracion, $incluyeColumnasNumeracion, $incluyeColumnasCurso, $incluyeColumnaRecategorizacion, $numeracionRangosDelEvento, $generosPorNombre, $catalogoCategoriasJson) {
             $out = fopen('php://output', 'w');
             fputcsv($out, [
                 // 'Monto categoría'/'Monto souvenir' (02/09/2026) — pedido
@@ -311,7 +335,14 @@ class OrganizadorDashboardController extends Controller
                 // participantes.categoria ni precio_categoria — es
                 // puramente informativo para ChronoTrack/delivery.
                 ...($incluyeColumnaRecategorizacion ? ['CategoriaRecalculada', 'CategoriaRecalculadaColor'] : []),
+                // Editar datos del participante en el POS de retiro en sitio
+                // (28/09/2026) — CategoriaId es el id real (arriba solo va el
+                // nombre); EditarDatosUrl es el link firmado por fila;
+                // CatalogoCategorias solo se llena en la PRIMERA fila (igual
+                // que UsaNumeracion), el resto de filas la deja vacía.
+                'CategoriaId', 'EditarDatosUrl', 'CatalogoCategorias',
             ]);
+            $primeraFila = true;
             foreach ($participantes as $p) {
                 // Cobro en sitio (12/08/2026) — ver
                 // ApiRestEvent/brain/api_rest_event/PRD-precios-periodos-fechas.md,
@@ -390,7 +421,14 @@ class OrganizadorDashboardController extends Controller
                     ...($incluyeColumnasCurso ? [$cursoInfo['nombreCurso'] ?? '', $cursoInfo['idCurso'] ?? ''] : []),
                     $usaNumeracion,
                     ...($incluyeColumnaRecategorizacion ? [$categoriaRecalculada, $categoriaRecalculadaColor] : []),
+                    $p->categoria,
+                    URL::signedRoute('organizador.dashboard.editar-datos-sitio', [
+                        'evento' => $evento->id,
+                        'documento' => $p->numero_documento,
+                    ]),
+                    $primeraFila ? $catalogoCategoriasJson : '',
                 ]);
+                $primeraFila = false;
             }
             fclose($out);
         }, 'participantes-evento-' . $evento->id . '.csv', ['Content-Type' => 'text/csv']);
@@ -494,5 +532,110 @@ class OrganizadorDashboardController extends Controller
         $registration = $registrationService->updatePaymentStatus($registration->referencia, 'paid');
 
         return response()->json(['success' => true, 'pagoStatus' => $registration->pago_status]);
+    }
+
+    /**
+     * Editar datos del participante desde el POS de retiro en sitio
+     * (elascenso/delivery, 28/09/2026) — corrección al momento de la entrega
+     * del kit (nombre/apellido mal tipeados, fecha de nacimiento, sexo) y
+     * cambio de categoría cuando el precio es EXACTAMENTE el mismo (si no,
+     * se rechaza con el mensaje de "pasar por Caja": ese flujo de cobro no
+     * pasa por acá). Mismo patrón sin sesión/CSRF que
+     * `actualizarNumeracionSitio()` — firma validada a mano para poder
+     * ignorar los campos mutables de la query string.
+     *
+     * Todo o nada: si la categoría pedida no es válida o su precio no
+     * coincide, NINGÚN otro campo de este mismo request se aplica tampoco —
+     * el staff reintenta después de resolver la categoría en Caja.
+     */
+    public function editarDatosSitio(Request $request, Evento $evento, string $documento): JsonResponse
+    {
+        abort_unless(
+            $request->hasValidSignatureWhileIgnoring(['nombre', 'apellido', 'genero', 'fecha_nacimiento', 'categoria_id']),
+            403
+        );
+
+        $participante = Participante::with('registration')
+            ->whereHas('registration', fn (Builder $q) => $q->where('evento_id', $evento->id))
+            ->where('numero_documento', $documento)
+            ->first();
+        abort_unless($participante, 404);
+
+        $data = $request->validate([
+            'nombre'           => ['sometimes', 'string', 'max:255'],
+            'apellido'         => ['sometimes', 'string', 'max:255'],
+            'genero'           => ['sometimes', 'string', Rule::in(Genero::where('activo', true)->pluck('nombre'))],
+            'fecha_nacimiento' => ['sometimes', 'date', 'before:today', 'after:1900-01-01'],
+            'categoria_id'     => ['sometimes', 'integer'],
+        ]);
+
+        $updates = [];
+        foreach (['nombre', 'apellido', 'genero'] as $campo) {
+            if (array_key_exists($campo, $data)) {
+                $valor = trim((string) $data[$campo]);
+                if ($valor === '') {
+                    return response()->json(['success' => false, 'error' => ucfirst($campo) . ' no puede quedar vacío.'], 422);
+                }
+                $updates[$campo] = $valor;
+            }
+        }
+        if (array_key_exists('fecha_nacimiento', $data)) {
+            $updates['fecha_nacimiento'] = $data['fecha_nacimiento'];
+        }
+
+        if (array_key_exists('categoria_id', $data) && (string) $data['categoria_id'] !== (string) $participante->categoria) {
+            $formType = $participante->registration->formType;
+
+            $nuevaCategoria = Category::where('id', $data['categoria_id'])
+                ->where('event_id', $evento->id)
+                ->where(fn ($q) => $q->whereNull('formulario_id')->orWhere('formulario_id', optional($formType)->id))
+                ->first();
+
+            if (!$nuevaCategoria || !$nuevaCategoria->permite_inscripcion) {
+                return response()->json(['success' => false, 'error' => 'Esa categoría no es válida para este participante.'], 422);
+            }
+
+            $categoriaActual = Category::find($participante->categoria);
+            $precioActual = $categoriaActual
+                ? PrecioVigenteData::paraCategoria($categoriaActual)['precio']
+                : (float) $participante->precio_categoria;
+            $precioNuevo = PrecioVigenteData::paraCategoria($nuevaCategoria)['precio'];
+
+            if (abs($precioNuevo - $precioActual) > 0.01) {
+                return response()->json([
+                    'success' => false,
+                    'error'   => 'El precio de esa categoría es distinto — debe pasar por Caja.',
+                ], 422);
+            }
+
+            $updates['categoria'] = (string) $nuevaCategoria->id;
+            $updates['precio_categoria'] = $precioNuevo;
+        }
+
+        if ($updates) {
+            DB::transaction(function () use ($participante, $updates) {
+                $participante->update($updates);
+            });
+
+            Log::info('editar-datos-sitio', [
+                'evento_id' => $evento->id,
+                'documento' => $documento,
+                'participante_id' => $participante->id,
+                'campos' => array_keys($updates),
+            ]);
+        }
+
+        $participante->refresh();
+
+        return response()->json([
+            'success' => true,
+            'participante' => [
+                'nombre' => $participante->nombre,
+                'apellido' => $participante->apellido,
+                'genero' => $participante->genero,
+                'fechaNacimiento' => optional($participante->fecha_nacimiento)->format('Y-m-d'),
+                'categoriaId' => $participante->categoria,
+            ],
+        ]);
     }
 }
