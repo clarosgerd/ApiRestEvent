@@ -204,4 +204,56 @@ class OrganizadorDashboardExportCsvTest extends TestCase
         // La columna original de categoría sigue mostrando lo que eligió.
         $this->assertSame('5K', $fila['Categoría']);
     }
+
+    /**
+     * Editar datos del participante en el POS de retiro en sitio
+     * (28/09/2026) — CategoriaId/EditarDatosUrl por fila, CatalogoCategorias
+     * SOLO en la primera fila (igual que UsaNumeracion), agrupado por
+     * nombre de tipo de formulario y con las categorías compartidas
+     * (formulario_id null) repetidas en cada grupo.
+     */
+    public function test_categoria_id_y_editar_datos_url_viajan_en_cada_fila(): void
+    {
+        $evento = $this->crearEvento();
+        $formType = FormType::factory()->create(['event_id' => $evento->id]);
+        $categoria = Category::factory()->create(['event_id' => $evento->id, 'name' => '5K']);
+        $p = $this->crearInscripcion($evento, $formType, $categoria);
+
+        $rows = $this->csv($evento);
+        $header = $rows[0];
+        $fila = array_combine($header, $rows[1]);
+
+        $this->assertContains('CategoriaId', $header);
+        $this->assertContains('EditarDatosUrl', $header);
+        $this->assertContains('CatalogoCategorias', $header);
+        $this->assertSame((string) $categoria->id, $fila['CategoriaId']);
+        $this->assertStringContainsString('/participantes/' . $p->numero_documento . '/editar-datos', $fila['EditarDatosUrl']);
+        $this->assertStringContainsString('signature=', $fila['EditarDatosUrl']);
+    }
+
+    public function test_catalogo_categorias_solo_va_en_la_primera_fila_y_agrupa_por_tipo_de_formulario(): void
+    {
+        $evento = $this->crearEvento();
+        $ftA = FormType::factory()->create(['event_id' => $evento->id, 'name' => 'Individual']);
+        $ftB = FormType::factory()->create(['event_id' => $evento->id, 'name' => 'Equipos']);
+        $cat5k = Category::factory()->create(['event_id' => $evento->id, 'name' => '5K', 'formulario_id' => $ftA->id]);
+        $catEquipo = Category::factory()->create(['event_id' => $evento->id, 'name' => 'Relevo', 'formulario_id' => $ftB->id]);
+        $catCompartida = Category::factory()->create(['event_id' => $evento->id, 'name' => 'General', 'formulario_id' => null]);
+
+        $this->crearInscripcion($evento, $ftA, $cat5k);
+        $this->crearInscripcion($evento, $ftB, $catEquipo, ['numero_documento' => (string) rand(1000000, 9999999)]);
+
+        $rows = $this->csv($evento);
+        $header = $rows[0];
+        $idx = array_flip($header);
+
+        $catalogo = json_decode($rows[1][$idx['CatalogoCategorias']], true);
+        $this->assertNotEmpty($catalogo);
+        $this->assertSame('', $rows[2][$idx['CatalogoCategorias']]);
+
+        $nombresIndividual = collect($catalogo['Individual'])->pluck('name')->all();
+        $nombresEquipos = collect($catalogo['Equipos'])->pluck('name')->all();
+        $this->assertEqualsCanonicalizing(['5K', 'General'], $nombresIndividual);
+        $this->assertEqualsCanonicalizing(['Relevo', 'General'], $nombresEquipos);
+    }
 }
