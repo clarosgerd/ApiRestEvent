@@ -231,6 +231,31 @@ class OrganizadorDashboardExportCsvTest extends TestCase
         $this->assertStringContainsString('signature=', $fila['EditarDatosUrl']);
     }
 
+    /**
+     * Bug real (29/09/2026, UAT: "Data truncated for column categoria_id" en
+     * elascenso/delivery) — `participantes.categoria` no siempre es un id de
+     * Category real (ver comentario de exportCsv() sobre `$nombresCategorias`):
+     * un form_type sin categoría real guarda ahí su propio texto (ej. "5K").
+     * Antes esto viajaba crudo como CategoriaId; ahora va vacío si no resuelve
+     * a una Category real de este evento.
+     */
+    public function test_categoria_id_va_vacio_si_participantes_categoria_no_es_un_id_real(): void
+    {
+        $evento = $this->crearEvento();
+        $formType = FormType::factory()->create(['event_id' => $evento->id]);
+        $categoriaCualquiera = Category::factory()->create(['event_id' => $evento->id]);
+        $this->crearInscripcion($evento, $formType, $categoriaCualquiera, ['categoria' => '5K']);
+
+        $rows = $this->csv($evento);
+        $header = $rows[0];
+        $fila = array_combine($header, $rows[1]);
+
+        $this->assertSame('', $fila['CategoriaId']);
+        // El nombre mostrado (columna "Categoría") sigue mostrando el texto
+        // crudo tal cual — eso NO cambió, solo CategoriaId.
+        $this->assertSame('5K', $fila['Categoría']);
+    }
+
     public function test_catalogo_categorias_solo_va_en_la_primera_fila_y_agrupa_por_tipo_de_formulario(): void
     {
         $evento = $this->crearEvento();

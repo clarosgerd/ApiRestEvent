@@ -421,7 +421,19 @@ class OrganizadorDashboardController extends Controller
                     ...($incluyeColumnasCurso ? [$cursoInfo['nombreCurso'] ?? '', $cursoInfo['idCurso'] ?? ''] : []),
                     $usaNumeracion,
                     ...($incluyeColumnaRecategorizacion ? [$categoriaRecalculada, $categoriaRecalculadaColor] : []),
-                    $p->categoria,
+                    // Bug real (29/09/2026, UAT: "Data truncated for column
+                    // categoria_id", evento 90020 participante #1) —
+                    // `participantes.categoria` NO siempre es un id numérico
+                    // (ver comentario de $nombresCategorias más arriba: un
+                    // form_type sin categoría real guarda su propio texto
+                    // ahí, ej. "5K"). Antes esto viajaba crudo como
+                    // "CategoriaId" y `delivery` intentaba guardarlo en una
+                    // columna BIGINT. Ahora solo viaja si de verdad resuelve
+                    // a una Category real del evento ($categoriaParticipante,
+                    // ya calculado arriba) — si no, va vacío (participante
+                    // sin categoría real para editar, igual que hoy no
+                    // aparece un id inventado en ningún otro lado del CSV).
+                    $categoriaParticipante ? $p->categoria : '',
                     URL::signedRoute('organizador.dashboard.editar-datos-sitio', [
                         'evento' => $evento->id,
                         'documento' => $p->numero_documento,
