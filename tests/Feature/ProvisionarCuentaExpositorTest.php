@@ -265,6 +265,41 @@ class ProvisionarCuentaExpositorTest extends TestCase
         Mail::assertSent(ExpositorCredencialesMail::class, 1);
     }
 
+    /**
+     * Bug real en UAT (29/09/2026): el alta automática puede fallar ANTES de
+     * crear la cuenta (ej. un archivo faltante en el deploy hizo que
+     * ProvisionarCuentaExpositorAction ni resolviera como clase) —
+     * `provisionarCuentaExpositorSiCorresponde()` lo aísla a propósito para
+     * no romper el pago (ver su try/catch), pero antes de este fix no
+     * quedaba NINGUNA fila que el comando de reconciliación pudiera ver: la
+     * inscripción quedaba pagada y sin cuenta para siempre.
+     */
+    public function test_el_comando_de_reconciliacion_crea_retroactivamente_cuentas_de_inscripciones_pagadas_sin_cuenta(): void
+    {
+        Mail::fake();
+        $evento = $this->crearEvento();
+        $ft = $this->crearFormType($evento);
+        $categoria = $this->crearCategoria($evento, $ft);
+        // Simula el alta automática que nunca corrió (nunca se llamó a
+        // notificarPagoConfirmado()/handle() para esta inscripción pagada).
+        $registration = $this->crearInscripcion($evento, $ft, ['categoria' => (string) $categoria->id]);
+        $registration->forceFill(['created_at' => now()->subHour()])->save();
+
+        // Recién pagada: no debe tocarse (mismo criterio --minutos que ya
+        // aplica al paso de credenciales).
+        $recien = $this->crearInscripcion($evento, $ft, ['categoria' => (string) $categoria->id]);
+
+        $this->artisan('expositores:reenviar-credenciales-faltantes')->assertSuccessful();
+
+        $cuenta = EmpresaExpositora::where('registration_id', $registration->id)->first();
+        $this->assertNotNull($cuenta, 'La cuenta debió crearse retroactivamente.');
+        $this->assertNotNull($cuenta->credenciales_enviadas_at, 'El alta manda el correo, igual que el flujo normal.');
+        $this->assertNull(
+            EmpresaExpositora::where('registration_id', $recien->id)->first(),
+            'No pisa una inscripción recién pagada — puede estar en curso dentro del callback de la pasarela.'
+        );
+    }
+
     public function test_dos_expositores_con_el_mismo_correo_en_el_mismo_evento_no_rompen_el_pago(): void
     {
         Mail::fake();
