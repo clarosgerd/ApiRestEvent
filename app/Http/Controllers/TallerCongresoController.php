@@ -45,6 +45,11 @@ class TallerCongresoController extends Controller
         $data['activo'] = $data['activo'] ?? true;
         $data['permite_inscripcion'] = $data['permite_inscripcion'] ?? true;
         $data['orden'] = $data['orden'] ?? 0;
+        // es_precongreso (28/09/2026) — mismo motivo que activo/permite_inscripcion
+        // arriba: sin esto, el modelo en memoria devuelve null en la respuesta
+        // (aunque la BD sí guarde el default false), porque Eloquent no vuelve a
+        // leer los defaults de columna después de un create().
+        $data['es_precongreso'] = $data['es_precongreso'] ?? false;
 
         $taller = Taller::create($data);
 
