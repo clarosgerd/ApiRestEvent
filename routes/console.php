@@ -65,10 +65,13 @@ Schedule::command('notificaciones:recordatorio-kit')->daily()->appendOutputTo($s
 // pendiente); idempotente, correrlo de más nunca duplica nada.
 Schedule::command('notificaciones:pago-confirmado-faltante')->daily()->appendOutputTo($schedulerLog);
 
-// ── SmartStand (25/09/2026) — credenciales de expositor sin enviar ──────
-// Reintenta las cuentas cuyo correo de acceso falló al darse de alta (SMTP
-// caído dentro del callback de la pasarela). Diario alcanza; el comando ya
-// ignora cuentas recién creadas para no pisar un primer envío en curso.
+// ── SmartStand (25/09/2026, ampliado 29/09/2026) — reconciliación de expositores ──
+// Dos casos: (1) inscripciones pagadas cuya cuenta nunca se creó — el alta
+// automática entera puede fallar (ej. bug real en UAT: un archivo faltante
+// en el deploy hizo que ProvisionarCuentaExpositorAction ni resolviera como
+// clase) — y (2) cuentas ya creadas cuyo correo de acceso falló (SMTP caído
+// dentro del callback de la pasarela). Diario alcanza; el comando ya ignora
+// casos recién creados para no pisar un primer intento en curso.
 Schedule::command('expositores:reenviar-credenciales-faltantes')->daily()->appendOutputTo($schedulerLog);
 Schedule::command('expositores:reintentar-seguimientos')->daily()->appendOutputTo($schedulerLog);
 

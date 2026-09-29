@@ -46,6 +46,17 @@ class Registration extends Model
         return $this->hasOne(RegistrationTotal::class);
     }
 
+    /**
+     * SmartStand (29/09/2026) — relación inversa de
+     * `EmpresaExpositora::registration()`, agregada para poder detectar con
+     * `whereDoesntHave` una inscripción de expositor pagada cuya cuenta
+     * nunca se creó (ver ReenviarCredencialesExpositorFaltantes).
+     */
+    public function empresaExpositora(): HasOne
+    {
+        return $this->hasOne(EmpresaExpositora::class);
+    }
+
     public function participants(): HasMany
     {
         return $this->hasMany(Participante::class);
