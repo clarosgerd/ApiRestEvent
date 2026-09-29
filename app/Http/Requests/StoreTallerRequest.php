@@ -29,6 +29,9 @@ class StoreTallerRequest extends FormRequest
             'orden'       => 'nullable|integer|min:0',
             'activo'      => 'nullable|boolean',
             'permite_inscripcion' => 'nullable|boolean',
+            // es_precongreso / formato (28/09/2026) — ver Taller model.
+            'es_precongreso' => 'nullable|boolean',
+            'formato'        => 'nullable|in:VIRTUAL,PRESENCIAL,HIBRIDO',
         ];
     }
 }

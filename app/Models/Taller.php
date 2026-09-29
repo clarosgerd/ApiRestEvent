@@ -38,6 +38,12 @@ class Taller extends Model
         // aparecen como no seleccionables (mismo tratamiento visual que
         // "cupo lleno"). Ver PLAN-TALLER-PERMITE-INSCRIPCION-28082026.md.
         'permite_inscripcion',
+        // es_precongreso / formato (28/09/2026) — identificar talleres que se
+        // dictan antes del congreso y su formato (virtual/presencial/
+        // híbrido). Antes de esto solo era texto libre en `nombre`. Ver
+        // brain/PLAN-REGISTRO-EFICIENTE-TALLER-PRECONGRESO-28092026.md.
+        'es_precongreso',
+        'formato',
     ];
 
     protected $casts = [
@@ -47,6 +53,7 @@ class Taller extends Model
         'orden' => 'integer',
         'activo' => 'boolean',
         'permite_inscripcion' => 'boolean',
+        'es_precongreso' => 'boolean',
     ];
 
     public function evento(): BelongsTo

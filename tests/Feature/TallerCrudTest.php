@@ -129,6 +129,106 @@ class TallerCrudTest extends TestCase
         $this->assertEquals(25, $taller->precio); // intacto
     }
 
+    /**
+     * Identificar talleres precongreso/formato (28/09/2026) — ver
+     * brain/PLAN-REGISTRO-EFICIENTE-TALLER-PRECONGRESO-28092026.md.
+     */
+    public function test_crea_taller_con_es_precongreso_y_formato(): void
+    {
+        $evento = $this->evento();
+        $this->actingAsAdmin($this->adminDeEvento($evento->id));
+
+        $resp = $this->postJson(
+            "/api/v1/event/{$evento->id}/talleres",
+            [
+                'nombre' => 'ALTO – Analgesia Multimodal',
+                'modalidad' => 'OPTIONAL',
+                'precio' => 1500,
+                'es_precongreso' => true,
+                'formato' => 'VIRTUAL',
+            ]
+        );
+
+        $resp->assertCreated();
+        $resp->assertJsonPath('data.es_precongreso', true);
+        $resp->assertJsonPath('data.formato', 'VIRTUAL');
+        $this->assertDatabaseHas('talleres', [
+            'evento_id' => $evento->id,
+            'es_precongreso' => true,
+            'formato' => 'VIRTUAL',
+        ]);
+    }
+
+    public function test_es_precongreso_default_false_y_formato_null_si_no_se_manda(): void
+    {
+        $evento = $this->evento();
+        $this->actingAsAdmin($this->adminDeEvento($evento->id));
+
+        $resp = $this->postJson(
+            "/api/v1/event/{$evento->id}/talleres",
+            ['nombre' => 'Taller normal', 'modalidad' => 'OPTIONAL']
+        );
+
+        $resp->assertCreated();
+        $resp->assertJsonPath('data.es_precongreso', false);
+        $resp->assertJsonPath('data.formato', null);
+    }
+
+    public function test_formato_invalido_es_rechazado(): void
+    {
+        $evento = $this->evento();
+        $this->actingAsAdmin($this->adminDeEvento($evento->id));
+
+        $resp = $this->postJson(
+            "/api/v1/event/{$evento->id}/talleres",
+            ['nombre' => 'Taller', 'modalidad' => 'OPTIONAL', 'formato' => 'TELEPORTACION']
+        );
+
+        $resp->assertStatus(422)->assertJsonValidationErrors(['formato']);
+    }
+
+    public function test_update_puede_marcar_es_precongreso_y_formato_sin_tocar_lo_demas(): void
+    {
+        $evento = $this->evento();
+        $this->actingAsAdmin($this->adminDeEvento($evento->id));
+        $taller = Taller::factory()->create([
+            'evento_id' => $evento->id,
+            'nombre' => 'ALTO – Analgesia Multimodal | Teórico Virtual',
+            'precio' => 1500,
+            'es_precongreso' => false,
+            'formato' => null,
+        ]);
+
+        $resp = $this->putJson(
+            "/api/v1/event/{$evento->id}/talleres/{$taller->id}",
+            ['es_precongreso' => true, 'formato' => 'VIRTUAL']
+        );
+
+        $resp->assertOk();
+        $taller->refresh();
+        $this->assertTrue($taller->es_precongreso);
+        $this->assertSame('VIRTUAL', $taller->formato);
+        $this->assertEquals(1500, $taller->precio); // intacto
+    }
+
+    public function test_taller_resource_publico_expone_esprecongreso_y_formato(): void
+    {
+        $evento = $this->evento();
+        Taller::factory()->create([
+            'evento_id' => $evento->id,
+            'es_precongreso' => true,
+            'formato' => 'HIBRIDO',
+        ]);
+
+        $resp = $this->getJson("/api/v1/event/{$evento->id}");
+
+        $resp->assertOk();
+        $talleres = $resp->json('eventos.talleres');
+        $this->assertNotEmpty($talleres, 'El endpoint público del evento no trajo talleres para verificar.');
+        $this->assertTrue($talleres[0]['esPrecongreso']);
+        $this->assertSame('HIBRIDO', $talleres[0]['formato']);
+    }
+
     public function test_destroy_elimina_el_taller(): void
     {
         $evento = $this->evento();

@@ -30,6 +30,9 @@ class TallerResource extends JsonResource
             // permite_inscripcion (28/08/2026) — ver Taller model. false =
             // sigue visible en la lista, pero no seleccionable.
             'permiteInscripcion' => (bool) $this->permite_inscripcion,
+            // esPrecongreso / formato (28/09/2026) — ver Taller model.
+            'esPrecongreso' => (bool) $this->es_precongreso,
+            'formato'       => $this->formato,
             'sesiones'    => TallerSesionResource::collection(
                 $this->whenLoaded('sesiones')
             ),
