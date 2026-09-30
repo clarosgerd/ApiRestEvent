@@ -70,4 +70,27 @@ class CajaTurno extends Model
     {
         return (float) $this->movimientos()->where('metodo_pago', 'QR')->sum('monto');
     }
+
+    /**
+     * Métodos de pago nuevos (30/09/2026) — igual que QR, ninguno pasa por
+     * el cajón físico, así que `totalEsperado` (arriba) no los incluye.
+     * `Depósito` y `Organizador` son dinero real (transferencia/pagado por
+     * el organizador por fuera de caja); `Cortesía` siempre da 0 porque
+     * CajaController::aplicarCortesia() deja el monto en 0 al crear el
+     * movimiento — el método sirve igual para contar cuántas hubo.
+     */
+    public function totalDeposito(): float
+    {
+        return (float) $this->movimientos()->where('metodo_pago', 'DEPOSITO')->sum('monto');
+    }
+
+    public function totalOrganizador(): float
+    {
+        return (float) $this->movimientos()->where('metodo_pago', 'ORGANIZADOR')->sum('monto');
+    }
+
+    public function totalCortesia(): float
+    {
+        return (float) $this->movimientos()->where('metodo_pago', 'CORTESIA')->sum('monto');
+    }
 }

@@ -19,7 +19,14 @@ class UpdatePaidRegistrationRequest extends FormRequest
             'confirmacion'                              => ['required', 'boolean'],
             // Método de pago en Caja (18/09/2026) — ver
             // StoreInscripcionCajaRequest / CajaController::editarPagada().
-            'metodo_pago'                                => ['nullable', 'string', Rule::in(['EFECTIVO', 'QR'])],
+            // Métodos de pago ampliados (30/09/2026) — ver
+            // StoreInscripcionCajaRequest para el detalle de cada uno.
+            'metodo_pago'                                => ['nullable', 'string', Rule::in(['EFECTIVO', 'QR', 'DEPOSITO', 'ORGANIZADOR', 'CORTESIA'])],
+            // Quitar/cambiar un taller ya pagado en Caja (29/09/2026) — un
+            // solo motivo por edición (no por participante), exigido por la
+            // Action solo cuando el request realmente quita un taller ya
+            // cobrado (ver ActualizarInscripcionPagadaAction::handle()).
+            'motivo'                                     => ['nullable', 'string', 'max:500'],
 
             'participantes'                              => ['required', 'array', 'min:1'],
             'participantes.*.nombre'                     => ['required', 'string'],

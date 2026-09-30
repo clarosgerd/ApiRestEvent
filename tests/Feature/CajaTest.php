@@ -996,4 +996,149 @@ class CajaTest extends TestCase
         $this->assertEquals(52.5, $turno['totalQr']);
         $this->assertEquals(105.0, $turno['totalCobrado']);
     }
+
+    // ── Métodos de pago nuevos (30/09/2026): Depósito, Organizador, Cortesía ──
+
+    public function test_inscripcion_nueva_puede_cobrarse_por_deposito(): void
+    {
+        $this->actingAsCajero();
+        $this->postJson("/api/v1/event/{$this->evento->id}/caja/turno/abrir", ['fondo_inicial' => 0]);
+
+        $this->postJson("/api/v1/event/{$this->evento->id}/caja/inscripcion", [
+            'form_types_id' => $this->formType->id,
+            'participante' => $this->participanteData('88880008'),
+            'totales' => $this->totalesData(),
+            'metodo_pago' => 'DEPOSITO',
+        ])->assertStatus(201);
+
+        // Depósito es dinero real (a diferencia de Cortesía) — el monto
+        // registrado es el precio real, igual que QR.
+        $this->assertDatabaseHas('caja_movimientos', [
+            'tipo' => 'inscripcion_nueva', 'metodo_pago' => 'DEPOSITO', 'monto' => 52.5,
+        ]);
+    }
+
+    public function test_inscripcion_nueva_puede_cobrarse_por_organizador(): void
+    {
+        $this->actingAsCajero();
+        $this->postJson("/api/v1/event/{$this->evento->id}/caja/turno/abrir", ['fondo_inicial' => 0]);
+
+        $this->postJson("/api/v1/event/{$this->evento->id}/caja/inscripcion", [
+            'form_types_id' => $this->formType->id,
+            'participante' => $this->participanteData('88880009'),
+            'totales' => $this->totalesData(),
+            'metodo_pago' => 'ORGANIZADOR',
+        ])->assertStatus(201);
+
+        // Organizador es distinto de Cortesía: registra el precio real (el
+        // organizador lo cubre por fuera de caja, no es un regalo).
+        $this->assertDatabaseHas('caja_movimientos', [
+            'tipo' => 'inscripcion_nueva', 'metodo_pago' => 'ORGANIZADOR', 'monto' => 52.5,
+        ]);
+        $this->assertDatabaseHas('participantes', [
+            'numero_documento' => '88880009', 'precio_categoria' => 50,
+        ]);
+    }
+
+    /**
+     * Cortesía: el total pasa a $0 sin importar la categoría elegida — pero
+     * la categoría/taller elegidos se conservan tal cual (kit/certificado/
+     * reportes siguen viendo la selección real).
+     */
+    public function test_inscripcion_nueva_por_cortesia_cobra_cero_y_conserva_la_categoria_elegida(): void
+    {
+        $this->actingAsCajero();
+        $this->postJson("/api/v1/event/{$this->evento->id}/caja/turno/abrir", ['fondo_inicial' => 0]);
+
+        $this->postJson("/api/v1/event/{$this->evento->id}/caja/inscripcion", [
+            'form_types_id' => $this->formType->id,
+            'participante' => $this->participanteData('88880010'),
+            'totales' => $this->totalesData(),
+            'metodo_pago' => 'CORTESIA',
+        ])->assertStatus(201);
+
+        $registrationId = \App\Models\Participante::where('numero_documento', '88880010')->value('registration_id');
+
+        $this->assertDatabaseHas('caja_movimientos', [
+            'tipo' => 'inscripcion_nueva', 'metodo_pago' => 'CORTESIA', 'monto' => 0,
+        ]);
+        $this->assertDatabaseHas('registration_totals', [
+            'registration_id' => $registrationId, 'grand_total' => 0, 'inscripcion' => 0, 'fee' => 0,
+        ]);
+        // La categoría real elegida (no una "sin categoría") se conserva.
+        $this->assertDatabaseHas('participantes', [
+            'numero_documento' => '88880010',
+            'categoria' => (string) $this->categoria->id,
+            'precio_categoria' => 0,
+            'subtotal' => 0,
+        ]);
+    }
+
+    public function test_cobrar_pendiente_por_cortesia_pone_el_total_en_cero(): void
+    {
+        $this->actingAsCajero();
+        $this->postJson("/api/v1/event/{$this->evento->id}/caja/turno/abrir", ['fondo_inicial' => 0]);
+
+        $registration = app(CrearInscripcionAction::class)->handle(RegistrationDTO::fromArray([
+            'referencia' => 'LA-TEST-' . uniqid(),
+            'fecha' => now()->toDateTimeString(),
+            'evento_id' => $this->evento->id,
+            'evento_nombre' => $this->evento->nombre,
+            'form_types_id' => $this->formType->id,
+            'tipo_pago' => 'pendiente',
+            'pago_status' => 'pending',
+            'pay_order_number' => null,
+            'totales' => $this->totalesData(),
+            'participantes' => [$this->participanteData('88880011')],
+        ]));
+
+        $this->postJson("/api/v1/registrations/{$registration->referencia}/caja/cobrar-pendiente", [
+            'metodo_pago' => 'CORTESIA',
+        ])->assertStatus(200)->assertJson(['success' => true]);
+
+        $this->assertDatabaseHas('caja_movimientos', [
+            'registration_id' => $registration->id, 'tipo' => 'cobro_pendiente',
+            'metodo_pago' => 'CORTESIA', 'monto' => 0,
+        ]);
+        $this->assertDatabaseHas('registration_totals', [
+            'registration_id' => $registration->id, 'grand_total' => 0,
+        ]);
+        $this->assertDatabaseHas('participantes', [
+            'numero_documento' => '88880011', 'categoria' => (string) $this->categoria->id, 'precio_categoria' => 0,
+        ]);
+    }
+
+    /**
+     * Depósito, Organizador y Cortesía son igual que QR para el conteo
+     * físico: ninguno pasa por el cajón, así que "esperado" no debe
+     * incluirlos — solo EFECTIVO.
+     */
+    public function test_cerrar_turno_excluye_deposito_organizador_y_cortesia_del_monto_esperado(): void
+    {
+        $this->actingAsCajero();
+        $turnoId = $this->postJson("/api/v1/event/{$this->evento->id}/caja/turno/abrir", ['fondo_inicial' => 100])
+            ->json('turno.id');
+
+        foreach (['EFECTIVO', 'DEPOSITO', 'ORGANIZADOR', 'CORTESIA'] as $i => $metodo) {
+            $this->postJson("/api/v1/event/{$this->evento->id}/caja/inscripcion", [
+                'form_types_id' => $this->formType->id,
+                'participante' => $this->participanteData('8888020' . $i),
+                'totales' => $this->totalesData(),
+                'metodo_pago' => $metodo,
+            ])->assertStatus(201);
+        }
+
+        // Esperado = 100 (fondo) + 52.5 (solo el de EFECTIVO) — depósito
+        // (52.5), organizador (52.5) y cortesía (0) quedan todos afuera.
+        $response = $this->postJson("/api/v1/caja/turno/{$turnoId}/cerrar", ['monto_contado' => 152.5]);
+
+        $response->assertStatus(200)->assertJson([
+            'success' => true,
+            'turno' => ['montoEsperado' => 152.5, 'diferencia' => 0],
+        ]);
+        $turno = $response->json('turno');
+        $this->assertEquals(52.5, $turno['totalDeposito']);
+        $this->assertEquals(52.5, $turno['totalOrganizador']);
+        $this->assertEquals(0, $turno['totalCortesia']);
+    }
 }

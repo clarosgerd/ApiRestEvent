@@ -835,6 +835,185 @@ class EditarInscripcionPagadaTallerCategoriaTest extends TestCase
         ]);
     }
 
+    // ── Caja: quitar/cambiar un taller ya pagado (29/09/2026) ──────────
+    // Ver brain/PLAN-CAJA-QUITAR-TALLER-PAGADO-29092026.md. Caso real: un
+    // taller pagado se descarta porque no se concretó el ponente, el
+    // participante se pasa a otro (más barato, o más caro) y la diferencia
+    // se cobra/devuelve en efectivo en Caja.
+
+    private function crearInscripcionPagadaConTaller(string $numeroDocumento): \App\Models\Registration
+    {
+        $registration = $this->crearInscripcionPagadaSinTaller($numeroDocumento);
+        app(ActualizarInscripcionPagadaAction::class)->handle($registration->referencia, [
+            'participantes' => [$this->participanteData($numeroDocumento, [
+                'talleres' => [['taller_id' => $this->taller->id, 'sesion_congreso_id' => $this->sesion->id]],
+            ])],
+            'totales' => $this->totalesData(['talleres' => 30, 'fee' => 4, 'grand_total' => 84]),
+            '_usuario' => 'participante@test.net',
+        ]);
+
+        return $registration->fresh();
+    }
+
+    public function test_autoservicio_sigue_sin_poder_quitar_un_taller_pagado_aunque_agregue_otro(): void
+    {
+        // Regresión explícita: $permiteQuitarTalleres default false — el
+        // resto del test ya está cubierto por test_ningun_flujo_..., esto
+        // solo confirma que agregar OTRO taller en el mismo request tampoco
+        // habilita quitar el original desde autoservicio.
+        $registration = $this->crearInscripcionPagadaConTaller('20000030');
+        $tallerNuevo = Taller::factory()->create(['evento_id' => $this->evento->id, 'modalidad' => 'OPTIONAL', 'precio' => 15]);
+        $sesionNueva = SesionCongreso::factory()->create([
+            'evento_id' => $this->evento->id, 'taller_id' => $tallerNuevo->id, 'cupo' => 10,
+            'hora_inicio' => '11:00:00', 'hora_fin' => '12:00:00',
+        ]);
+
+        $this->expectException(\DomainException::class);
+        $this->expectExceptionMessage('No se pueden quitar talleres');
+
+        app(ActualizarInscripcionPagadaAction::class)->handle($registration->referencia, [
+            'participantes' => [$this->participanteData('20000030', [
+                'talleres' => [['taller_id' => $tallerNuevo->id, 'sesion_congreso_id' => $sesionNueva->id]],
+            ])],
+            'totales' => $this->totalesData(),
+            '_usuario' => 'participante@test.net',
+        ]);
+    }
+
+    /**
+     * Escenario real del usuario: el taller pagado (Bs 30) se descarta
+     * porque no se concretó el ponente, se cambia por uno más barato
+     * (Bs 15) — la diferencia se devuelve. costo_edicion(10) +
+     * deltaTalleres(-30+15=-15) + fee(0, clampeado — ver el test dedicado
+     * más abajo) = -5.
+     */
+    public function test_caja_quita_un_taller_pagado_y_agrega_otro_mas_barato_con_motivo(): void
+    {
+        $cajero = $this->actingAsAdmin();
+        $cajero->update(['rol' => 'cajero', 'evento_id' => $this->evento->id]);
+        $this->postJson("/api/v1/event/{$this->evento->id}/caja/turno/abrir", ['fondo_inicial' => 0]);
+
+        $registration = $this->crearInscripcionPagadaConTaller('20000031');
+        $tallerBarato = Taller::factory()->create(['evento_id' => $this->evento->id, 'modalidad' => 'OPTIONAL', 'precio' => 15]);
+        $sesionBarata = SesionCongreso::factory()->create([
+            'evento_id' => $this->evento->id, 'taller_id' => $tallerBarato->id, 'cupo' => 10,
+            'hora_inicio' => '11:00:00', 'hora_fin' => '12:00:00',
+        ]);
+
+        $this->patchJson("/api/v1/registrations/{$registration->referencia}/caja/editar-pagada", [
+            'confirmacion' => true,
+            'motivo' => 'No se concretó el ponente de Bombas Elastoméricas, se pasó a Anestesia Regional.',
+            'participantes' => [$this->participanteData('20000031', [
+                'talleres' => [['taller_id' => $tallerBarato->id, 'sesion_congreso_id' => $sesionBarata->id]],
+            ])],
+            'totales' => $this->totalesData(),
+        ])->assertStatus(200)->assertJson(['success' => true, 'costo_adicion' => -5]);
+
+        $this->assertDatabaseMissing('participante_taller_sesion', ['sesion_congreso_id' => $this->sesion->id]);
+        $this->assertDatabaseHas('participante_taller_sesion', ['sesion_congreso_id' => $sesionBarata->id]);
+        $this->assertDatabaseHas('caja_movimientos', [
+            'registration_id' => $registration->id,
+            'tipo' => 'edicion_pagada',
+            'monto' => -5,
+            'motivo' => 'No se concretó el ponente de Bombas Elastoméricas, se pasó a Anestesia Regional.',
+        ]);
+    }
+
+    /**
+     * Quitar sin reemplazo — devolución completa del taller (Bs 30).
+     * costo_edicion(10) + deltaTalleres(-30) + fee(0) = -20.
+     */
+    public function test_caja_quita_un_taller_pagado_sin_reemplazo_devuelve_el_precio_completo(): void
+    {
+        $registration = $this->crearInscripcionPagadaConTaller('20000032');
+
+        $result = app(ActualizarInscripcionPagadaAction::class)->handle($registration->referencia, [
+            'motivo' => 'El taller se canceló, no hubo reemplazo elegido.',
+            'participantes' => [$this->participanteData('20000032', ['talleres' => []])],
+            'totales' => $this->totalesData(),
+            '_usuario' => 'cajero@test.net',
+        ], modoCategoria: 'libre', permiteQuitarTalleres: true);
+
+        $this->assertEquals(-20.0, $result['costo_adicion']);
+        $this->assertDatabaseMissing('participante_taller_sesion', ['sesion_congreso_id' => $this->sesion->id]);
+    }
+
+    public function test_caja_quitar_taller_pagado_sin_motivo_no_aplica_ningun_cambio(): void
+    {
+        $registration = $this->crearInscripcionPagadaConTaller('20000033');
+
+        try {
+            app(ActualizarInscripcionPagadaAction::class)->handle($registration->referencia, [
+                'participantes' => [$this->participanteData('20000033', ['talleres' => []])],
+                'totales' => $this->totalesData(),
+                '_usuario' => 'cajero@test.net',
+            ], modoCategoria: 'libre', permiteQuitarTalleres: true);
+            $this->fail('Debió lanzar DomainException por falta de motivo.');
+        } catch (\DomainException $e) {
+            $this->assertStringContainsString('motivo', $e->getMessage());
+        }
+
+        // Todo-o-nada: el taller sigue exactamente igual, nada se tocó.
+        $this->assertDatabaseHas('participante_taller_sesion', ['sesion_congreso_id' => $this->sesion->id]);
+    }
+
+    /**
+     * Swap a un taller MÁS CARO — sigue cobrando la diferencia normal (no
+     * es un caso nuevo, pero convive en el mismo request que un removido
+     * en otro participante/otra llamada — este test confirma que el signo
+     * correcto se aplica cuando el neto de talleres es positivo).
+     * costo_edicion(10) + deltaTalleres(-30+50=20) + fee(20*5%=1) = 31.
+     */
+    public function test_caja_swap_a_taller_mas_caro_cobra_la_diferencia(): void
+    {
+        $registration = $this->crearInscripcionPagadaConTaller('20000034');
+        $tallerCaro = Taller::factory()->create(['evento_id' => $this->evento->id, 'modalidad' => 'OPTIONAL', 'precio' => 50]);
+        $sesionCara = SesionCongreso::factory()->create([
+            'evento_id' => $this->evento->id, 'taller_id' => $tallerCaro->id, 'cupo' => 10,
+            'hora_inicio' => '11:00:00', 'hora_fin' => '12:00:00',
+        ]);
+
+        $result = app(ActualizarInscripcionPagadaAction::class)->handle($registration->referencia, [
+            'motivo' => 'Se pasó a un taller de mayor costo.',
+            'participantes' => [$this->participanteData('20000034', [
+                'talleres' => [['taller_id' => $tallerCaro->id, 'sesion_congreso_id' => $sesionCara->id]],
+            ])],
+            'totales' => $this->totalesData(),
+            '_usuario' => 'cajero@test.net',
+        ], modoCategoria: 'libre', permiteQuitarTalleres: true);
+
+        $this->assertEquals(31.0, $result['costo_adicion']);
+    }
+
+    /**
+     * El cargo de servicio NUNCA se reduce, ni por categoría ni ahora por
+     * talleres (29/09/2026) — la comisión de la pasarela sobre el cobro
+     * original del taller de Bs 30 ya se pagó y no se recupera. Sin el
+     * clamp de EdicionPagadaFeeData, este mismo swap (30→15) daría
+     * costo_adicion = -5.75 (fee de -0.75) en vez de -5 (fee 0) — este test
+     * es el que detecta la regresión si alguien saca el clamp.
+     */
+    public function test_caja_swap_a_taller_mas_barato_no_reduce_el_fee_ya_cobrado(): void
+    {
+        $registration = $this->crearInscripcionPagadaConTaller('20000035');
+        $tallerBarato = Taller::factory()->create(['evento_id' => $this->evento->id, 'modalidad' => 'OPTIONAL', 'precio' => 15]);
+        $sesionBarata = SesionCongreso::factory()->create([
+            'evento_id' => $this->evento->id, 'taller_id' => $tallerBarato->id, 'cupo' => 10,
+            'hora_inicio' => '11:00:00', 'hora_fin' => '12:00:00',
+        ]);
+
+        $result = app(ActualizarInscripcionPagadaAction::class)->handle($registration->referencia, [
+            'motivo' => 'Cambio por costo menor.',
+            'participantes' => [$this->participanteData('20000035', [
+                'talleres' => [['taller_id' => $tallerBarato->id, 'sesion_congreso_id' => $sesionBarata->id]],
+            ])],
+            'totales' => $this->totalesData(),
+            '_usuario' => 'cajero@test.net',
+        ], modoCategoria: 'libre', permiteQuitarTalleres: true);
+
+        $this->assertEquals(-5.0, $result['costo_adicion'], 'Si el fee se redujera, el resultado sería -5.75, no -5.');
+    }
+
     // ── Grandfather clause de disponibilidad (bug real UAT 02/09/2026) ──
 
     /**

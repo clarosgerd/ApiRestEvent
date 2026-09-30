@@ -30,8 +30,10 @@ class EdicionPagadaFeeData
      *   (`EdicionPagadaCategoriaData` con modo 'solo_subida' lo impide).
      * @param float $deltaSouvenirsConCargo ya filtrado por
      *   `aplica_cargo_servicio=true` (ver EdicionPagadaSouvenirsData).
-     * @param float $deltaTalleres siempre ≥0 — nunca se quitan talleres ya
-     *   pagados.
+     * @param float $deltaTalleres puede ser negativo (29/09/2026 — Caja
+     *   puede quitar un taller ya pagado, ver
+     *   ActualizarInscripcionPagadaAction) — nunca negativo en
+     *   autoservicio/SIP, que jamás quitan talleres.
      */
     public static function calcular(
         Evento $evento,
@@ -39,13 +41,16 @@ class EdicionPagadaFeeData
         float $deltaSouvenirsConCargo,
         float $deltaTalleres,
     ): float {
-        // El fee nunca se reduce en una bajada de categoría (decisión
-        // explícita del usuario) — la comisión de la pasarela sobre el
-        // cobro original ya se pagó y no se recupera.
+        // El fee nunca se reduce cuando algo baja de precio (categoría más
+        // barata, o ahora también un taller quitado/cambiado por uno más
+        // barato, 29/09/2026) — decisión explícita del usuario: la comisión
+        // de la pasarela sobre el cobro original ya se pagó y no se
+        // recupera. Mismo clamp para los dos, por la misma razón.
         $deltaCategoriaParaFee = max(0.0, $deltaCategoria);
+        $deltaTalleresParaFee = max(0.0, $deltaTalleres);
 
         $base = $deltaCategoriaParaFee
-            + ($evento->fee_incluye_talleres ? $deltaTalleres : 0)
+            + ($evento->fee_incluye_talleres ? $deltaTalleresParaFee : 0)
             + $deltaSouvenirsConCargo;
 
         return round($base * (float) $evento->fee_pct, 2);

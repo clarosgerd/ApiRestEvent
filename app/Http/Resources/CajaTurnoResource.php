@@ -22,6 +22,14 @@ class CajaTurnoResource extends JsonResource
                 ? (float) $this->movimientos->where('metodo_pago', 'EFECTIVO')->sum('monto') : null,
             'totalQr'        => $this->relationLoaded('movimientos')
                 ? (float) $this->movimientos->where('metodo_pago', 'QR')->sum('monto') : null,
+            // Métodos de pago nuevos (30/09/2026) — mismo criterio: ninguno
+            // pasa por el cajón, 'montoEsperado' no los incluye.
+            'totalDeposito'  => $this->relationLoaded('movimientos')
+                ? (float) $this->movimientos->where('metodo_pago', 'DEPOSITO')->sum('monto') : null,
+            'totalOrganizador' => $this->relationLoaded('movimientos')
+                ? (float) $this->movimientos->where('metodo_pago', 'ORGANIZADOR')->sum('monto') : null,
+            'totalCortesia'  => $this->relationLoaded('movimientos')
+                ? (float) $this->movimientos->where('metodo_pago', 'CORTESIA')->sum('monto') : null,
             'montoEsperado'  => $this->monto_esperado !== null ? (float) $this->monto_esperado : null,
             'montoContado'   => $this->monto_contado !== null ? (float) $this->monto_contado : null,
             'diferencia'     => $this->diferencia !== null ? (float) $this->diferencia : null,
