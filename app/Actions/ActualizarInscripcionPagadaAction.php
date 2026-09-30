@@ -37,9 +37,11 @@ class ActualizarInscripcionPagadaAction
      *   del evento.
      * - Caja (CajaController::editarPagada(), 'libre'): el cajero además
      *   puede cambiar de categoría en cualquier dirección, porque puede
-     *   cobrar/desembolsar la diferencia en efectivo ahí mismo. En ningún
-     *   caso (ningún modo) se permite QUITAR un taller o souvenir que ya
-     *   estaba pagado — ver EdicionPagadaSouvenirsData.
+     *   cobrar/desembolsar la diferencia en efectivo ahí mismo. También es
+     *   el único que puede QUITAR un taller ya pagado (con o sin reemplazo,
+     *   ver $permiteQuitarTalleres más abajo — 29/09/2026). Un souvenir ya
+     *   pagado sigue sin poder quitarse en NINGÚN modo — ver
+     *   EdicionPagadaSouvenirsData.
      *
      * $requierePagoEnSitio marca, en los talleres NUEVOS que agregue esta
      * llamada, si todavía falta cobrarlos en efectivo (autoservicio con
@@ -49,11 +51,21 @@ class ActualizarInscripcionPagadaAction
      * necesita esta señal por fila para no mezclar plata ya cobrada con
      * plata pendiente de cobrar bajo "recaudación".
      *
+     * $permiteQuitarTalleres (29/09/2026, ver
+     * brain/PLAN-CAJA-QUITAR-TALLER-PAGADO-29092026.md) — default `false`
+     * preserva el comportamiento de siempre (autoservicio y SIP JAMÁS
+     * pueden quitar un taller ya cobrado, sin excepción). Solo
+     * `CajaController::editarPagada()` lo pasa en `true`: un taller ya
+     * pagado se puede quitar (con o sin reemplazo), la diferencia de precio
+     * entra al mismo `costo_adicion` con signo que ya existe para
+     * categoría, y `$data['motivo']` pasa a ser obligatorio si el request
+     * de verdad quita algún taller ya cobrado.
+     *
      * @return array{registration: Registration, costo_adicion: float}
      */
-    public function handle(string $reference, array $data, string $modoCategoria = 'solo_subida', bool $requierePagoEnSitio = false): array
+    public function handle(string $reference, array $data, string $modoCategoria = 'solo_subida', bool $requierePagoEnSitio = false, bool $permiteQuitarTalleres = false): array
     {
-        return DB::transaction(function () use ($reference, $data, $modoCategoria, $requierePagoEnSitio) {
+        return DB::transaction(function () use ($reference, $data, $modoCategoria, $requierePagoEnSitio, $permiteQuitarTalleres) {
 
             $registration = Registration::with('formType')
                 ->where('referencia', $reference)
@@ -155,6 +167,13 @@ class ActualizarInscripcionPagadaAction
             $deltaCategoria = 0.0;
             $deltaSouvenirs = 0.0;
             $deltaSouvenirsConCargo = 0.0;
+            // Quitar/cambiar un taller ya pagado (29/09/2026) — se
+            // inicializa acá (no después del delete/recreate como antes)
+            // porque el lado REMOVIDO se calcula en este mismo loop, contra
+            // el snapshot $anterior->talleresSesiones->total (persistido,
+            // nunca se recalcula) — el lado AGREGADO se sigue sumando más
+            // abajo, después de recrear los participantes.
+            $deltaTalleres = 0.0;
 
             foreach ($data['participantes'] as $i => $participantData) {
                 $anterior = $participantesAnteriores[$i];
@@ -201,9 +220,29 @@ class ActualizarInscripcionPagadaAction
                     ->where('pago_pendiente', false)
                     ->pluck('sesion_congreso_id')->map(fn ($id) => (int) $id)->all();
                 $idsNuevos = collect($participantData['talleres'] ?? [])->pluck('sesion_congreso_id')->map(fn ($id) => (int) $id)->all();
+                $idsRemovidos = array_diff($idsAnteriores, $idsNuevos);
 
-                if (! empty(array_diff($idsAnteriores, $idsNuevos))) {
-                    throw new \DomainException('No se pueden quitar talleres que ya fueron pagados.');
+                // Quitar/cambiar un taller ya pagado (29/09/2026, Caja
+                // únicamente) — ver brain/PLAN-CAJA-QUITAR-TALLER-PAGADO-
+                // 29092026.md. Fuera de Caja (`$permiteQuitarTalleres=false`,
+                // autoservicio/SIP) el comportamiento es EXACTAMENTE el de
+                // siempre: cualquier taller cobrado que falte en la lista
+                // nueva aborta todo el request, sin excepción.
+                if (! empty($idsRemovidos)) {
+                    if (! $permiteQuitarTalleres) {
+                        throw new \DomainException('No se pueden quitar talleres que ya fueron pagados.');
+                    }
+                    if (blank($data['motivo'] ?? null)) {
+                        throw new \DomainException('Hay que indicar un motivo para quitar un taller ya pagado.');
+                    }
+                    // Precio persistido de lo que se quita (nunca se
+                    // recalcula) — mismo criterio "no confiar en el
+                    // cliente" que ya rige el resto de esta Action. Resta
+                    // directo al mismo $deltaTalleres que más abajo suma lo
+                    // agregado — el neto puede quedar negativo (devolución).
+                    $deltaTalleres -= (float) $anterior->talleresSesiones
+                        ->whereIn('sesion_congreso_id', $idsRemovidos)
+                        ->sum('total');
                 }
 
                 $tallerIdsNuevosPorIndice[$i] = array_diff($idsNuevos, $idsAnteriores);
@@ -247,8 +286,9 @@ class ActualizarInscripcionPagadaAction
             // createParticipantFromData() ya lo resolvió server-side contra
             // el taller/sesión real, no contra un valor mandado por el
             // cliente. Se correlaciona por posición contra
-            // $tallerIdsNuevosPorIndice armado antes del delete.
-            $deltaTalleres = 0.0;
+            // $tallerIdsNuevosPorIndice armado antes del delete. $deltaTalleres
+            // ya viene inicializado más arriba (0.0, o negativo si hubo
+            // remoción en modo Caja) — acá solo se SUMA el lado agregado.
             $participantesNuevos = $registration->participants()
                 ->with('talleresSesiones')
                 ->orderBy('id')
@@ -335,19 +375,22 @@ class ActualizarInscripcionPagadaAction
             $this->registrationService->syncPersonas($registration);
 
             // Monto real a cobrar/desembolsar (25/08/2026, ampliado
-            // 02/09/2026 con souvenirs, 07/09/2026 con cargo de servicio) —
-            // el cargo fijo de siempre (costo_edicion) más la diferencia
-            // real de categoría (0 si no cambió, o si el modo actual no
-            // permite bajar), el precio real de los talleres agregados, el
+            // 02/09/2026 con souvenirs, 07/09/2026 con cargo de servicio,
+            // 29/09/2026 con talleres removidos) — el cargo fijo de siempre
+            // (costo_edicion) más la diferencia real de categoría (0 si no
+            // cambió, o si el modo actual no permite bajar), la diferencia
+            // real de talleres (agregados menos removidos — solo puede
+            // haber removidos con $permiteQuitarTalleres=true, Caja), el
             // precio real de los souvenirs agregados, y el cargo de
             // servicio sobre lo nuevo (categoría/souvenirs con cargo/
             // talleres según evento.fee_incluye_talleres — ver
             // EdicionPagadaFeeData, mismo criterio que el alta normal).
-            // Puede quedar negativo solo por el lado de categoría con
-            // modoCategoria='libre' (Caja) — talleres y souvenirs nunca
-            // restan, solo se pueden agregar; el fee tampoco resta en ese
-            // caso (nunca se reduce en una bajada, ver EdicionPagadaFeeData).
-            // Ver CajaController::editarPagada(), que registra un
+            // Puede quedar negativo por categoría y/o talleres con
+            // modoCategoria='libre'/$permiteQuitarTalleres=true (Caja) —
+            // souvenirs nunca restan, solo se pueden agregar; el fee tampoco
+            // resta en ninguno de los 2 casos (nunca se reduce en una
+            // bajada, ver EdicionPagadaFeeData::calcular()). Ver
+            // CajaController::editarPagada(), que registra un
             // CajaMovimiento cuando el total es negativo.
             $feeAdicional = EdicionPagadaFeeData::calcular($registration->evento, $deltaCategoria, $deltaSouvenirsConCargo, $deltaTalleres);
             $costoAdicion = (float) $costoEdicion + $deltaTalleres + $deltaCategoria + $deltaSouvenirs + $feeAdicional;

@@ -185,15 +185,24 @@ class CajaController extends Controller
             return response()->json(['success' => false, 'error' => $e->getMessage()], 422);
         }
 
+        // Cortesía (30/09/2026) — se aplica ANTES de crear el CajaMovimiento
+        // (necesita el monto final ya en 0) pero DESPUÉS de que
+        // CrearInscripcionAction ya consumió cupo/stock normalmente contra
+        // los precios reales — ver aplicarCortesia() más abajo.
+        $esCortesia = ($data['metodo_pago'] ?? null) === 'CORTESIA';
+        if ($esCortesia) {
+            $this->aplicarCortesia($registration);
+        }
+
         CajaMovimiento::create([
             'caja_turno_id'    => $turno->id,
             'evento_id'        => $event->id,
             'registration_id'  => $registration->id,
             'admin_user_id'    => $admin->id,
             'tipo'             => 'inscripcion_nueva',
-            'monto'            => (float) $data['totales']['grand_total'],
-            // Método de pago en Caja (18/09/2026) — Efectivo o QR (QR
-            // bancario único, ya generado/impreso, elegido por el cajero).
+            'monto'            => $esCortesia ? 0 : (float) $data['totales']['grand_total'],
+            // Método de pago en Caja (18/09/2026, ampliado 30/09/2026) — ver
+            // StoreInscripcionCajaRequest para el detalle de cada uno.
             'metodo_pago'      => $data['metodo_pago'] ?? 'EFECTIVO',
         ]);
 
@@ -207,13 +216,14 @@ class CajaController extends Controller
     }
 
     /**
-     * Cobra (efectivo o QR — 18/09/2026) una inscripción `pending`
-     * existente (creada online o por caja antes).
+     * Cobra (efectivo, QR, depósito, organizador o cortesía — 18/09/2026,
+     * ampliado 30/09/2026) una inscripción `pending` existente (creada
+     * online o por caja antes).
      */
     public function cobrarPendiente(Request $request, string $reference): JsonResponse
     {
         $data = $request->validate([
-            'metodo_pago' => ['nullable', 'string', Rule::in(['EFECTIVO', 'QR'])],
+            'metodo_pago' => ['nullable', 'string', Rule::in(['EFECTIVO', 'QR', 'DEPOSITO', 'ORGANIZADOR', 'CORTESIA'])],
         ]);
 
         $registration = Registration::with('totals')->where('referencia', $reference)->firstOrFail();
@@ -230,6 +240,16 @@ class CajaController extends Controller
                 'success' => false,
                 'error'   => 'Esta inscripción no está pendiente de pago.',
             ], 422);
+        }
+
+        // Cortesía (30/09/2026) — el monto ya persistido (RegistrationTotal,
+        // categoría/talleres reales elegidos previamente) se pone en 0
+        // ANTES de leer $registration->totals->grand_total para el
+        // movimiento, mismo criterio que en inscripcion().
+        $esCortesia = ($data['metodo_pago'] ?? null) === 'CORTESIA';
+        if ($esCortesia) {
+            $this->aplicarCortesia($registration);
+            $registration->load('totals');
         }
 
         CajaMovimiento::create([
@@ -249,6 +269,37 @@ class CajaController extends Controller
             'message' => 'Cobro registrado correctamente.',
             'data'    => new RegistrationCollectionResource($registration),
         ]);
+    }
+
+    /**
+     * Cortesía (30/09/2026) — el organizador regala la inscripción: el
+     * total pasa a ser $0 sin importar qué categoría/talleres se hayan
+     * elegido. Se aplica DESPUÉS de crear/cobrar la inscripción con los
+     * precios reales (para que cupo/stock/numeración se consuman
+     * normalmente, igual que cualquier inscripción real) — este paso solo
+     * pone en 0 los campos de dinero; qué se eligió (categoría, talleres,
+     * souvenirs) queda intacto para kit/certificado/reportes.
+     */
+    private function aplicarCortesia(Registration $registration): void
+    {
+        $registration->totals()->update([
+            'inscripcion' => 0, 'donacion' => 0, 'souvenirs' => 0, 'talleres' => 0,
+            'fee' => 0, 'descuento' => 0, 'descuento_registrante' => 0, 'grand_total' => 0,
+        ]);
+        $registration->update(['total_pagado' => null]);
+
+        $participanteIds = $registration->participants()->pluck('id');
+        if ($participanteIds->isEmpty()) {
+            return;
+        }
+
+        \App\Models\Participante::whereIn('id', $participanteIds)->update([
+            'precio_categoria' => 0, 'subtotal' => 0, 'donacion' => 0, 'promo_descuento' => 0,
+        ]);
+        \App\Models\ParticipanteTallerSesion::whereIn('participante_id', $participanteIds)
+            ->update(['unit_price' => 0, 'discount' => 0, 'total' => 0]);
+        \App\Models\SouvenirParticipante::whereIn('participante_id', $participanteIds)
+            ->update(['precio' => 0]);
     }
 
     /**
@@ -302,7 +353,16 @@ class CajaController extends Controller
             // cajero cobra/desembolsa en efectivo en el momento, así que
             // cualquier taller/souvenir nuevo agregado acá ya está cobrado
             // (ver ActualizarInscripcionPagadaAction::handle()).
-            $result = $action->handle($reference, $request->validated() + ['_usuario' => $admin->email], modoCategoria: 'libre');
+            // permiteQuitarTalleres: true (29/09/2026) — Caja es el único
+            // flujo que puede quitar un taller ya pagado (con o sin
+            // reemplazo); la Action exige $data['motivo'] cuando eso pasa
+            // de verdad.
+            $result = $action->handle(
+                $reference,
+                $request->validated() + ['_usuario' => $admin->email],
+                modoCategoria: 'libre',
+                permiteQuitarTalleres: true,
+            );
         } catch (\DomainException $e) {
             return response()->json(['success' => false, 'error' => $e->getMessage()], 422);
         }
@@ -321,6 +381,7 @@ class CajaController extends Controller
                 'tipo'             => 'edicion_pagada',
                 'monto'            => (float) $result['costo_adicion'],
                 'metodo_pago'      => $request->validated()['metodo_pago'] ?? 'EFECTIVO',
+                'motivo'           => $request->validated()['motivo'] ?? null,
             ]);
         }
 

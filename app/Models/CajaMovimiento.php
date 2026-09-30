@@ -22,6 +22,10 @@ class CajaMovimiento extends Model
         'tipo',
         'monto',
         'metodo_pago',
+        // Quitar/cambiar un taller ya pagado (29/09/2026) — exigido por
+        // ActualizarInscripcionPagadaAction cuando el movimiento incluye
+        // quitar un taller ya cobrado. Ver Caja controller.
+        'motivo',
     ];
 
     protected $casts = [

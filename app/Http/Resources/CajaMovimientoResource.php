@@ -21,6 +21,10 @@ class CajaMovimientoResource extends JsonResource
             'tipo'                   => $this->tipo,
             'monto'                  => (float) $this->monto,
             'metodoPago'             => $this->metodo_pago,
+            // Quitar/cambiar un taller ya pagado (29/09/2026) — motivo
+            // opcional, solo se llena cuando el movimiento incluyó quitar
+            // un taller ya cobrado. Ver caja/cierre-detalle.blade.php.
+            'motivo'                 => $this->motivo,
             'registrationReferencia' => $this->whenLoaded('registration', fn () => $this->registration?->referencia),
             'createdAt'              => optional($this->created_at)->toIso8601String(),
         ];
