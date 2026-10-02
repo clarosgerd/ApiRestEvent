@@ -1014,6 +1014,111 @@ class EditarInscripcionPagadaTallerCategoriaTest extends TestCase
         $this->assertEquals(-5.0, $result['costo_adicion'], 'Si el fee se redujera, el resultado sería -5.75, no -5.');
     }
 
+    // ── Snapshot corrompido al editar una pagada (bug real 30/09/2026) ──
+    // 2 casos reales confirmados en producción (Rafael Molina Mery, Juan
+    // Jose Escalera Angulo): el snapshot (participantes.precio_categoria/
+    // subtotal, registration_totals.inscripcion/talleres/grand_total)
+    // quedaba con la DIFERENCIA (nueva - anterior) en vez del valor
+    // ABSOLUTO real — aunque costo_adicion (el cobro real) siempre estuvo
+    // bien. Ver App\Support\SnapshotInscripcionPagadaData.
+
+    /**
+     * Caso real "Rafael": baja de categoría cara (120) a barata (50) — el
+     * cobro real sigue dando -60 (sin cambios, ya cubierto por
+     * test_caja_puede_cambiar_a_categoria_mas_barata_y_da_costo_adicion_negativo),
+     * pero ahora el snapshot queda con el precio REAL (50), no con la
+     * diferencia (-70, que era el bug).
+     */
+    public function test_caja_baja_de_categoria_persiste_el_precio_absoluto_no_la_diferencia(): void
+    {
+        $registration = $this->crearInscripcionPagadaSinTaller('20000040');
+        \App\Models\Participante::where('registration_id', $registration->id)
+            ->update(['categoria' => (string) $this->categoriaCara->id, 'precio_categoria' => 120, 'subtotal' => 120]);
+
+        $result = app(ActualizarInscripcionPagadaAction::class)->handle($registration->referencia, [
+            'participantes' => [$this->participanteData('20000040', [
+                'categoria' => (string) $this->categoria->id,
+                'precioCategoria' => 50,
+            ])],
+            'totales' => $this->totalesData(),
+            '_usuario' => 'cajero@test.net',
+        ], modoCategoria: 'libre');
+
+        // El cobro real (mecanismo ya existente, sin cambios) sigue dando -60.
+        $this->assertEquals(-60.0, $result['costo_adicion']);
+
+        // El snapshot ahora queda con el precio REAL de la categoría nueva
+        // (50), no con la diferencia (-70, que era el bug).
+        $participante = \App\Models\Participante::where('registration_id', $registration->id)->first();
+        $this->assertEquals(50.0, (float) $participante->precio_categoria);
+        $this->assertEquals(50.0, (float) $participante->subtotal);
+
+        $totals = $registration->totals()->first();
+        $this->assertEquals(50.0, (float) $totals->inscripcion);
+        // grand_total absoluto = inscripcion(50) + fee sobre 50 (fee_pct=0.05 → 2.5).
+        $this->assertEquals(52.5, (float) $totals->grand_total);
+    }
+
+    /**
+     * Caso real "Juan": corrección de precio dentro de la misma categoría
+     * (1500→1700, simulado acá con las categorías del fixture: 50→120) — el
+     * snapshot debe quedar con el precio nuevo real, no con la diferencia.
+     */
+    public function test_caja_sube_de_categoria_persiste_el_precio_absoluto_no_la_diferencia(): void
+    {
+        $registration = $this->crearInscripcionPagadaSinTaller('20000044');
+
+        $result = app(ActualizarInscripcionPagadaAction::class)->handle($registration->referencia, [
+            'participantes' => [$this->participanteData('20000044', [
+                'categoria' => (string) $this->categoriaCara->id,
+                'precioCategoria' => 120,
+            ])],
+            'totales' => $this->totalesData(),
+            '_usuario' => 'cajero@test.net',
+        ], modoCategoria: 'libre');
+
+        // Cobro real: costo_edicion(10) + delta(120-50=70) + fee(70*5%=3.5) = 83.5.
+        $this->assertEquals(83.5, $result['costo_adicion']);
+
+        $participante = \App\Models\Participante::where('registration_id', $registration->id)->first();
+        $this->assertEquals(120.0, (float) $participante->precio_categoria);
+        $this->assertEquals(120.0, (float) $participante->subtotal);
+
+        $totals = $registration->totals()->first();
+        $this->assertEquals(120.0, (float) $totals->inscripcion);
+        $this->assertEquals(126.0, (float) $totals->grand_total); // 120 + fee(120*5%=6)
+    }
+
+    /**
+     * El mismo bug también afectaba talleres: antes quedaba solo el
+     * delta (el taller nuevo), no el total absoluto (ya pagado + nuevo).
+     */
+    public function test_caja_agrega_taller_a_pagada_que_ya_tenia_otro_persiste_el_total_absoluto(): void
+    {
+        $registration = $this->crearInscripcionPagadaConTaller('20000045'); // ya tiene $this->taller, precio 30
+        $tallerNuevo = Taller::factory()->create(['evento_id' => $this->evento->id, 'modalidad' => 'OPTIONAL', 'precio' => 15]);
+        $sesionNueva = SesionCongreso::factory()->create([
+            'evento_id' => $this->evento->id, 'taller_id' => $tallerNuevo->id, 'cupo' => 10,
+            'hora_inicio' => '11:00:00', 'hora_fin' => '12:00:00',
+        ]);
+
+        app(ActualizarInscripcionPagadaAction::class)->handle($registration->referencia, [
+            'participantes' => [$this->participanteData('20000045', [
+                'talleres' => [
+                    ['taller_id' => $this->taller->id, 'sesion_congreso_id' => $this->sesion->id],
+                    ['taller_id' => $tallerNuevo->id, 'sesion_congreso_id' => $sesionNueva->id],
+                ],
+            ])],
+            'totales' => $this->totalesData(),
+            '_usuario' => 'cajero@test.net',
+        ], modoCategoria: 'libre');
+
+        // Bug real: antes esto quedaba con talleres=15 (solo el nuevo, el
+        // delta que manda el cliente) — ahora debe ser 45 (30 ya pagado + 15 nuevo).
+        $totals = $registration->totals()->first();
+        $this->assertEquals(45.0, (float) $totals->talleres);
+    }
+
     // ── Grandfather clause de disponibilidad (bug real UAT 02/09/2026) ──
 
     /**
