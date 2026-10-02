@@ -343,6 +343,8 @@ Route::group(['prefix' => 'v1','namespace' => 'App\Http\Controllers'], function 
         Route::post('/registrations/{reference}/caja/cobrar-pendiente', [CajaController::class, 'cobrarPendiente']);
         Route::patch('/registrations/{reference}/caja/editar-pendiente', [CajaController::class, 'editarPendiente']);
         Route::patch('/registrations/{reference}/caja/editar-pagada', [CajaController::class, 'editarPagada']);
+        Route::get('/registrations/{reference}/caja/movimientos', [CajaController::class, 'movimientos']);
+        Route::post('/registrations/{reference}/caja/anular-cobro', [CajaController::class, 'anularCobro']);
 
         Route::post('/admin/logout', [AdminAuthController::class, 'logout']);
         Route::get('/admin/me', [AdminAuthController::class, 'me']);

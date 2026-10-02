@@ -1141,4 +1141,179 @@ class CajaTest extends TestCase
         $this->assertEquals(52.5, $turno['totalOrganizador']);
         $this->assertEquals(0, $turno['totalCortesia']);
     }
+
+    // ── Anular un cobro ya registrado (02/10/2026) ──
+
+    public function test_anular_cobro_crea_movimiento_negativo_mismo_metodo_y_cancela_inscripcion(): void
+    {
+        $this->actingAsCajero();
+        $turnoId = $this->postJson("/api/v1/event/{$this->evento->id}/caja/turno/abrir", ['fondo_inicial' => 100])
+            ->json('turno.id');
+
+        $referencia = $this->postJson("/api/v1/event/{$this->evento->id}/caja/inscripcion", [
+            'form_types_id' => $this->formType->id,
+            'participante'  => $this->participanteData('70000001'),
+            'totales'       => $this->totalesData(),
+            'metodo_pago'   => 'DEPOSITO',
+        ])->assertStatus(201)->json('data.referencia');
+
+        $movimientoId = \App\Models\CajaMovimiento::where('registration_id', \App\Models\Registration::where('referencia', $referencia)->value('id'))
+            ->where('tipo', 'inscripcion_nueva')->value('id');
+
+        $this->postJson("/api/v1/registrations/{$referencia}/caja/anular-cobro", [
+            'movimiento_id' => $movimientoId,
+            'motivo'        => 'Chargeback bancario reportado por el participante.',
+        ])->assertStatus(200)->assertJson(['success' => true]);
+
+        $registration = \App\Models\Registration::where('referencia', $referencia)->first();
+        $this->assertEquals('cancelled', $registration->pago_status);
+
+        $this->assertDatabaseHas('caja_movimientos', [
+            'registration_id'     => $registration->id,
+            'caja_turno_id'       => $turnoId,
+            'tipo'                => 'anulacion',
+            'monto'               => -52.5,
+            // Hereda el método del movimiento original (DEPOSITO, no
+            // EFECTIVO) — así el cierre de turno, que solo cuenta EFECTIVO
+            // en monto_esperado, queda simétrico: nunca tocó el cajón al
+            // cobrar, tampoco al anular.
+            'metodo_pago'         => 'DEPOSITO',
+            'motivo'              => 'Chargeback bancario reportado por el participante.',
+            'anula_movimiento_id' => $movimientoId,
+        ]);
+    }
+
+    public function test_anular_cobro_sin_turno_abierto_rechaza(): void
+    {
+        $this->actingAsCajero();
+
+        $registration = app(CrearInscripcionAction::class)->handle(RegistrationDTO::fromArray([
+            'referencia' => 'LA-TEST-' . uniqid(),
+            'fecha' => now()->toDateTimeString(),
+            'evento_id' => $this->evento->id,
+            'evento_nombre' => $this->evento->nombre,
+            'form_types_id' => $this->formType->id,
+            'tipo_pago' => 'pendiente',
+            'pago_status' => 'pending',
+            'pay_order_number' => null,
+            'totales' => $this->totalesData(),
+            'participantes' => [$this->participanteData('70000002')],
+        ]));
+        $registration->update(['pago_status' => 'paid']);
+
+        $this->postJson("/api/v1/registrations/{$registration->referencia}/caja/anular-cobro", [
+            'movimiento_id' => 1,
+            'motivo'        => 'Prueba',
+        ])->assertStatus(422);
+    }
+
+    public function test_anular_cobro_rechaza_sobre_inscripcion_no_pagada(): void
+    {
+        $this->actingAsCajero();
+        $this->postJson("/api/v1/event/{$this->evento->id}/caja/turno/abrir", ['fondo_inicial' => 0]);
+
+        $registration = app(CrearInscripcionAction::class)->handle(RegistrationDTO::fromArray([
+            'referencia' => 'LA-TEST-' . uniqid(),
+            'fecha' => now()->toDateTimeString(),
+            'evento_id' => $this->evento->id,
+            'evento_nombre' => $this->evento->nombre,
+            'form_types_id' => $this->formType->id,
+            'tipo_pago' => 'pendiente',
+            'pago_status' => 'pending',
+            'pay_order_number' => null,
+            'totales' => $this->totalesData(),
+            'participantes' => [$this->participanteData('70000003')],
+        ]));
+        // Sigue 'pending' — nunca se cobró, no hay nada que anular.
+
+        $this->postJson("/api/v1/registrations/{$registration->referencia}/caja/anular-cobro", [
+            'movimiento_id' => 1,
+            'motivo'        => 'Prueba',
+        ])->assertStatus(422)->assertJson(['success' => false]);
+    }
+
+    public function test_anular_cobro_rechaza_si_ya_fue_anulado_antes(): void
+    {
+        $this->actingAsCajero();
+        $this->postJson("/api/v1/event/{$this->evento->id}/caja/turno/abrir", ['fondo_inicial' => 0]);
+
+        $referencia = $this->postJson("/api/v1/event/{$this->evento->id}/caja/inscripcion", [
+            'form_types_id' => $this->formType->id,
+            'participante'  => $this->participanteData('70000004'),
+            'totales'       => $this->totalesData(),
+        ])->json('data.referencia');
+
+        $movimientoId = \App\Models\CajaMovimiento::where('registration_id', \App\Models\Registration::where('referencia', $referencia)->value('id'))
+            ->where('tipo', 'inscripcion_nueva')->value('id');
+
+        $this->postJson("/api/v1/registrations/{$referencia}/caja/anular-cobro", [
+            'movimiento_id' => $movimientoId,
+            'motivo'        => 'Primera anulación.',
+        ])->assertStatus(200);
+
+        // La inscripción ya quedó 'cancelled' — el segundo intento debe
+        // rechazarse por eso ANTES de llegar a chequear "ya fue anulado"
+        // (ambos guards dan 422, cualquiera de los dos mensajes es válido;
+        // lo que importa es que no se cree un segundo movimiento).
+        $this->postJson("/api/v1/registrations/{$referencia}/caja/anular-cobro", [
+            'movimiento_id' => $movimientoId,
+            'motivo'        => 'Segundo intento, no debería aplicar.',
+        ])->assertStatus(422);
+
+        $this->assertEquals(1, \App\Models\CajaMovimiento::where('anula_movimiento_id', $movimientoId)->count());
+    }
+
+    public function test_anular_cobro_rechaza_movimiento_de_otra_inscripcion(): void
+    {
+        $this->actingAsCajero();
+        $this->postJson("/api/v1/event/{$this->evento->id}/caja/turno/abrir", ['fondo_inicial' => 0]);
+
+        $this->postJson("/api/v1/event/{$this->evento->id}/caja/inscripcion", [
+            'form_types_id' => $this->formType->id,
+            'participante'  => $this->participanteData('70000005'),
+            'totales'       => $this->totalesData(),
+        ]);
+        $movimientoDeOtra = \App\Models\CajaMovimiento::where('tipo', 'inscripcion_nueva')->value('id');
+
+        $referenciaB = $this->postJson("/api/v1/event/{$this->evento->id}/caja/inscripcion", [
+            'form_types_id' => $this->formType->id,
+            'participante'  => $this->participanteData('70000006'),
+            'totales'       => $this->totalesData(),
+        ])->json('data.referencia');
+
+        $this->postJson("/api/v1/registrations/{$referenciaB}/caja/anular-cobro", [
+            'movimiento_id' => $movimientoDeOtra,
+            'motivo'        => 'Prueba',
+        ])->assertStatus(422)->assertJson(['success' => false]);
+    }
+
+    public function test_movimientos_lista_la_historia_y_marca_anulable(): void
+    {
+        $this->actingAsCajero();
+        $this->postJson("/api/v1/event/{$this->evento->id}/caja/turno/abrir", ['fondo_inicial' => 0]);
+
+        $referencia = $this->postJson("/api/v1/event/{$this->evento->id}/caja/inscripcion", [
+            'form_types_id' => $this->formType->id,
+            'participante'  => $this->participanteData('70000007'),
+            'totales'       => $this->totalesData(),
+        ])->json('data.referencia');
+
+        $response = $this->getJson("/api/v1/registrations/{$referencia}/caja/movimientos");
+        $response->assertStatus(200);
+        $movimientos = $response->json('data');
+        $this->assertCount(1, $movimientos);
+        $this->assertTrue($movimientos[0]['anulable']);
+
+        $this->postJson("/api/v1/registrations/{$referencia}/caja/anular-cobro", [
+            'movimiento_id' => $movimientos[0]['id'],
+            'motivo'        => 'Prueba.',
+        ])->assertStatus(200);
+
+        $movimientos = $this->getJson("/api/v1/registrations/{$referencia}/caja/movimientos")->json('data');
+        $this->assertCount(2, $movimientos);
+        $original = collect($movimientos)->firstWhere('tipo', 'inscripcion_nueva');
+        $anulacion = collect($movimientos)->firstWhere('tipo', 'anulacion');
+        $this->assertFalse($original['anulable']);
+        $this->assertFalse($anulacion['anulable']);
+    }
 }

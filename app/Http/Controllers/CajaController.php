@@ -4,12 +4,15 @@ namespace App\Http\Controllers;
 
 use App\Actions\ActualizarInscripcionAction;
 use App\Actions\ActualizarInscripcionPagadaAction;
+use App\Actions\AnularCobroAction;
 use App\Actions\CrearInscripcionAction;
 use App\DTOs\RegistrationDTO;
 use App\Http\Controllers\Concerns\AuthorizesEventoScope;
+use App\Http\Requests\AnularCobroRequest;
 use App\Http\Requests\StoreInscripcionCajaRequest;
 use App\Http\Requests\UpdatePaidRegistrationRequest;
 use App\Http\Requests\UpdateRegistrationRequest;
+use App\Http\Resources\CajaMovimientoResource;
 use App\Http\Resources\RegistrationCollectionResource;
 use App\Models\AdminUser;
 use App\Models\CajaMovimiento;
@@ -390,6 +393,56 @@ class CajaController extends Controller
             'message'       => 'Inscripción actualizada y adicional cobrado correctamente.',
             'costo_adicion' => (float) $result['costo_adicion'],
             'data'          => new RegistrationCollectionResource($result['registration']),
+        ]);
+    }
+
+    /**
+     * Historia de movimientos de caja de una inscripción (02/10/2026) — para
+     * que el cajero elija cuál anular. `anulacion` eager-cargada para que
+     * `CajaMovimientoResource::anulable` no dispare una query por fila.
+     */
+    public function movimientos(Request $request, string $reference): JsonResponse
+    {
+        $registration = Registration::where('referencia', $reference)->firstOrFail();
+        $this->assertCanOperarCaja((int) $registration->evento_id);
+
+        $movimientos = CajaMovimiento::where('registration_id', $registration->id)
+            ->with('anulacion')
+            ->orderBy('created_at')
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'data'    => CajaMovimientoResource::collection($movimientos),
+        ]);
+    }
+
+    /**
+     * Anular un cobro ya registrado (02/10/2026) — ver AnularCobroAction.
+     * Mismo guard que editarPagada()/cobrarPendiente(): turno abierto
+     * obligatorio, es un movimiento de dinero real.
+     */
+    public function anularCobro(AnularCobroRequest $request, string $reference, AnularCobroAction $action): JsonResponse
+    {
+        $registration = Registration::where('referencia', $reference)->firstOrFail();
+        $event = Evento::findOrFail($registration->evento_id);
+
+        $admin = $this->assertCanOperarCaja((int) $event->id);
+        $turno = $this->turnoAbierto($event, $admin);
+        if (!$turno) {
+            return $this->errorSinTurno();
+        }
+
+        try {
+            $data = $request->validated();
+            $action->handle($registration, (int) $data['movimiento_id'], $data['motivo'], $admin, $turno);
+        } catch (\DomainException $e) {
+            return response()->json(['success' => false, 'error' => $e->getMessage()], 422);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Cobro anulado — la inscripción quedó cancelada y el cupo fue liberado.',
         ]);
     }
 
