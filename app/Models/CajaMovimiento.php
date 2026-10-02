@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /**
  * Un movimiento de dinero cobrado en caja — ver
@@ -26,6 +27,9 @@ class CajaMovimiento extends Model
         // ActualizarInscripcionPagadaAction cuando el movimiento incluye
         // quitar un taller ya cobrado. Ver Caja controller.
         'motivo',
+        // Anular un cobro (02/10/2026) — en el movimiento tipo='anulacion',
+        // apunta al movimiento original que revierte. Ver AnularCobroAction.
+        'anula_movimiento_id',
     ];
 
     protected $casts = [
@@ -50,5 +54,22 @@ class CajaMovimiento extends Model
     public function cajero(): BelongsTo
     {
         return $this->belongsTo(AdminUser::class, 'admin_user_id');
+    }
+
+    /**
+     * Solo en un movimiento tipo='anulacion': el movimiento original que
+     * revierte.
+     */
+    public function movimientoAnulado(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'anula_movimiento_id');
+    }
+
+    /**
+     * Inverso — si existe, es la anulación que revirtió ESTE movimiento.
+     */
+    public function anulacion(): HasOne
+    {
+        return $this->hasOne(self::class, 'anula_movimiento_id');
     }
 }

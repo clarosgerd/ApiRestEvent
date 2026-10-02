@@ -160,7 +160,7 @@ class CajaTurnoController extends Controller
             abort(404);
         }
 
-        $turno->load(['cajero', 'movimientos.registration']);
+        $turno->load(['cajero', 'movimientos.registration', 'movimientos.anulacion']);
 
         return response()->json([
             'success' => true,

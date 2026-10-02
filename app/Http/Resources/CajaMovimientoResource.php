@@ -27,6 +27,18 @@ class CajaMovimientoResource extends JsonResource
             'motivo'                 => $this->motivo,
             'registrationReferencia' => $this->whenLoaded('registration', fn () => $this->registration?->referencia),
             'createdAt'              => optional($this->created_at)->toIso8601String(),
+            // Anular un cobro (02/10/2026) — true si este movimiento es
+            // candidato a anularse: no es ya una anulación, tiene monto
+            // real (descarta Cortesía, monto 0) y nadie lo anuló antes.
+            // Ojo: whenLoaded() no sirve acá — devuelve null (no llama el
+            // closure) apenas la relación cargada es null, que es
+            // justamente el caso normal (sin anular todavía). Se chequea
+            // relationLoaded() directo; sin la relación cargada (no debería
+            // pasar, ver controllers) se asume anulable por seguridad en
+            // vez de ocultar la acción.
+            'anulable'               => $this->tipo !== 'anulacion'
+                && (float) $this->monto !== 0.0
+                && (! $this->resource->relationLoaded('anulacion') || $this->anulacion === null),
         ];
     }
 }
