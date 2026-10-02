@@ -145,4 +145,42 @@ class RecategorizacionResolverTest extends TestCase
         $this->assertSame('Elite', $resultado['category']->name);
     }
 
+    /**
+     * Bug real (02/10/2026, evento 90013 RUN & CHILL): categorías por
+     * DISTANCIA (5K/10K/15K), no por franja etaria — los rangos de
+     * numeración solo diferencian por numero_min/numero_max (bib blocks),
+     * dejando edad_min/edad_max igual (5-100) en las 3. Antes del fix,
+     * `->first()` sobre rangos superpuestos siempre devolvía el de menor
+     * id, sugiriendo "5K" para CUALQUIER inscrito, sin importar su
+     * categoría real. Ahora la categoría YA inscrita es mandatoria primero:
+     * si su propio rango matchea género/edad, se confirma esa — nunca se
+     * sugiere otra solo porque el id sea menor.
+     */
+    public function test_confirma_la_categoria_propia_cuando_los_rangos_estan_superpuestos(): void
+    {
+        $masculino = Genero::where('nombre', 'Masculino')->first();
+        $categoria5k = Category::factory()->create(['event_id' => $this->evento->id, 'name' => '5K']);
+        $categoria10k = Category::factory()->create(['event_id' => $this->evento->id, 'name' => '10K']);
+
+        // Mismo rango de edad (5-100) en ambas — solo numero_min/numero_max
+        // las diferencia de verdad, igual que en el caso real.
+        NumeracionRango::create([
+            'category_id' => $categoria5k->id, 'genero_id' => $masculino->id,
+            'edad_min' => 5, 'edad_max' => 100, 'numero_min' => 1, 'numero_max' => 250, 'color' => '#ff0000',
+        ]);
+        NumeracionRango::create([
+            'category_id' => $categoria10k->id, 'genero_id' => $masculino->id,
+            'edad_min' => 5, 'edad_max' => 100, 'numero_min' => 301, 'numero_max' => 450, 'color' => '#830778',
+        ]);
+
+        // Inscrito en 10K — antes del fix, esto devolvía "5K" (menor id).
+        $participante = $this->crearParticipante($categoria10k->id, 'Masculino', now()->subYears(40)->toDateString());
+
+        $resultado = RecategorizacionResolver::paraParticipante($participante, $this->evento);
+
+        $this->assertNotNull($resultado);
+        $this->assertSame('10K', $resultado['category']->name);
+        $this->assertSame('#830778', $resultado['color']);
+    }
+
 }
