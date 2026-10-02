@@ -13,6 +13,7 @@ use App\Support\EdicionPagadaCategoriaData;
 use App\Support\EdicionPagadaFeeData;
 use App\Support\EdicionPagadaSouvenirsData;
 use App\Support\EdicionSoloExtrasData;
+use App\Support\SnapshotInscripcionPagadaData;
 use App\Support\Taller\ValidarSeleccionesTallerAction;
 use Illuminate\Support\Facades\DB;
 
@@ -371,6 +372,20 @@ class ActualizarInscripcionPagadaAction
                 // previas de esta misma inscripción.
                 'costo_edicion_acumulado' => round($costoEdicionAcumuladoAnterior + $costoEdicion, 2),
             ]);
+
+            // Reparar el snapshot (30/09/2026, bug real — ver
+            // SnapshotInscripcionPagadaData) — lo de arriba todavía confía en
+            // $data['participantes'][].precioCategoria/subtotal y
+            // $data['totales'] tal cual los manda el cliente (que puede venir
+            // con una DIFERENCIA en vez del precio absoluto, ver
+            // caja/_formulario.blade.php::calcular()). Esta línea reconstruye
+            // el snapshot completo desde el estado YA PERSISTIDO (categoría
+            // real, talleres/souvenirs/donación reales) — corrige
+            // precio_categoria/subtotal/registration_totals
+            // independientemente de lo que haya mandado el cliente. No toca
+            // $costoAdicion/caja_movimientos más abajo, que siempre estuvo
+            // bien (se calcula aparte, sobre los deltas reales).
+            SnapshotInscripcionPagadaData::recalcular($registration);
 
             $this->registrationService->syncPersonas($registration);
 
