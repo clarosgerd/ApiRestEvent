@@ -129,9 +129,9 @@ class CajaController extends Controller
     // Laravel lo bindee, Y con lo que leen
     // UpdateRegistrationRequest/UpdatePaidRegistrationRequest vía
     // `$this->route('reference')` en storeEditar().
-    public function cobrarPendiente(Evento $event, string $reference, ApiCajaController $api): JsonResponse
+    public function cobrarPendiente(Request $request, Evento $event, string $reference, ApiCajaController $api): JsonResponse
     {
-        return $api->cobrarPendiente($reference);
+        return $api->cobrarPendiente($request, $reference);
     }
 
     public function editar(Evento $event, string $reference, ApiEventoController $apiEvento, ApiRegistrationController $apiReg): View

@@ -61,6 +61,6 @@ class AcreditacionController extends Controller
     {
         $this->assertCanViewEvento($event->id);
 
-        return $api->checkin($participante);
+        return $api->checkin($participante, app(\App\Actions\CheckinParticipanteAction::class));
     }
 }
