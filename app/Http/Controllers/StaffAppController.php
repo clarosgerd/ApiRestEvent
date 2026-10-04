@@ -62,7 +62,7 @@ class StaffAppController extends Controller
 
         $participantes = Participante::whereHas('registration', fn ($q) => $q->where('evento_id', $event->id)
                 ->where('pago_status', 'paid'))
-            ->with(['registration:id,referencia,pago_status,fecha,tipo_pago,moneda_pago', 'talleresSesiones.sesionCongreso', 'talleresSesiones.taller', 'souvenirParticipante'])
+            ->with(['registration:id,referencia,pago_status,fecha,tipo_pago,moneda_pago', 'talleresSesiones.sesionCongreso', 'talleresSesiones.taller', 'souvenirParticipante', 'answers'])
             ->orderBy('categoria')
             ->orderBy('apellido')
             ->get(ParticipanteExportData::COLUMNS);
