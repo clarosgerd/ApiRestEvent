@@ -2,10 +2,12 @@
 
 namespace Tests\Feature;
 
+use App\Models\Answer;
 use App\Models\Category;
 use App\Models\Ciudad;
 use App\Models\Evento;
 use App\Models\FormType;
+use App\Models\FormularioCampos;
 use App\Models\Organizador;
 use App\Models\Pais;
 use App\Models\Participante;
@@ -210,6 +212,42 @@ class ParticipantesPorEventoTest extends TestCase
         $this->assertEquals(180.0, $p['importeTotal']);
     }
 
+    /**
+     * Descuento por código promocional (04/10/2026) — `importe` ya viene
+     * neto de la promo; el organizador necesita ver qué código se usó y
+     * cuánto descontó, tanto en reportes de carrera como de congreso.
+     */
+    public function test_expone_codigo_y_descuento_promocional(): void
+    {
+        $this->crearInscripcion(['subtotal' => 396, 'promo_codigo' => 'NARANJILLO10-01', 'promo_descuento' => 44]);
+
+        $admin = $this->actingAsAdmin();
+        $admin->update(['rol' => 'admin', 'evento_id' => $this->evento->id]);
+
+        $response = $this->getJson("/api/v1/event/{$this->evento->id}/participantes")
+            ->assertStatus(200);
+
+        $p = $response->json('participantes.0');
+        $this->assertEquals(396.0, $p['importe']);
+        $this->assertSame('NARANJILLO10-01', $p['promoCodigo']);
+        $this->assertEquals(44.0, $p['promoDescuento']);
+    }
+
+    public function test_sin_promo_codigo_es_null_y_descuento_cero(): void
+    {
+        $this->crearInscripcion(['subtotal' => 100]);
+
+        $admin = $this->actingAsAdmin();
+        $admin->update(['rol' => 'admin', 'evento_id' => $this->evento->id]);
+
+        $p = $this->getJson("/api/v1/event/{$this->evento->id}/participantes")
+            ->assertStatus(200)
+            ->json('participantes.0');
+
+        $this->assertNull($p['promoCodigo']);
+        $this->assertEquals(0.0, $p['promoDescuento']);
+    }
+
     public function test_importe_taller_es_cero_sin_talleres(): void
     {
         $this->crearInscripcion(['subtotal' => 50]);
@@ -353,6 +391,71 @@ class ParticipantesPorEventoTest extends TestCase
             ->assertStatus(200);
 
         $this->assertSame('M', $response->json('participantes.0.polera'));
+    }
+
+    /**
+     * Reporte de carrera (04/10/2026) — el precio de la polera viaja aparte
+     * (importePolera) para separarlo del importe de inscripción.
+     */
+    public function test_expone_importe_polera_separado(): void
+    {
+        $polera = Souvenir::factory()->create([
+            'form_types_id' => $this->formType->id, 'requiere_talla' => true, 'es_polera' => true,
+        ]);
+        $p = $this->crearInscripcion(['subtotal' => 200]);
+        SouvenirParticipante::create([
+            'participante_id' => $p->id, 'souvenir_id' => $polera->id,
+            'nombre' => $polera->name, 'precio' => 50, 'talla' => 'M',
+        ]);
+
+        $admin = $this->actingAsAdmin();
+        $admin->update(['rol' => 'admin', 'evento_id' => $this->evento->id]);
+
+        $p = $this->getJson("/api/v1/event/{$this->evento->id}/participantes")
+            ->assertStatus(200)
+            ->json('participantes.0');
+
+        $this->assertEquals(50.0, $p['importePolera']);
+        $this->assertEquals(200.0, $p['importe']);
+    }
+
+    /**
+     * Preguntas propias del formulario marcadas "En reporte": viajan como
+     * `respuestas` (en orden), con valor '' si el participante no respondió.
+     * Las que no están marcadas no se exponen.
+     */
+    public function test_expone_respuestas_de_preguntas_en_reporte(): void
+    {
+        $visible = FormularioCampos::factory()->create([
+            'form_types_id' => $this->formType->id, 'nombre_campo' => 'especialidad',
+            'etiqueta' => 'Especialidad', 'visible_en_reporte' => true, 'orden' => 1,
+        ]);
+        FormularioCampos::factory()->create([
+            'form_types_id' => $this->formType->id, 'nombre_campo' => 'oculta',
+            'etiqueta' => 'Oculta', 'visible_en_reporte' => false, 'orden' => 2,
+        ]);
+        FormularioCampos::factory()->create([
+            'form_types_id' => $this->formType->id, 'nombre_campo' => 'institucion',
+            'etiqueta' => 'Institución', 'visible_en_reporte' => true, 'orden' => 3,
+        ]);
+
+        $p = $this->crearInscripcion();
+        Answer::create([
+            'form_types_id' => $this->formType->id, 'question_id' => $visible->id,
+            'participante_id' => $p->id, 'value' => 'Retina',
+        ]);
+
+        $admin = $this->actingAsAdmin();
+        $admin->update(['rol' => 'admin', 'evento_id' => $this->evento->id]);
+
+        $respuestas = $this->getJson("/api/v1/event/{$this->evento->id}/participantes")
+            ->assertStatus(200)
+            ->json('participantes.0.respuestas');
+
+        $this->assertSame([
+            ['nombre_campo' => 'especialidad', 'etiqueta' => 'Especialidad', 'valor' => 'Retina'],
+            ['nombre_campo' => 'institucion', 'etiqueta' => 'Institución', 'valor' => ''],
+        ], $respuestas);
     }
 
     /**

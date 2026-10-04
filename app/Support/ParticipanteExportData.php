@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Models\Evento;
+use App\Models\FormularioCampos;
 use App\Models\Genero;
 use App\Models\NumeracionRango;
 use App\Models\Participante;
@@ -13,6 +14,9 @@ use Illuminate\Support\Collection;
  * (02/10/2026) — extraído de ese método, sin tocar su lógica, para reusarlo
  * tal cual en `StaffAppController::participantes()` (descarga offline para
  * la app de staff) sin duplicar el array de campos.
+ *
+ * Los callers deben cargar `answers` y `souvenirParticipante` (eager) para no
+ * hacer N+1 — ver porEvento() y StaffAppController::participantes().
  */
 class ParticipanteExportData
 {
@@ -20,6 +24,7 @@ class ParticipanteExportData
         'id', 'registration_id', 'nombre', 'apellido', 'alias', 'numero_documento',
         'categoria', 'numero_corredor', 'chip', 'correo', 'telefono', 'direccion',
         'ciudad', 'genero', 'fecha_nacimiento', 'edad', 'polera', 'checked_in_at', 'subtotal',
+        'promo_codigo', 'promo_descuento',
     ];
 
     private function __construct(
@@ -29,13 +34,15 @@ class ParticipanteExportData
         private readonly bool $hayRecategorizacion,
         private readonly Collection $numeracionRangosDelEvento,
         private readonly Collection $generosPorNombre,
+        private readonly Collection $preguntasReporte,
     ) {
     }
 
     public static function paraEvento(Evento $event): self
     {
         $categoriasPorId = $event->categories->keyBy(fn ($c) => (string) $c->id);
-        $souvenirIdsPolera = TallaPoleraData::souvenirIdsPolera($event->formTypes()->pluck('id')->all());
+        $formTypeIds = $event->formTypes()->pluck('id')->all();
+        $souvenirIdsPolera = TallaPoleraData::souvenirIdsPolera($formTypeIds);
 
         $numeracionRangosDelEvento = NumeracionRango::whereHas(
             'category',
@@ -44,6 +51,24 @@ class ParticipanteExportData
         $hayRecategorizacion = $numeracionRangosDelEvento->isNotEmpty();
         $generosPorNombre = $hayRecategorizacion ? Genero::all()->keyBy('nombre') : collect();
 
+        // Preguntas propias del formulario marcadas "En reporte" (flag
+        // visible_en_reporte, ya existente desde admin-eventos). Un mismo
+        // nombre_campo puede existir en varios form_types: se agrupa y cada
+        // participante toma la respuesta de cualquiera de sus ids.
+        $preguntasReporte = FormularioCampos::whereIn('form_types_id', $formTypeIds)
+            ->where('visible_en_reporte', true)
+            ->orderBy('form_types_id')
+            ->orderBy('orden')
+            ->orderBy('id')
+            ->get()
+            ->groupBy('nombre_campo')
+            ->map(fn (Collection $grupo, string $nombreCampo) => [
+                'nombre_campo' => $nombreCampo,
+                'etiqueta' => $grupo->first()->etiqueta ?: $nombreCampo,
+                'ids' => $grupo->pluck('id')->all(),
+            ])
+            ->values();
+
         return new self(
             $categoriasPorId,
             $souvenirIdsPolera,
@@ -51,6 +76,7 @@ class ParticipanteExportData
             $hayRecategorizacion,
             $numeracionRangosDelEvento,
             $generosPorNombre,
+            $preguntasReporte,
         );
     }
 
@@ -69,6 +95,12 @@ class ParticipanteExportData
                 2
             );
         }
+
+        // Precio de la polera (souvenir marcado es_polera), para que el reporte
+        // de carrera pueda separarlo del importe de inscripción.
+        $importePolera = round((float) $p->souvenirParticipante
+            ->whereIn('souvenir_id', $this->souvenirIdsPolera)
+            ->sum('precio'), 2);
 
         $categoriaRecalculada = null;
         $categoriaRecalculadaColor = null;
@@ -103,11 +135,46 @@ class ParticipanteExportData
             'tipoPago'        => $p->registration->tipo_pago,
             'checkedInAt'     => optional($p->checked_in_at)->toIso8601String(),
             'importe'         => $importe,
+            'importePolera'   => $importePolera,
             'importeTaller'   => $importeTaller,
             'importeTotal'    => round($importe + $importeTaller, 2),
+            // Descuento por código promocional — `importe` ya viene neto de
+            // la promo; estos campos dejan ver qué código se usó y cuánto
+            // se descontó (organizador, reportes de carrera y de congreso).
+            'promoCodigo'     => $p->promo_codigo ?: null,
+            'promoDescuento'  => round((float) $p->promo_descuento, 2),
             'fechaInscripcion' => optional($p->registration->fecha)->toIso8601String(),
             'categoriaRecalculada'      => $categoriaRecalculada,
             'categoriaRecalculadaColor' => $categoriaRecalculadaColor,
+            'respuestas'      => $this->respuestasDe($p),
         ];
+    }
+
+    /**
+     * Respuestas a las preguntas "En reporte" del evento, una entrada por
+     * pregunta (en el mismo orden para todos los participantes). Valor ''
+     * cuando el participante no respondió (o su formulario no tiene esa pregunta).
+     *
+     * @return list<array{nombre_campo: string, etiqueta: string, valor: string}>
+     */
+    private function respuestasDe(Participante $p): array
+    {
+        if ($this->preguntasReporte->isEmpty()) {
+            return [];
+        }
+
+        $valorPorPregunta = $p->answers->keyBy('question_id');
+
+        return $this->preguntasReporte->map(function (array $pregunta) use ($valorPorPregunta) {
+            $respuesta = collect($pregunta['ids'])
+                ->map(fn (int $id) => $valorPorPregunta->get($id))
+                ->first(fn ($a) => $a !== null);
+
+            return [
+                'nombre_campo' => $pregunta['nombre_campo'],
+                'etiqueta' => $pregunta['etiqueta'],
+                'valor' => (string) ($respuesta?->value ?? ''),
+            ];
+        })->values()->all();
     }
 }
