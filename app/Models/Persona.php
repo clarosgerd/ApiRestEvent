@@ -46,4 +46,24 @@ class Persona extends Authenticatable
     {
         return $this->hasOne(ContactoEmergencia::class);
     }
+
+    /**
+     * App de staff offline (02/10/2026) — ¿esta Persona está inscripta como
+     * staff (form_type.es_staff=true) de este evento, con el pago
+     * confirmado? No hay FK directa Persona→Participante (Persona es una
+     * cuenta derivada, ver RegistrationService::syncPersonas()) — se
+     * resuelve por `email` (único) primero, `numero_documento` como
+     * fallback, mismo criterio anti-colisión que syncPersonas() (nunca
+     * `orWhere`, que podría matchear el participante equivocado si dos
+     * personas comparten documento).
+     */
+    public function participanteStaffParaEvento(Evento $evento): ?Participante
+    {
+        $query = fn () => Participante::whereHas('registration', fn ($q) => $q->where('evento_id', $evento->id)
+            ->where('pago_status', 'paid')
+            ->whereHas('formType', fn ($q2) => $q2->where('es_staff', true)));
+
+        return $query()->where('correo', $this->email)->first()
+            ?? $query()->where('numero_documento', $this->numero_documento)->first();
+    }
 }

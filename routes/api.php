@@ -3,6 +3,7 @@
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\PersonaController;
+use App\Http\Controllers\StaffAppController;
 use App\Http\Controllers\ReporteTrazabilidadController;
 
 use App\Http\Controllers\RegistrationController;
@@ -109,6 +110,14 @@ Route::group(['prefix' => 'v1','namespace' => 'App\Http\Controllers'], function 
     // de funcionar para cualquier Persona pública consultando su propia
     // cuenta.
     Route::get('persona/me', [PersonaController::class, 'me'])->middleware('auth:sanctum');
+
+    // App de staff offline (02/10/2026) — ver StaffAppController. Staff
+    // real autenticado como Persona (no un secreto compartido tipo
+    // internal/*), autorización por evento revalidada en cada request.
+    Route::middleware('auth:sanctum')->group(function () {
+        Route::get('/persona/eventos/{event}/participantes', [StaffAppController::class, 'participantes']);
+        Route::post('/persona/eventos/{event}/checkin-bulk', [StaffAppController::class, 'checkinBulk']);
+    });
 
     // SIP multi-banco (28/08/2026) — server-to-server ÚNICAMENTE, nunca
     // auth:admins/sanctum (esto no es para humanos). Solo el backend PHP
