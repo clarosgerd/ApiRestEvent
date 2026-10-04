@@ -11,6 +11,10 @@ class AdminAuditLog extends Model
 
     protected $fillable = [
         'admin_user_id',
+        // App de staff offline (02/10/2026) — autor del check-in cuando lo
+        // hizo una Persona (app móvil), no un AdminUser (panel). Ver
+        // AdminAuditLogger::log().
+        'persona_id',
         'accion',
         'entidad',
         'entidad_id',
@@ -28,5 +32,10 @@ class AdminAuditLog extends Model
     public function adminUser(): BelongsTo
     {
         return $this->belongsTo(AdminUser::class, 'admin_user_id');
+    }
+
+    public function personaAutor(): BelongsTo
+    {
+        return $this->belongsTo(Persona::class, 'persona_id');
     }
 }

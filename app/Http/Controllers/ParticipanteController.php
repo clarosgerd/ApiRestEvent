@@ -2,9 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Actions\CheckinParticipanteAction;
 use App\Models\Evento;
-use App\Models\Genero;
-use App\Models\NumeracionRango;
 use App\Models\Participante;
 use App\Http\Requests\StoreParticipanteRequest;
 use App\Http\Requests\UpdateParticipanteRequest;
@@ -15,8 +14,7 @@ use App\Http\Resources\ParticipanteResource;
 use App\Http\Resources\ParticipanteCollection;
 use App\Http\Controllers\Concerns\AuthorizesEventoScope;
 use App\Services\AdminAuditLogger;
-use App\Support\RecategorizacionResolver;
-use App\Support\TallaPoleraData;
+use App\Support\ParticipanteExportData;
 
 class ParticipanteController extends Controller
 {
@@ -138,36 +136,25 @@ class ParticipanteController extends Controller
      * timestamp original sin pisarlo, con `alreadyCheckedIn: true`, para
      * que el staff pueda escanear de más sin miedo a romper nada.
      */
-    public function checkin(Participante $participante): JsonResponse
+    public function checkin(Participante $participante, CheckinParticipanteAction $action): JsonResponse
     {
         $participante->loadMissing('registration');
         $eventoId = (int) $participante->registration->evento_id;
         $this->assertCanWriteEvento($eventoId);
 
-        if ($participante->registration->pago_status !== 'paid') {
+        $resultado = $action->handle($participante, auth('admins')->user());
+
+        if ($resultado['status'] === CheckinParticipanteAction::REJECTED_UNPAID) {
             return response()->json([
                 'success' => false,
                 'error'   => 'No se puede acreditar: el pago no está confirmado.',
             ], 422);
         }
 
-        if ($participante->checked_in_at) {
-            return response()->json([
-                'success'         => true,
-                'alreadyCheckedIn' => true,
-                'participante'    => new ParticipanteResource($participante),
-            ]);
-        }
-
-        $before = $participante->toArray();
-        $participante->update(['checked_in_at' => now()]);
-
-        AdminAuditLogger::log('checkin', 'participante', $participante->id, $eventoId, $before, $participante->toArray());
-
         return response()->json([
             'success'          => true,
-            'alreadyCheckedIn' => false,
-            'participante'     => new ParticipanteResource($participante),
+            'alreadyCheckedIn' => $resultado['status'] === CheckinParticipanteAction::ALREADY,
+            'participante'     => new ParticipanteResource($resultado['participante']),
         ]);
     }
 
@@ -243,112 +230,12 @@ class ParticipanteController extends Controller
             ->orderBy('categoria')
             ->orderBy('apellido');
 
-        $columnas = [
-            'id', 'registration_id', 'nombre', 'apellido', 'alias', 'numero_documento',
-            'categoria', 'numero_corredor', 'chip', 'correo', 'telefono', 'direccion',
-            'ciudad', 'genero', 'fecha_nacimiento', 'edad', 'polera', 'checked_in_at', 'subtotal',
-        ];
-
-        // Precio USD fijo (24/08/2026) — "Detalle de inscritos" mostraba el
-        // subtotal en Bs (bookkeeping interno, ver
-        // emails/partials/totales.blade.php) también para inscripciones
-        // usdPrecioFijo, dando cifras que no coinciden con lo que el
-        // participante realmente pagó en USD. Se resuelve por categoría acá
-        // mismo, no por evento — un evento con `aceptaUsd` normal (tipo de
-        // cambio) puede mezclar registros en BOB y en USD.
-        $categoriasPorId = $event->categories->keyBy(fn ($c) => (string) $c->id);
-        // Talla real de la polera (03/09/2026) — ver TallaPoleraData: esta
-        // columna leía directo `polera` (legacy), que queda siempre en el
-        // sentinel 'No shirt' para eventos que ya modelan la polera como
-        // un souvenir normal.
-        $souvenirIdsPolera = TallaPoleraData::souvenirIdsPolera($event->formTypes()->pluck('id')->all());
-
-        // Recategorización visual por edad/género (23/09/2026) — expuesta
-        // acá (y no recalculada en admin-eventos) porque ChronoTrackExportController
-        // no tiene acceso a `edad`/`calculo_edad_id` para replicar
-        // CalculoEdadResolver del lado del cliente. Precargado una sola vez
-        // (no por participante) para no hacer N+1 — ver RecategorizacionResolver.
-        // Solo visual: nunca toca `categoria`/`subtotal` reales de arriba.
-        $numeracionRangosDelEvento = NumeracionRango::whereHas(
-            'category',
-            fn ($q) => $q->where('event_id', $event->id)
-        )->with('category')->get();
-        $hayRecategorizacion = $numeracionRangosDelEvento->isNotEmpty();
-        $generosPorNombre = $hayRecategorizacion ? Genero::all()->keyBy('nombre') : collect();
-
-        $mapear = function (Participante $p) use ($categoriasPorId, $souvenirIdsPolera, $event, $hayRecategorizacion, $numeracionRangosDelEvento, $generosPorNombre) {
-            $esUsdFijo = $p->registration->moneda_pago === 'USD';
-            $importe = (float) $p->subtotal;
-            $importeTaller = round((float) $p->talleresSesiones->sum('total'), 2);
-            if ($esUsdFijo) {
-                $categoria = $categoriasPorId->get((string) $p->categoria);
-                $importe = (float) ($categoria->price_usd ?? 0);
-                $importeTaller = round(
-                    (float) $p->talleresSesiones->sum(
-                        fn ($ts) => (float) ($ts->sesionCongreso->price_usd ?? $ts->taller->price_usd ?? 0)
-                    ),
-                    2
-                );
-            }
-
-            $categoriaRecalculada = null;
-            $categoriaRecalculadaColor = null;
-            if ($hayRecategorizacion) {
-                $recategorizacion = RecategorizacionResolver::paraParticipante(
-                    $p, $event, $numeracionRangosDelEvento, $generosPorNombre, $categoriasPorId
-                );
-                if ($recategorizacion) {
-                    $categoriaRecalculada = $recategorizacion['category']->name;
-                    $categoriaRecalculadaColor = $recategorizacion['color'];
-                }
-            }
-
-            return [
-            'id'              => $p->id,
-            'referencia'      => $p->registration->referencia,
-            'nombre'          => $p->nombre,
-            'apellido'        => $p->apellido,
-            'alias'           => $p->alias,
-            'numeroDocumento' => $p->numero_documento,
-            'categoria'       => $p->categoria,
-            'numeroCorredor'  => $p->numero_corredor,
-            'chip'            => $p->chip,
-            'correo'          => $p->correo,
-            'telefono'        => $p->telefono,
-            'direccion'       => $p->direccion,
-            'ciudad'          => $p->ciudad,
-            'genero'          => $p->genero,
-            'fechaNacimiento' => optional($p->fecha_nacimiento)->format('Y-m-d'),
-            'polera'          => TallaPoleraData::resolver($p, $souvenirIdsPolera),
-            // pagoStatus/checkedInAt: para el contador "X de Y acreditados"
-            // de la pantalla de Acreditación (admin-eventos) — "Y" es el
-            // total de pagados, "X" cuántos de esos ya tienen checkedInAt.
-            'pagoStatus'      => $p->registration->pago_status,
-            // tipoPago (24/08/2026) — pantalla "Detalle de inscritos" lo usa
-            // para mostrar "Confirmar pago" solo en filas pendientes con
-            // tipo_pago='pendiente_usd' (ver RegistrationController::confirmarPagoManual()).
-            'tipoPago'        => $p->registration->tipo_pago,
-            'checkedInAt'     => optional($p->checked_in_at)->toIso8601String(),
-            // importe/fechaInscripcion: reporte detallado de inscritos
-            // (15/08/2026), pantalla nueva "Detalle de inscritos" en
-            // admin-eventos.
-            'importe'         => $importe,
-            // importeTaller/importeTotal (19/08/2026) — `importe` (subtotal)
-            // no incluye talleres, así que no alcanzaba para conciliar
-            // contra el banco lo que el participante realmente pagó.
-            // `importeTotal` es lo comparable contra el depósito real
-            // (no incluye el cargo de servicio, que se cobra por
-            // inscripción/registro completo, no por participante).
-            'importeTaller'   => $importeTaller,
-            'importeTotal'    => round($importe + $importeTaller, 2),
-            'fechaInscripcion' => optional($p->registration->fecha)->toIso8601String(),
-            // Recategorización visual por edad/género (23/09/2026) — null
-            // si el evento no tiene NumeracionRango cargado, o si no matchea
-            // ningún rango para el género/edad real de este participante.
-            'categoriaRecalculada'      => $categoriaRecalculada,
-            'categoriaRecalculadaColor' => $categoriaRecalculadaColor,
-            ];
-        };
+        // Mapeo extraído a App\Support\ParticipanteExportData (02/10/2026) —
+        // reusado tal cual por StaffAppController::participantes() (descarga
+        // offline para la app de staff) sin duplicar el array de campos.
+        $columnas = ParticipanteExportData::COLUMNS;
+        $exportData = ParticipanteExportData::paraEvento($event);
+        $mapear = [$exportData, 'mapear'];
 
         if ($data['per_page'] ?? null) {
             $paginador = $query->paginate($data['per_page'], $columnas, 'page', $data['page'] ?? 1);

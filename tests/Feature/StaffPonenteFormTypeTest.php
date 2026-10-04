@@ -2,6 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Mail\PagoConfirmadoMail;
+use App\Mail\StaffAccesoMail;
 use App\Models\Category;
 use App\Models\Evento;
 use App\Models\FormType;
@@ -123,6 +125,33 @@ class StaffPonenteFormTypeTest extends TestCase
         $registration = Registration::firstOrFail();
         $this->assertSame('paid', $registration->pago_status);
         $this->assertSame('gratis', $registration->tipo_pago);
+    }
+
+    /**
+     * App de staff offline (02/10/2026) — un form_type es_staff no tiene
+     * sentido recibir el e-ticket genérico de "✓ Pagado" (nunca pagó
+     * nada): recibe el correo nuevo con sus credenciales de acceso a la
+     * app en vez del genérico. Ver NotificacionService::notificarPagoConfirmado().
+     */
+    public function test_staff_recibe_el_correo_de_acceso_en_vez_del_generico_de_pago_confirmado(): void
+    {
+        $ft = $this->formType(['es_staff' => true]);
+
+        $this->inscribir($ft)->assertCreated();
+
+        Mail::assertSent(StaffAccesoMail::class);
+        Mail::assertNotSent(PagoConfirmadoMail::class);
+    }
+
+    /** Un ponente SÍ sigue recibiendo el correo genérico (solo es_staff cambia). */
+    public function test_ponente_sigue_recibiendo_el_correo_generico_de_pago_confirmado(): void
+    {
+        $ft = $this->formType(['es_ponente' => true]);
+
+        $this->inscribir($ft)->assertCreated();
+
+        Mail::assertSent(PagoConfirmadoMail::class);
+        Mail::assertNotSent(StaffAccesoMail::class);
     }
 
     public function test_staff_y_ponente_con_total_mayor_a_cero_se_rechazan(): void

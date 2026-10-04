@@ -10,6 +10,7 @@ use App\Mail\PagoAdicionalConfirmadoMail;
 use App\Mail\PagoConfirmadoMail;
 use App\Mail\RecordatorioKitMail;
 use App\Mail\RecordatorioPagoMail;
+use App\Mail\StaffAccesoMail;
 use App\Models\PagoAdicionalInscripcion;
 use App\Models\Registration;
 use App\Models\RegistrationNotification;
@@ -60,11 +61,26 @@ class NotificacionService
 
     public function notificarPagoConfirmado(Registration $registration): void
     {
-        $this->enviarEmailSiNoEnviado(
-            $registration,
-            'pago_confirmado',
-            fn () => new PagoConfirmadoMail($registration)
-        );
+        // App de staff offline (02/10/2026) — un form_type es_staff nunca
+        // paga nada (FormType::esSinCosto()), así que el e-ticket de
+        // "✓ Pagado" de PagoConfirmadoMail no tiene sentido ahí. Se chequea
+        // es_staff puntual (no esSinCosto(), que también incluye
+        // es_ponente — un ponente sí debe seguir recibiendo el genérico).
+        $registration->loadMissing('formType');
+
+        if ($registration->formType?->es_staff) {
+            $this->enviarEmailSiNoEnviado(
+                $registration,
+                'alta_staff',
+                fn () => new StaffAccesoMail($registration)
+            );
+        } else {
+            $this->enviarEmailSiNoEnviado(
+                $registration,
+                'pago_confirmado',
+                fn () => new PagoConfirmadoMail($registration)
+            );
+        }
 
         $this->provisionarCuentaExpositorSiCorresponde($registration);
     }
