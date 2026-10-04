@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Models\Evento;
+use App\Models\FormType;
 use App\Models\FormularioCampos;
 use App\Models\Genero;
 use App\Models\NumeracionRango;
@@ -24,7 +25,7 @@ class ParticipanteExportData
         'id', 'registration_id', 'nombre', 'apellido', 'alias', 'numero_documento',
         'categoria', 'numero_corredor', 'chip', 'correo', 'telefono', 'direccion',
         'ciudad', 'genero', 'fecha_nacimiento', 'edad', 'polera', 'checked_in_at', 'subtotal',
-        'promo_codigo', 'promo_descuento',
+        'promo_codigo', 'promo_descuento', 'equipo_id',
     ];
 
     private function __construct(
@@ -35,6 +36,7 @@ class ParticipanteExportData
         private readonly Collection $numeracionRangosDelEvento,
         private readonly Collection $generosPorNombre,
         private readonly Collection $preguntasReporte,
+        private readonly bool $eventoConEquipo,
     ) {
     }
 
@@ -69,6 +71,10 @@ class ParticipanteExportData
             ])
             ->values();
 
+        // Equipo (flag has_team del tipo de formulario): el reporte de carrera
+        // solo muestra la columna si el evento tiene algún formulario con equipo.
+        $eventoConEquipo = FormType::whereIn('id', $formTypeIds)->where('has_team', true)->exists();
+
         return new self(
             $categoriasPorId,
             $souvenirIdsPolera,
@@ -77,6 +83,7 @@ class ParticipanteExportData
             $numeracionRangosDelEvento,
             $generosPorNombre,
             $preguntasReporte,
+            $eventoConEquipo,
         );
     }
 
@@ -147,6 +154,10 @@ class ParticipanteExportData
             'categoriaRecalculada'      => $categoriaRecalculada,
             'categoriaRecalculadaColor' => $categoriaRecalculadaColor,
             'respuestas'      => $this->respuestasDe($p),
+            // Equipo elegido en el formulario (ver flag has_team). `eventoConEquipo`
+            // decide si el reporte muestra la columna.
+            'equipo'          => $p->equipo?->nombre,
+            'eventoConEquipo' => $this->eventoConEquipo,
         ];
     }
 

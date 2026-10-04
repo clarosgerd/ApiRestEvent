@@ -216,7 +216,7 @@ class ParticipanteController extends Controller
             // ver más abajo.
             // souvenirParticipante (03/09/2026) — ver TallaPoleraData, para
             // resolver la talla real de la polera sin N+1.
-            ->with(['registration:id,referencia,pago_status,fecha,tipo_pago,moneda_pago', 'talleresSesiones.sesionCongreso', 'talleresSesiones.taller', 'souvenirParticipante', 'answers'])
+            ->with(['registration:id,referencia,pago_status,fecha,tipo_pago,moneda_pago', 'talleresSesiones.sesionCongreso', 'talleresSesiones.taller', 'souvenirParticipante', 'answers', 'equipo'])
             ->when($data['categoria'] ?? null, fn ($q, $categoria) => $q->where('categoria', $categoria))
             ->when($data['search'] ?? null, function ($q, $term) {
                 $like = '%' . $term . '%';
