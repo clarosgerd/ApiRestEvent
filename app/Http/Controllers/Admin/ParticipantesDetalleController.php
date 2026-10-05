@@ -16,12 +16,14 @@ use Illuminate\Support\Carbon;
 use Illuminate\View\View;
 
 /**
- * Consolidación monolito (21/08/2026), Fase 1e-i — reporte detallado de
- * inscritos (solo lectura), fila por fila con paginación opt-in. Portado
- * 1:1 de admin-eventos, delegando en el mismo
- * ParticipanteController::porEvento() de la API que ya usan
- * ParticipantesController/NumeracionController. Ver
- * ApiRestEvent/brain/api_rest_event/PLAN-CONSOLIDACION-MONOLITO-21082026.md.
+ * Reporte detallado de inscritos (15/08/2026) — pantalla de solo lectura a
+ * la que se llega desde las tarjetas de totales del Dashboard de
+ * inscripciones, filtrable por estado de pago.
+ *
+ * Consume ParticipanteController::porEvento() en proceso (sin HTTP), igual
+ * que el resto del monolito. El formato del CSV y las columnas por tipo de
+ * evento son los mismos que en admin-eventos (ParticipantesDetalleController):
+ * ver el commit de origen de cada bloque en el historial del repo admin-eventos.
  */
 class ParticipantesDetalleController extends Controller
 {
@@ -39,34 +41,47 @@ class ParticipantesDetalleController extends Controller
         $eventoData = $apiEvento->show($event)->getData(true)['eventos'] ?? null;
         abort_if(!$eventoData, 404);
 
-        [$categoria, $pagoStatus, $perPage, $page] = $this->filtrosDesde($request);
+        [$categoria, $pagoStatus, $perPage, $page, $search] = $this->filtrosDesde($request);
 
         $request->merge(array_filter([
             'categoria' => $categoria !== '' ? $categoria : null,
             'pago_status' => $pagoStatus !== '' ? $pagoStatus : null,
             'per_page' => $perPage,
             'page' => $page,
+            'search' => $search !== '' ? $search : null,
         ]));
 
         $payload = $apiParticipante->porEvento($request, $event)->getData(true);
         abort_if(!($payload['success'] ?? false), 502, 'No se pudo cargar el detalle de inscritos.');
 
+        $participantes = collect($payload['participantes'] ?? [])
+            ->map(fn (array $p) => $p + ['poleraTalla' => $this->tallaPolera($p['polera'] ?? null)])
+            ->all();
+
         return view('admin.eventos.participantes-detalle', [
             'evento' => $eventoData,
+            // Carrera vs congreso: numeración y distancia solo aplican a carreras.
+            'usaNumeracion' => $this->esCarrera($eventoData),
+            // Equipo: solo carreras, y solo si algún formulario del evento tiene has_team.
+            'mostrarEquipo' => $this->esCarrera($eventoData)
+                && collect($participantes)->contains(fn ($p) => ($p['eventoConEquipo'] ?? false) === true),
+            // Talla de polera: solo carreras con souvenir de polera en el evento.
+            'mostrarPolera' => $this->esCarrera($eventoData)
+                && collect($participantes)->contains(fn ($p) => ($p['eventoConPolera'] ?? false) === true),
+            // Descuento grupal: depende del flag del formulario, no del tipo de evento.
+            'mostrarGrupal' => collect($participantes)->contains(fn ($p) => ($p['eventoConGrupal'] ?? false) === true),
             'categoriaSeleccionada' => $categoria,
             'pagoStatusSeleccionado' => $pagoStatus,
-            'participantes' => $payload['participantes'] ?? [],
+            'searchSeleccionado' => $search,
+            'participantes' => $participantes,
             'meta' => $payload['meta'] ?? null,
         ]);
     }
 
     /**
-     * Consolidación monolito (25/08/2026) — conciliación manual de "Pago
-     * pendiente (USD)", portado 1:1 de admin-eventos
-     * (ParticipantesDetalleController::confirmarPagoManual()). Delega en
-     * App\Http\Controllers\RegistrationController::confirmarPagoManual(),
-     * que ya revalida tipo_pago/pago_status/assertCanWriteEvento() —
-     * mismo criterio de siempre, no reimplementar nada acá.
+     * Conciliación manual de "Pago pendiente (USD)" — delega en
+     * RegistrationController::confirmarPagoManual(), que revalida
+     * tipo_pago/pago_status y assertCanWriteEvento().
      */
     public function confirmarPagoManual(Request $request, Evento $event, string $referencia, ApiRegistrationController $apiRegistration): RedirectResponse
     {
@@ -85,28 +100,24 @@ class ParticipantesDetalleController extends Controller
     {
         $this->assertCanViewEvento($event->id);
 
-        [$categoria, $pagoStatus] = $this->filtrosDesde($request);
+        [$categoria, $pagoStatus, , , $search] = $this->filtrosDesde($request);
 
-        // Igual que Admin\NumeracionController::csvDownload — `categoria`
-        // viaja como ID, se resuelve el nombre acá solo para que la
-        // columna del CSV sea legible.
+        // `categoria` viaja como ID; se resuelve el nombre para que la columna sea legible.
         $eventoData = $apiEvento->show($event)->getData(true)['eventos'] ?? [];
         $categoriasPorId = collect($eventoData['categories'] ?? [])->keyBy(fn ($c) => (string) $c['id']);
-        // 3 edades para recategorización + carga a ChronoTrack (28/08/2026,
-        // sincronizado 14/09/2026) — ChronoTrack y las federaciones
-        // deportivas categorizan por edad de 3 formas distintas, todas
-        // legítimas según el evento: a la fecha del evento, a fin de año
-        // (la más usada para "edad que cumple en el año"), y la edad
-        // actual/de hoy. Se calculan las 3 acá para que el staff decida a
-        // mano cuál aplica, en vez de construir un selector nuevo.
+
+        // 3 edades para recategorización + carga a ChronoTrack: a la fecha del
+        // evento, a fin de año, y la de hoy. El staff decide cuál aplica.
         $fechaEvento = $eventoData['date'] ?? null;
         $finDeAnioEvento = $fechaEvento ? Carbon::parse($fechaEvento)->endOfYear() : null;
 
-        // Sin per_page a propósito: la descarga CSV es una acción
-        // explícita, no la carga de pantalla por defecto.
+        $usaNumeracion = $this->esCarrera($eventoData);
+
+        // Sin per_page a propósito: la descarga CSV es una acción explícita.
         $request->merge(array_filter([
             'categoria' => $categoria !== '' ? $categoria : null,
             'pago_status' => $pagoStatus !== '' ? $pagoStatus : null,
+            'search' => $search !== '' ? $search : null,
         ]));
         $payload = $apiParticipante->porEvento($request, $event)->getData(true);
         abort_if(!($payload['success'] ?? false), 502, 'No se pudo generar el archivo.');
@@ -115,21 +126,67 @@ class ParticipantesDetalleController extends Controller
 
         $handle = fopen('php://temp', 'w+');
         fwrite($handle, "\xEF\xBB\xBF");
+
+        // Mismo formato que los reportes legacy: MAYÚSCULAS, N° correlativo,
+        // FORMA DE PAGO, OBSERVACIONES y una columna por pregunta "En reporte".
+        // Carrera: IMPORTE sin polera + IMPORTE_POLERA; DISTANCIA y CATEGORIA (grupo de edad).
+        // Congreso: IMPORTE_TALLER y DEN. (título = alias) antes de NOMBRE.
+        // IMPORTE_TOTAL no cambia (sigue = importe + polera + taller).
+        $preguntas = collect($participantes[0]['respuestas'] ?? [])->values();
+
+        $mostrarEquipo = $usaNumeracion && collect($participantes)->contains(fn ($p) => ($p['eventoConEquipo'] ?? false) === true);
+        $mostrarPolera = $usaNumeracion && collect($participantes)->contains(fn ($p) => ($p['eventoConPolera'] ?? false) === true);
+        $mostrarGrupal = collect($participantes)->contains(fn ($p) => ($p['eventoConGrupal'] ?? false) === true);
+
         fputcsv($handle, [
-            'numero_corredor', 'estado', 'importe', 'importe_taller', 'importe_total', 'numero_documento', 'nombre', 'apellido',
-            'sexo', 'celular', 'fecha_inscripcion', 'referencia', 'nacimiento', 'distancia',
-            'edad_fecha_evento', 'edad_fin_de_anio', 'edad_hoy',
+            'N°',
+            ...($usaNumeracion ? ['NUMERO_CORREDOR'] : []),
+            'ESTADO',
+            'IMPORTE',
+            ...($usaNumeracion ? ['IMPORTE_POLERA'] : ['IMPORTE_TALLER']),
+            'IMPORTE_TOTAL',
+            'PROMO_CODIGO', 'PROMO_DESCUENTO',
+            ...($mostrarGrupal ? ['DESCUENTO_GRUPAL'] : []),
+            'NUMERO_DOCUMENTO',
+            ...($usaNumeracion ? [] : ['DEN.']),
+            'NOMBRE', 'APELLIDO',
+            ...($usaNumeracion ? ['ALIAS'] : []),
+            ...($mostrarEquipo ? ['EQUIPO'] : []),
+            ...($mostrarPolera ? ['POLERA'] : []),
+            'SEXO', 'CELULAR', 'FECHA_INSCRIPCION', 'REFERENCIA', 'NACIMIENTO',
+            ...($usaNumeracion ? ['DISTANCIA', 'CATEGORIA'] : ['CATEGORIA']),
+            'EDAD_FECHA', 'EDAD_FIN_DE_ANIO', 'EDAD_HOY',
+            'FORMA DE PAGO', 'OBSERVACIONES',
+            ...$preguntas->map(fn ($r) => mb_strtoupper($r['etiqueta']))->all(),
         ]);
-        foreach ($participantes as $p) {
+        foreach ($participantes as $i => $p) {
             [$edadEvento, $edadFinDeAnio, $edadHoy] = $this->edades($p['fechaNacimiento'] ?? null, $fechaEvento, $finDeAnioEvento);
+            $importePolera = (float) ($p['importePolera'] ?? 0);
+            $importeCarrera = $usaNumeracion ? round((float) $p['importe'] - $importePolera, 2) : $p['importe'];
+            $distancia = $categoriasPorId[$p['categoria']]['name'] ?? $p['categoria'];
 
             fputcsv($handle, [
-                $p['numeroCorredor'], $this->estadoLabel($p['pagoStatus']), $p['importe'],
-                $p['importeTaller'] ?? 0, $p['importeTotal'] ?? $p['importe'],
-                $p['numeroDocumento'], $p['nombre'], $p['apellido'], $p['genero'], $p['telefono'],
+                $i + 1,
+                ...($usaNumeracion ? [$p['numeroCorredor']] : []),
+                $this->estadoLabel($p['pagoStatus']),
+                $importeCarrera,
+                ...($usaNumeracion ? [$importePolera] : [$p['importeTaller'] ?? 0]),
+                $p['importeTotal'] ?? $p['importe'],
+                $p['promoCodigo'] ?? '', $p['promoDescuento'] ?? 0,
+                ...($mostrarGrupal ? [$p['descuentoGrupal'] ?? 0] : []),
+                $p['numeroDocumento'],
+                ...($usaNumeracion ? [] : [$p['alias'] ?? '']),
+                $p['nombre'], $p['apellido'],
+                ...($usaNumeracion ? [$p['alias'] ?? ''] : []),
+                ...($mostrarEquipo ? [$p['equipo'] ?? ''] : []),
+                ...($mostrarPolera ? [$this->tallaPolera($p['polera'] ?? null)] : []),
+                $p['genero'], $p['telefono'],
                 $p['fechaInscripcion'], $p['referencia'], $p['fechaNacimiento'],
-                $categoriasPorId[$p['categoria']]['name'] ?? $p['categoria'],
+                ...($usaNumeracion ? [$distancia, $p['categoriaRecalculada'] ?? ''] : [$distancia]),
                 $edadEvento, $edadFinDeAnio, $edadHoy,
+                $this->formaPagoLabel($p['tipoPago'] ?? null),
+                '',
+                ...collect($p['respuestas'] ?? [])->pluck('valor')->all(),
             ]);
         }
         rewind($handle);
@@ -150,8 +207,55 @@ class ParticipantesDetalleController extends Controller
         $pagoStatus = $request->query('pago_status', '');
         $perPage = min((int) $request->query('per_page', self::PER_PAGE_DEFAULT), self::PER_PAGE_MAX);
         $page = max((int) $request->query('page', 1), 1);
+        $search = trim((string) $request->query('search', ''));
 
-        return [$categoria, $pagoStatus, $perPage, $page];
+        return [$categoria, $pagoStatus, $perPage, $page, $search];
+    }
+
+    /**
+     * Talla de polera. El API devuelve el centinela legacy 'No shirt' cuando
+     * el participante no eligió polera: se muestra vacío.
+     */
+    private function tallaPolera(?string $talla): string
+    {
+        $limpia = trim((string) $talla);
+
+        return strcasecmp($limpia, 'No shirt') === 0 ? '' : $limpia;
+    }
+
+    /**
+     * Carrera = cualquier tipo de evento distinto de "Congreso / No aplica".
+     */
+    private function esCarrera(array $evento): bool
+    {
+        return mb_strtolower(trim((string) ($evento['tipoEvento'] ?? ''))) !== 'congreso / no aplica';
+    }
+
+    /**
+     * FORMA DE PAGO con las etiquetas del reporte legacy. Valores desconocidos
+     * salen tal cual en mayúsculas, sin perder el dato.
+     */
+    private function formaPagoLabel(?string $tipoPago): string
+    {
+        $clave = mb_strtolower(trim((string) $tipoPago));
+
+        return match ($clave) {
+            '' => '',
+            'sip' => 'QR SIP',
+            'qr' => 'QR',
+            'multipago' => 'QR MULTIPAGO',
+            'efectivo' => 'EFECTIVO',
+            'organizador' => 'DIRECTO ORG.',
+            'cortesía', 'cortesia' => 'CORTESIA',
+            'depósito', 'deposito' => 'DEPOSITO',
+            'pendiente' => 'PENDIENTE',
+            'pendiente_usd' => 'PENDIENTE USD',
+            'gratis' => 'GRATIS',
+            'externo' => 'EXTERNO',
+            'legado' => 'LEGADO',
+            'excel' => 'EXCEL',
+            default => mb_strtoupper($clave),
+        };
     }
 
     private function estadoLabel(string $pagoStatus): string
@@ -166,11 +270,8 @@ class ParticipantesDetalleController extends Controller
     }
 
     /**
-     * Las 3 edades del reporte (28/08/2026, sincronizado 14/09/2026) — ver
-     * comentario en csvDownload(). Devuelve '' cuando falta el dato de
-     * origen (fecha de nacimiento ausente, o evento sin fecha cargada) en
-     * vez de un 0 engañoso — mejor una celda vacía en el CSV que una edad
-     * falsa.
+     * Las 3 edades del reporte. Devuelve '' cuando falta el dato de origen
+     * en vez de un 0 engañoso.
      *
      * @return array{0: int|string, 1: int|string, 2: int|string}
      */
@@ -182,14 +283,10 @@ class ParticipantesDetalleController extends Controller
 
         $nacimiento = Carbon::parse($fechaNacimiento);
 
-        // (int), no el float que devuelve diffInYears() en Carbon 3.x por
-        // default (ej. 53.69 en vez de 53) — trunca hacia el año cumplido,
-        // que es lo que significa "edad" acá.
         $edadEvento = $fechaEvento ? (int) $nacimiento->diffInYears(Carbon::parse($fechaEvento)) : '';
         $edadFinDeAnio = $finDeAnioEvento ? (int) $nacimiento->diffInYears($finDeAnioEvento) : '';
         $edadHoy = (int) $nacimiento->diffInYears(Carbon::today());
 
         return [$edadEvento, $edadFinDeAnio, $edadHoy];
     }
-
 }
