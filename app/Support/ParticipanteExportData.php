@@ -158,6 +158,9 @@ class ParticipanteExportData
             // decide si el reporte muestra la columna.
             'equipo'          => $p->equipo?->nombre,
             'eventoConEquipo' => $this->eventoConEquipo,
+            // `eventoConPolera`: el evento tiene algún souvenir marcado es_polera,
+            // así el reporte de carrera muestra la columna POLERA solo si aplica.
+            'eventoConPolera' => ! empty($this->souvenirIdsPolera),
         ];
     }
 
