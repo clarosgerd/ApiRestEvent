@@ -37,6 +37,7 @@ class ParticipanteExportData
         private readonly Collection $generosPorNombre,
         private readonly Collection $preguntasReporte,
         private readonly bool $eventoConEquipo,
+        private readonly bool $eventoConGrupal,
     ) {
     }
 
@@ -75,6 +76,9 @@ class ParticipanteExportData
         // solo muestra la columna si el evento tiene algún formulario con equipo.
         $eventoConEquipo = FormType::whereIn('id', $formTypeIds)->where('has_team', true)->exists();
 
+        // Inscripción grupal con descuento (flag permite_inscripcion_grupal del tipo de formulario).
+        $eventoConGrupal = FormType::whereIn('id', $formTypeIds)->where('permite_inscripcion_grupal', true)->exists();
+
         return new self(
             $categoriasPorId,
             $souvenirIdsPolera,
@@ -84,6 +88,7 @@ class ParticipanteExportData
             $generosPorNombre,
             $preguntasReporte,
             $eventoConEquipo,
+            $eventoConGrupal,
         );
     }
 
@@ -161,6 +166,10 @@ class ParticipanteExportData
             // `eventoConPolera`: el evento tiene algún souvenir marcado es_polera,
             // así el reporte de carrera muestra la columna POLERA solo si aplica.
             'eventoConPolera' => ! empty($this->souvenirIdsPolera),
+            // Descuento grupal de la inscripción (no del participante): se repite en cada
+            // fila del grupo; el reporte lo muestra sin sumarlo por participante.
+            'descuentoGrupal' => round((float) ($p->registration->totals?->descuento_registrante ?? 0), 2),
+            'eventoConGrupal' => $this->eventoConGrupal,
         ];
     }
 
