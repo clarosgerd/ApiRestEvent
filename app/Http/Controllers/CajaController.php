@@ -165,7 +165,9 @@ class CajaController extends Controller
             'evento_id'        => $event->id,
             'evento_nombre'    => $event->nombre,
             'form_types_id'    => $data['form_types_id'],
-            'tipo_pago'        => 'EFECTIVO',
+            // Método elegido en Caja (EFECTIVO, QR, DEPOSITO, ORGANIZADOR, CORTESIA):
+            // se guarda también en la inscripción, no solo en el movimiento de caja.
+            'tipo_pago'        => $data['metodo_pago'] ?? 'EFECTIVO',
             'pago_status'      => 'pending',
             'pay_order_number' => null,
             'totales'          => $data['totales'],
@@ -264,6 +266,10 @@ class CajaController extends Controller
             'monto'            => (float) ($registration->totals?->grand_total ?? 0),
             'metodo_pago'      => $data['metodo_pago'] ?? 'EFECTIVO',
         ]);
+
+        // El cobro en Caja define cómo se pagó: el tipo de pago de la inscripción
+        // queda con el método elegido, no con el que tenía al crearse (pendiente).
+        $registration->update(['tipo_pago' => $data['metodo_pago'] ?? 'EFECTIVO']);
 
         $registration = $this->registrationService->updatePaymentStatus($reference, 'paid');
 

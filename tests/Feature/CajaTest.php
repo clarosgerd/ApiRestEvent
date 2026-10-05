@@ -317,6 +317,51 @@ class CajaTest extends TestCase
     }
 
     /**
+     * El método de pago elegido en Caja queda también en la inscripción
+     * (04/10/2026): antes siempre quedaba EFECTIVO aunque se cobrara con QR.
+     */
+    public function test_inscripcion_nueva_con_qr_guarda_qr_en_el_registro(): void
+    {
+        $this->actingAsCajero();
+        $this->postJson("/api/v1/event/{$this->evento->id}/caja/turno/abrir", ['fondo_inicial' => 100])
+            ->assertStatus(201);
+
+        $this->postJson("/api/v1/event/{$this->evento->id}/caja/inscripcion", [
+            'form_types_id' => $this->formType->id,
+            'participante' => $this->participanteData('44444444'),
+            'totales' => $this->totalesData(),
+            'metodo_pago' => 'QR',
+        ])->assertStatus(201);
+
+        $this->assertDatabaseHas('registrations', ['evento_id' => $this->evento->id, 'pago_status' => 'paid', 'tipo_pago' => 'QR']);
+        $this->assertDatabaseHas('caja_movimientos', ['evento_id' => $this->evento->id, 'tipo' => 'inscripcion_nueva', 'metodo_pago' => 'QR']);
+    }
+
+    public function test_cobrar_pendiente_con_deposito_guarda_deposito_en_el_registro(): void
+    {
+        $this->actingAsCajero();
+        $this->postJson("/api/v1/event/{$this->evento->id}/caja/turno/abrir", ['fondo_inicial' => 0]);
+
+        $registration = app(CrearInscripcionAction::class)->handle(RegistrationDTO::fromArray([
+            'referencia' => 'LA-TEST-' . uniqid(),
+            'fecha' => now()->toDateTimeString(),
+            'evento_id' => $this->evento->id,
+            'evento_nombre' => $this->evento->nombre,
+            'form_types_id' => $this->formType->id,
+            'tipo_pago' => 'pendiente',
+            'pago_status' => 'pending',
+            'pay_order_number' => null,
+            'totales' => $this->totalesData(),
+            'participantes' => [$this->participanteData('55555555')],
+        ]));
+
+        $this->postJson("/api/v1/registrations/{$registration->referencia}/caja/cobrar-pendiente", ['metodo_pago' => 'DEPOSITO'])
+            ->assertStatus(200)->assertJson(['success' => true]);
+
+        $this->assertDatabaseHas('registrations', ['id' => $registration->id, 'pago_status' => 'paid', 'tipo_pago' => 'DEPOSITO']);
+    }
+
+    /**
      * Prellenado desde `personas` (20/08/2026) — devuelve null (no 404,
      * no error) cuando el documento no está en `personas` todavía; es un
      * prellenado opcional, no una búsqueda que deba fallar.
