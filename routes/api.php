@@ -80,6 +80,7 @@ Route::group(['prefix' => 'v1','namespace' => 'App\Http\Controllers'], function 
     Route::apiResource('/event',EventoController::class)->only(['index', 'show']);
     Route::get('/event/{event}/agenda-pdf', [EventoController::class, 'agendaPdf']);
     Route::get('/event/{event}/agenda-ics', [EventoController::class, 'agendaIcs']);
+    Route::get('/event/{event}/calendario', [EventoController::class, 'calendario']);
     Route::get('/event/{event}/gafetes-pdf', [EventoController::class, 'gafetesPdf']);
     // Gafete por demanda (23/09/2026) — un solo participante, para
     // Acreditación. Mismo grupo/criterio de acceso que gafetes-pdf de

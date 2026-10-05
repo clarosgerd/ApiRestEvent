@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Category;
 use App\Models\Evento;
 use App\Models\Participante;
+use App\Support\CalendarioEventoData;
 use App\Models\Registration;
 use App\Models\TipoEvento;
 use App\Http\Resources\CoordinateResource;
@@ -438,6 +439,19 @@ return response()->json([
         ]);
 
         return $pdf->stream('agenda-' . Str::slug($event->nombre) . '.pdf');
+    }
+
+    /**
+     * Calendario del evento (05/10/2026): agenda y sesiones de congreso en una
+     * sola lista por fecha y hora, para la pantalla de calendario de admin-eventos.
+     * Público, igual que agenda-pdf y agenda-ics (el evento ya filtra).
+     */
+    public function calendario(Evento $event)
+    {
+        return response()->json([
+            'success' => true,
+            'calendario' => CalendarioEventoData::paraEvento($event),
+        ]);
     }
 
     /**
