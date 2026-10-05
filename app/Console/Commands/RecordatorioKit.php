@@ -17,7 +17,14 @@ class RecordatorioKit extends Command
     {
         $procesados = 0;
 
+        // Solo inscripciones que realmente tienen kit: algún participante con
+        // souvenir (polera, material) o con número de corredor asignado. Sin
+        // esto, todo registro pagado recibe el recordatorio aunque no tenga
+        // nada que recoger (ej. COLABIOCLI 90014, 04/10/2026).
         Registration::where('pago_status', 'paid')
+            ->whereHas('participants', fn ($p) => $p->where(fn ($q) => $q
+                ->whereHas('souvenirParticipante')
+                ->orWhere(fn ($n) => $n->whereNotNull('numero_corredor')->where('numero_corredor', '<>', ''))))
             ->with('evento.organizador')
             ->chunkById(100, function ($registrations) use ($notificaciones, &$procesados) {
                 foreach ($registrations as $registration) {
