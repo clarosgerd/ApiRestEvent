@@ -134,6 +134,9 @@ class ParticipanteExportData
             'alias'           => $p->alias,
             'numeroDocumento' => $p->numero_documento,
             'categoria'       => $p->categoria,
+            // Nombre legible: el nombre de la categoría del evento, o el texto tal
+            // cual si el participante viene de una fuente externa (categoria no es id).
+            'categoriaNombre' => $this->categoriasPorId->get((string) $p->categoria)?->name ?? (string) $p->categoria,
             'numeroCorredor'  => $p->numero_corredor,
             'chip'            => $p->chip,
             'correo'          => $p->correo,

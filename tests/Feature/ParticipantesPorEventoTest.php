@@ -476,4 +476,26 @@ class ParticipantesPorEventoTest extends TestCase
 
         $this->assertSame('L', $response->json('participantes.0.polera'));
     }
+
+    /**
+     * La app de staff y el panel necesitan un nombre legible: con categoría del
+     * evento va el nombre (no el id), y con datos externos va el texto tal cual.
+     */
+    public function test_expone_nombre_de_categoria_del_evento_y_texto_externo(): void
+    {
+        $this->crearInscripcion(['categoria' => (string) $this->categoria->id]);
+        $this->crearInscripcion(['categoria' => 'Categoría externa 5K']);
+
+        $admin = $this->actingAsAdmin();
+        $admin->update(['rol' => 'admin', 'evento_id' => $this->evento->id]);
+
+        $participantes = $this->getJson("/api/v1/event/{$this->evento->id}/participantes")
+            ->assertStatus(200)
+            ->json('participantes');
+
+        $nombres = array_column($participantes, 'categoriaNombre');
+        $this->assertContains($this->categoria->name, $nombres);
+        $this->assertContains('Categoría externa 5K', $nombres);
+    }
 }
+
