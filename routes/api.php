@@ -118,6 +118,8 @@ Route::group(['prefix' => 'v1','namespace' => 'App\Http\Controllers'], function 
     Route::middleware('auth:sanctum')->group(function () {
         Route::get('/persona/eventos/{event}/participantes', [StaffAppController::class, 'participantes']);
         Route::post('/persona/eventos/{event}/checkin-bulk', [StaffAppController::class, 'checkinBulk']);
+        Route::get('/persona/eventos/{event}/sesiones', [StaffAppController::class, 'sesiones']);
+        Route::post('/persona/eventos/{event}/sesiones/{sesion}/checkin-bulk', [StaffAppController::class, 'sesionCheckinBulk']);
     });
 
     // SIP multi-banco (28/08/2026) — server-to-server ÚNICAMENTE, nunca
