@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Category;
 use App\Models\Evento;
+use App\Models\FormType;
 use App\Models\Participante;
 use App\Support\CalendarioEventoData;
 use App\Models\Registration;
@@ -623,11 +624,31 @@ return response()->json([
             // y en el email de participantes, ver
             // BUG-FILTRO-CATEGORIA-NUMERACION-10082026.md).
             'rol'        => $registration->formType->name ?? '',
-            'categoria'  => $categoryNames[$participante->categoria] ?? $participante->categoria,
+            // Pegatina (06/10/2026): en vez de la categoría se muestra el rol del
+            // participante: Expositor, Staff, Ponente o Participante.
+            'categoria'  => $this->rolGafete($registration->formType),
             'referencia' => $registration->referencia,
             'qr'         => ReferenceQrService::toBase64Png($registration->referencia),
             'color'      => $this->safeHex($registration->formType->color ?? null),
         ];
+    }
+
+    /**
+     * Rol que se imprime en la pegatina (06/10/2026): empresa expositora,
+     * staff, ponente o participante normal.
+     */
+    private function rolGafete(?FormType $formType): string
+    {
+        if ($formType?->es_expositor) {
+            return 'Expositor';
+        }
+        if ($formType?->es_staff) {
+            return 'Staff';
+        }
+        if ($formType?->es_ponente) {
+            return 'Ponente';
+        }
+        return 'Participante';
     }
 
     /**
