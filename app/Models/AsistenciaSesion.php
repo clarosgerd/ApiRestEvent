@@ -24,6 +24,7 @@ class AsistenciaSesion extends Model
         'participante_id',
         'checkin_at',
         'staff_admin_user_id',
+        'staff_persona_id',
     ];
 
     protected $casts = [
