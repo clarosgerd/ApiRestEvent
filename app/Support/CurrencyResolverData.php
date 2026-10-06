@@ -152,11 +152,21 @@ class CurrencyResolverData
         $totalUsd = 0.0;
         $totalTalleresUsd = 0.0;
 
+        // Staff y ponente no tienen categoría ni costo (05/10/2026): no
+        // necesitan precio USD, aportan 0. Antes el servidor rechazaba la
+        // inscripción por "la categoría no tiene precio en USD".
+        $formType = \App\Models\FormType::find($dto->formId);
+        $sinCosto = $formType?->esSinCosto() ?? false;
+
         foreach ($dto->participants as $p) {
             if ($p->donation > 0 || !empty($p->souvenirs) || $p->shirtPrice > 0) {
                 throw new \DomainException(
                     'Este evento cobra en USD solo la inscripción y los talleres — sacá souvenirs, camiseta o donación del carrito, o pagá en BOB.'
                 );
+            }
+
+            if ($sinCosto) {
+                continue;
             }
 
             $categoria = \App\Models\Category::find((int) $p->category);

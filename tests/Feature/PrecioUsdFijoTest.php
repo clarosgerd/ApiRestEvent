@@ -88,7 +88,7 @@ class PrecioUsdFijoTest extends TestCase
         ]);
     }
 
-    private function makeParticipant(Category $categoria, float $donation = 0, float $shirtPrice = 0, array $souvenirs = [], array $talleres = []): ParticipantDTO
+    private function makeParticipant(Category $categoria, float $donation = 0, float $shirtPrice = 0, array $souvenirs = [], array $talleres = [], bool $sinCategoria = false): ParticipantDTO
     {
         return new ParticipantDTO(
             firstName: 'Ana',
@@ -108,12 +108,12 @@ class PrecioUsdFijoTest extends TestCase
             emergencyContact: new ContactoEmergenciaParticipanteDTO('Contacto', '7000000', 'Familiar'),
             souvenirs: $souvenirs,
             answers: [],
-            category: (string) $categoria->id,
-            categoryPrice: (float) $categoria->price,
+            category: $sinCategoria ? '' : (string) $categoria->id,
+            categoryPrice: $sinCategoria ? 0.0 : (float) $categoria->price,
             donation: $donation,
             promoDiscount: 0,
             promoCode: '',
-            subtotal: (float) $categoria->price,
+            subtotal: $sinCategoria ? 0.0 : (float) $categoria->price,
             talleres: $talleres,
         );
     }
@@ -456,5 +456,40 @@ class PrecioUsdFijoTest extends TestCase
         ]);
         $vigente = PrecioVigenteData::paraCategoria($otraCategoria->fresh());
         $this->assertSame(60.0, $vigente['precio_usd']);
+    }
+
+    /**
+     * Staff en evento USD fijo (05/10/2026): no tiene categoría ni costo, así
+     * que no necesita precio USD. Antes se rechazaba con "la categoría no tiene
+     * precio en USD configurado".
+     */
+    public function test_staff_en_evento_usd_fijo_no_necesita_precio_usd(): void
+    {
+        $staff = FormType::factory()->create([
+            'event_id' => $this->evento->id,
+            'es_staff' => true,
+        ]);
+        $participant = $this->makeParticipant($this->categoriaSinPrecioUsd, sinCategoria: true);
+
+        $dto = new RegistrationDTO(
+            reference: 'LA-STAFF-USD-'.uniqid(),
+            date: \Carbon\Carbon::now(),
+            eventId: $this->evento->id,
+            formId: $staff->id,
+            eventName: $this->evento->nombre,
+            paymentType: 'sip',
+            paymentStatus: 'pending',
+            payOrderNumber: null,
+            totals: new TotalsDTO(0, 0, 0, 0, 0, 0, 0, 0),
+            participants: [$participant],
+            monedaPago: 'USD',
+            tipoCambioAplicado: null,
+            totalPagado: 0.0,
+        );
+
+        $reg = app(CrearInscripcionAction::class)->handle($dto);
+
+        $this->assertSame('USD', $reg->moneda_pago);
+        $this->assertSame('paid', $reg->pago_status);
     }
 }
