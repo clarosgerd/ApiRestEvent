@@ -20,9 +20,14 @@ return [
     'allowed_origins' => [
         'https://events.inscrito.net',   // frontend de producción (Inscrito)
         'http://localhost',              // frontend en XAMPP durante desarrollo local
+        'http://localhost:59063',              // frontend en XAMPP durante desarrollo local
     ],
 
-    'allowed_origins_patterns' => [],
+    // Desarrollo local: el puerto de localhost cambia en cada corrida. Se acepta
+    // cualquier puerto solo si CORS_ALLOW_LOCALHOST=true en el .env (apagado por defecto).
+    'allowed_origins_patterns' => env('CORS_ALLOW_LOCALHOST', false)
+        ? ['#^http://localhost(:\d+)?$#']
+        : [],
 
     'allowed_headers' => ['*'],
 
