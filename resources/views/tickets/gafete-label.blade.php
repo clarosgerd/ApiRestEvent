@@ -37,9 +37,9 @@
     .pegatina .fila-nombre td {
       text-align: center;
       font-weight: bold;
-      font-size: 11pt;
+      font-size: 20pt;
       line-height: 1.15;
-      padding: 2px 2px 0;
+      padding: 14px 2px 0;
     }
     .pegatina .celda-qr {
       text-align: center;
@@ -48,7 +48,7 @@
     .pegatina .celda-categoria {
       text-align: left;
       vertical-align: middle;
-      font-size: 7pt;
+      font-size: 13pt;
       font-weight: bold;
       color: #444;
       padding-left: 0px;
@@ -73,12 +73,16 @@
       // la columna de categoría al lado.
       $qrPorAlto = max(0.8, $dims['height_cm'] - 0.9);
       $qrPorAncho = $dims['width_cm'] * 0.55;
-      $qrCm = min($qrPorAlto, $qrPorAncho);
+      // QR al 70% del tamaño calculado (06/10/2026): deja más espacio al nombre y a la categoría.
+      $qrCm = min($qrPorAlto, $qrPorAncho) * 0.7;
+      // Nombres de más de 14 caracteres ocupan dos líneas a 20pt y desbordan la pegatina
+      // (la referencia caía a otra página). Por encima de 14 caracteres se usa 15pt.
+      $nombrePt = mb_strlen($item['nombre']) > 14 ? 15 : 20;
     @endphp
     <div class="pegatina">
       <table>
         <tr class="fila-nombre">
-          <td colspan="2">{{ $item['nombre'] }}</td>
+          <td colspan="2" style="font-size: {{ $nombrePt }}pt;">{{ $item['nombre'] }}</td>
         </tr>
         <tr>
           <td class="celda-qr">
