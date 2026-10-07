@@ -185,6 +185,112 @@ class CajaTest extends TestCase
     }
 
     /**
+     * Observaciones en Caja (07/10/2026) — nota libre y opcional,
+     * disponible para cualquier método de pago (no solo Efectivo/QR).
+     * Cubre los 3 endpoints que crean un CajaMovimiento.
+     */
+    public function test_inscripcion_nueva_guarda_observaciones(): void
+    {
+        $this->actingAsCajero();
+        $this->postJson("/api/v1/event/{$this->evento->id}/caja/turno/abrir", ['fondo_inicial' => 0])
+            ->assertStatus(201);
+
+        $this->postJson("/api/v1/event/{$this->evento->id}/caja/inscripcion", [
+            'form_types_id' => $this->formType->id,
+            'participante' => $this->participanteData('66666666'),
+            'totales' => $this->totalesData(),
+            'metodo_pago' => 'DEPOSITO',
+            'observaciones' => 'Pagó con billete de Bs 100, se le devolvió el vuelto en caja.',
+        ])->assertStatus(201);
+
+        $this->assertDatabaseHas('caja_movimientos', [
+            'tipo' => 'inscripcion_nueva',
+            'observaciones' => 'Pagó con billete de Bs 100, se le devolvió el vuelto en caja.',
+        ]);
+    }
+
+    public function test_observaciones_es_opcional(): void
+    {
+        $this->actingAsCajero();
+        $this->postJson("/api/v1/event/{$this->evento->id}/caja/turno/abrir", ['fondo_inicial' => 0])
+            ->assertStatus(201);
+
+        $this->postJson("/api/v1/event/{$this->evento->id}/caja/inscripcion", [
+            'form_types_id' => $this->formType->id,
+            'participante' => $this->participanteData('77777777'),
+            'totales' => $this->totalesData(),
+        ])->assertStatus(201);
+
+        $this->assertDatabaseHas('caja_movimientos', [
+            'tipo' => 'inscripcion_nueva',
+            'observaciones' => null,
+        ]);
+    }
+
+    public function test_cobrar_pendiente_guarda_observaciones(): void
+    {
+        $this->actingAsCajero();
+        $this->postJson("/api/v1/event/{$this->evento->id}/caja/turno/abrir", ['fondo_inicial' => 0]);
+
+        $registration = app(CrearInscripcionAction::class)->handle(RegistrationDTO::fromArray([
+            'referencia' => 'LA-TEST-' . uniqid(),
+            'fecha' => now()->toDateTimeString(),
+            'evento_id' => $this->evento->id,
+            'evento_nombre' => $this->evento->nombre,
+            'form_types_id' => $this->formType->id,
+            'tipo_pago' => 'pendiente',
+            'pago_status' => 'pending',
+            'pay_order_number' => null,
+            'totales' => $this->totalesData(),
+            'participantes' => [$this->participanteData('88888888')],
+        ]));
+
+        $this->postJson("/api/v1/registrations/{$registration->referencia}/caja/cobrar-pendiente", [
+            'metodo_pago' => 'ORGANIZADOR',
+            'observaciones' => 'Autorizado por el organizador vía WhatsApp.',
+        ])->assertStatus(200)->assertJson(['success' => true]);
+
+        $this->assertDatabaseHas('caja_movimientos', [
+            'registration_id' => $registration->id,
+            'tipo' => 'cobro_pendiente',
+            'observaciones' => 'Autorizado por el organizador vía WhatsApp.',
+        ]);
+    }
+
+    public function test_editar_pagada_guarda_observaciones(): void
+    {
+        $this->actingAsCajero();
+        $this->postJson("/api/v1/event/{$this->evento->id}/caja/turno/abrir", ['fondo_inicial' => 0]);
+
+        $registration = app(CrearInscripcionAction::class)->handle(RegistrationDTO::fromArray([
+            'referencia' => 'LA-TEST-' . uniqid(),
+            'fecha' => now()->toDateTimeString(),
+            'evento_id' => $this->evento->id,
+            'evento_nombre' => $this->evento->nombre,
+            'form_types_id' => $this->formType->id,
+            'tipo_pago' => 'pendiente',
+            'pago_status' => 'pending',
+            'pay_order_number' => null,
+            'totales' => $this->totalesData(),
+            'participantes' => [$this->participanteData('99999999')],
+        ]));
+        $registration->update(['pago_status' => 'paid']);
+
+        $this->patchJson("/api/v1/registrations/{$registration->referencia}/caja/editar-pagada", [
+            'confirmacion' => true,
+            'participantes' => [$this->participanteData('99999999', ['nombre' => 'Editado Pagada'])],
+            'totales' => $this->totalesData(),
+            'observaciones' => 'Cambio de nombre a pedido del participante.',
+        ])->assertStatus(200)->assertJson(['success' => true]);
+
+        $this->assertDatabaseHas('caja_movimientos', [
+            'registration_id' => $registration->id,
+            'tipo' => 'edicion_pagada',
+            'observaciones' => 'Cambio de nombre a pedido del participante.',
+        ]);
+    }
+
+    /**
      * Precio USD fijo en Caja (12/09/2026) — ver
      * brain/api_rest_event/PLAN-CAJA-USD-FIJO-EXTRANJEROS-27082026.md.
      * Reusa CurrencyResolverData::resolverPrecioFijo() tal cual (ya la

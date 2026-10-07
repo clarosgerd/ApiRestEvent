@@ -27,6 +27,10 @@ class UpdatePaidRegistrationRequest extends FormRequest
             // Action solo cuando el request realmente quita un taller ya
             // cobrado (ver ActualizarInscripcionPagadaAction::handle()).
             'motivo'                                     => ['nullable', 'string', 'max:500'],
+            // Observaciones (07/10/2026) — nota libre y opcional del
+            // cajero, válida para cualquier método de pago (distinto de
+            // `motivo`, que es específico de quitar un taller pagado).
+            'observaciones'                              => ['nullable', 'string', 'max:1000'],
 
             'participantes'                              => ['required', 'array', 'min:1'],
             'participantes.*.nombre'                     => ['required', 'string'],

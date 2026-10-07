@@ -209,6 +209,9 @@ class CajaController extends Controller
             // Método de pago en Caja (18/09/2026, ampliado 30/09/2026) — ver
             // StoreInscripcionCajaRequest para el detalle de cada uno.
             'metodo_pago'      => $data['metodo_pago'] ?? 'EFECTIVO',
+            // Observaciones (07/10/2026) — nota libre y opcional, para
+            // cualquier método de pago.
+            'observaciones'    => $data['observaciones'] ?? null,
         ]);
 
         $registration = $this->registrationService->updatePaymentStatus($registration->referencia, 'paid');
@@ -229,6 +232,9 @@ class CajaController extends Controller
     {
         $data = $request->validate([
             'metodo_pago' => ['nullable', 'string', Rule::in(['EFECTIVO', 'QR', 'DEPOSITO', 'ORGANIZADOR', 'CORTESIA'])],
+            // Observaciones (07/10/2026) — nota libre y opcional del
+            // cajero, válida para cualquier método de pago.
+            'observaciones' => ['nullable', 'string', 'max:1000'],
         ]);
 
         $registration = Registration::with('totals')->where('referencia', $reference)->firstOrFail();
@@ -265,6 +271,9 @@ class CajaController extends Controller
             'tipo'             => 'cobro_pendiente',
             'monto'            => (float) ($registration->totals?->grand_total ?? 0),
             'metodo_pago'      => $data['metodo_pago'] ?? 'EFECTIVO',
+            // Observaciones (07/10/2026) — nota libre y opcional, para
+            // cualquier método de pago.
+            'observaciones'    => $data['observaciones'] ?? null,
         ]);
 
         // El cobro en Caja define cómo se pagó: el tipo de pago de la inscripción
@@ -391,6 +400,9 @@ class CajaController extends Controller
                 'monto'            => (float) $result['costo_adicion'],
                 'metodo_pago'      => $request->validated()['metodo_pago'] ?? 'EFECTIVO',
                 'motivo'           => $request->validated()['motivo'] ?? null,
+                // Observaciones (07/10/2026) — nota libre y opcional, para
+                // cualquier método de pago.
+                'observaciones'    => $request->validated()['observaciones'] ?? null,
             ]);
         }
 

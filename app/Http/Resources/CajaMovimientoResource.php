@@ -25,6 +25,9 @@ class CajaMovimientoResource extends JsonResource
             // opcional, solo se llena cuando el movimiento incluyó quitar
             // un taller ya cobrado. Ver caja/cierre-detalle.blade.php.
             'motivo'                 => $this->motivo,
+            // Observaciones (07/10/2026) — nota libre y opcional por cobro,
+            // disponible para cualquier método de pago. Ver caja_movimientos.
+            'observaciones'          => $this->observaciones,
             'registrationReferencia' => $this->whenLoaded('registration', fn () => $this->registration?->referencia),
             'createdAt'              => optional($this->created_at)->toIso8601String(),
             // Anular un cobro (02/10/2026) — true si este movimiento es
