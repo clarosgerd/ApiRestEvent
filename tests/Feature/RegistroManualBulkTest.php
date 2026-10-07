@@ -176,6 +176,50 @@ class RegistroManualBulkTest extends TestCase
             ->assertStatus(403);
     }
 
+    // ── Validación por fila (06/10/2026) — ver reglasFilaCarga() en
+    // RegistrationController. Reportado por un usuario con un CSV real: 30
+    // de 46 filas con una fecha de nacimiento que no existe ("1995-06-31")
+    // tumbaban las 46 con un 422, sin crear ninguna. ──
+
+    public function test_fecha_de_nacimiento_invalida_rechaza_solo_esa_fila_no_todo_el_archivo(): void
+    {
+        $admin = $this->actingAsAdmin();
+        $admin->update(['rol' => 'super_admin']);
+
+        $response = $this->postJson("/api/v1/event/{$this->evento->id}/registro-manual/bulk", $this->payload([
+            'participantes' => [
+                $this->participanteRow(['numero_documento' => '11111111']),
+                // Junio tiene 30 días — esta fecha no existe.
+                $this->participanteRow(['numero_documento' => '22222222', 'fecha_nacimiento' => '1995-06-31']),
+                $this->participanteRow(['numero_documento' => '33333333']),
+            ],
+        ]));
+
+        $response->assertStatus(200)->assertJson(['success' => true]);
+        $this->assertCount(2, $response->json('creados'));
+        $this->assertCount(1, $response->json('errores'));
+        $this->assertSame('22222222', $response->json('errores.0.numero_documento'));
+        $this->assertSame(2, Participante::count());
+    }
+
+    public function test_fila_sin_un_campo_obligatorio_rechaza_solo_esa_fila(): void
+    {
+        $admin = $this->actingAsAdmin();
+        $admin->update(['rol' => 'super_admin']);
+
+        $fila = $this->participanteRow(['numero_documento' => '44444444']);
+        unset($fila['email']);
+
+        $response = $this->postJson("/api/v1/event/{$this->evento->id}/registro-manual/bulk", $this->payload([
+            'participantes' => [$this->participanteRow(['numero_documento' => '55555555']), $fila],
+        ]));
+
+        $response->assertStatus(200)->assertJson(['success' => true]);
+        $this->assertCount(1, $response->json('creados'));
+        $this->assertCount(1, $response->json('errores'));
+        $this->assertSame('44444444', $response->json('errores.0.numero_documento'));
+    }
+
     // ── Talleres (21/08/2026) — ver
     // brain/api_rest_event/PLAN-CARGA-MASIVA-TALLERES-21082026.md. Se
     // seleccionan por NOMBRE de taller (case-insensitive, uno o más
