@@ -557,7 +557,14 @@ public function estadoTransaccion(
         // $errores y el resto del archivo se sigue procesando.
         $data = $request->validate([
             'form_types_id' => ['required', 'integer'],
-            'categoria' => ['required', 'string'],
+            // 'categoria' (07/10/2026) — deja de ser obligatoria acá: un
+            // form_type con requiere_categoria=false (Staff, Ponente, o
+            // cualquier otro armado así desde admin-eventos, ej. "GAFETES
+            // STANDS") no tiene categoría que elegir. Antes esta carga
+            // masiva rechazaba esos form_types directamente con un 422
+            // apenas se abría el formulario — pedido real del organizador
+            // de poder cargar ese tipo de inscripciones por CSV también.
+            'categoria' => ['nullable', 'string'],
             'participantes' => ['required', 'array', 'min:1'],
         ]);
 
@@ -570,35 +577,48 @@ public function estadoTransaccion(
         if ($formType->has_team) {
             return response()->json(['success' => false, 'error' => 'Este tipo de formulario requiere equipo — la carga masiva simple no lo soporta.'], 422);
         }
+
         // Precios por período (12/08/2026) — ver PRD-precios-periodos-fechas.md,
-        // sección 0. Esta carga masiva elige la categoría por nombre — no
-        // tiene forma de representar "sin categoría" en el CSV — así que
-        // no aplica a un form_type con `requiere_categoria=false` (ese
-        // precio sale de `precio_base`, sin categoría que buscar).
-        if (!$formType->requiere_categoria) {
-            return response()->json(['success' => false, 'error' => 'Este tipo de formulario no requiere categoría — la carga masiva por categoría no aplica.'], 422);
-        }
+        // sección 0 — y sin categoría (07/10/2026). Mismo criterio que
+        // ValidarCategoriaAction (registro online): con
+        // `requiere_categoria=true` se elige la categoría por nombre (como
+        // en el <select> del panel) y el precio vigente sale de ella; con
+        // `requiere_categoria=false` no hay categoría que resolver — el
+        // precio es `form_types.precio_base` directo (0 para Staff/Ponente,
+        // forzado por FormType::booted()) y la columna `participantes.categoria`
+        // guarda el NOMBRE del form_type, igual que hace elascenso/event
+        // cuando el formulario público no muestra selector de categoría
+        // (ver index.php, armado de `categoria:` del participante).
+        if ($formType->requiere_categoria) {
+            if (empty($data['categoria'] ?? null)) {
+                return response()->json(['success' => false, 'error' => 'La categoría es obligatoria para este tipo de formulario.'], 422);
+            }
 
-        // Categorías por form_type (27/08/2026) — ver
-        // PLAN-CATEGORIAS-POR-FORM-TYPE-27082026.md. `formulario_id` null
-        // = compartida por todos los form_types del evento (comportamiento
-        // previo); con un valor, solo es válida para ESE form_type. Se
-        // valida acá, antes de procesar el archivo, para dar un único
-        // error claro en vez de que cada fila lo rechace por separado en
-        // CrearInscripcionAction::validatePrecioCategoria().
-        $category = Category::where('event_id', $event->id)
-            ->whereRaw('LOWER(name) = ?', [mb_strtolower(trim($data['categoria']))])
-            ->where(fn ($q) => $q->whereNull('formulario_id')->orWhere('formulario_id', $formType->id))
-            ->first();
-        if (!$category) {
-            return response()->json(['success' => false, 'error' => "La categoría \"{$data['categoria']}\" no existe en este evento para el tipo de formulario elegido."], 422);
-        }
+            // Categorías por form_type (27/08/2026) — ver
+            // PLAN-CATEGORIAS-POR-FORM-TYPE-27082026.md. `formulario_id` null
+            // = compartida por todos los form_types del evento (comportamiento
+            // previo); con un valor, solo es válida para ESE form_type. Se
+            // valida acá, antes de procesar el archivo, para dar un único
+            // error claro en vez de que cada fila lo rechace por separado en
+            // CrearInscripcionAction::validatePrecioCategoria().
+            $category = Category::where('event_id', $event->id)
+                ->whereRaw('LOWER(name) = ?', [mb_strtolower(trim($data['categoria']))])
+                ->where(fn ($q) => $q->whereNull('formulario_id')->orWhere('formulario_id', $formType->id))
+                ->first();
+            if (!$category) {
+                return response()->json(['success' => false, 'error' => "La categoría \"{$data['categoria']}\" no existe en este evento para el tipo de formulario elegido."], 422);
+            }
 
-        // Precio vigente (períodos), no el `price` crudo — mismo criterio
-        // que el registro online, así CrearInscripcionAction::validatePrecioCategoria()
-        // no rechaza esta importación cuando la categoría tiene un
-        // período de precio activo.
-        $precio = \App\Support\PrecioVigenteData::paraCategoria($category)['precio'];
+            // Precio vigente (períodos), no el `price` crudo — mismo criterio
+            // que el registro online, así CrearInscripcionAction::validatePrecioCategoria()
+            // no rechaza esta importación cuando la categoría tiene un
+            // período de precio activo.
+            $precio = \App\Support\PrecioVigenteData::paraCategoria($category)['precio'];
+            $categoriaParticipante = (string) $category->id;
+        } else {
+            $precio = (float) $formType->precio_base;
+            $categoriaParticipante = $formType->name;
+        }
 
         $creados = [];
         $errores = [];
@@ -695,8 +715,10 @@ public function estadoTransaccion(
                         // camino y aparecía roto para el resto (ver
                         // elascenso/event/brain/BUG-FILTRO-CATEGORIA-NUMERACION-10082026.md,
                         // en el repo hermano — ApiRestEvent no tiene su
-                        // propia carpeta brain/ con documentación).
-                        'categoria' => (string) $category->id,
+                        // propia carpeta brain/ con documentación). Sin
+                        // categoría (07/10/2026) es el nombre del form_type,
+                        // calculado una sola vez arriba del loop.
+                        'categoria' => $categoriaParticipante,
                         'precioCategoria' => $precio,
                         'donacion' => 0,
                         'promoDescuento' => 0,
