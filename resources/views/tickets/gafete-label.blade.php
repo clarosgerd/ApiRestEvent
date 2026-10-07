@@ -19,7 +19,12 @@
        El tamano del QR ahora se calcula abajo considerando ambas
        dimensiones de la pegatina, no solo el ancho, y se arma con una
        tabla real (mas predecible en dompdf que divs apilados).
-       overflow:hidden como red de seguridad adicional. */
+       overflow:hidden como red de seguridad adicional.
+       07/10/2026: se quita el rol/categoría (Participante/Staff/Ponente/
+       Expositor) del gafete — pedido explícito del organizador de que
+       solo se imprima nombre, QR y referencia. El QR vuelve a ocupar
+       todo el ancho de la pegatina (antes reservaba una columna aparte
+       para ese texto). */
     @page { margin: 0; }
     body { margin: 0; padding: 0; font-family: Arial, sans-serif; }
     .pegatina {
@@ -45,15 +50,6 @@
       text-align: center;
       vertical-align: middle;
     }
-    .pegatina .celda-categoria {
-      text-align: left;
-      vertical-align: middle;
-      font-size: 13pt;
-      font-weight: bold;
-      color: #444;
-      padding-left: 0px;
-       word-wrap: break-word;
-    }
     .pegatina .fila-referencia td {
       text-align: center;
       font-size: 8pt;
@@ -69,11 +65,11 @@
       // QR cuadrado: se limita por AMBAS dimensiones de la pegatina (antes
       // solo se limitaba por el ancho, causando el desborde vertical en
       // pegatinas horizontales — ver comentario arriba). 0.9cm reservados
-      // para las filas de nombre/referencia, 0.55 del ancho reservado para
-      // la columna de categoría al lado.
+      // para las filas de nombre/referencia. 07/10/2026: sin columna de
+      // categoría al lado, el QR vuelve a tomar casi todo el ancho.
       $qrPorAlto = max(0.8, $dims['height_cm'] - 0.9);
-      $qrPorAncho = $dims['width_cm'] * 0.55;
-      // QR al 70% del tamaño calculado (06/10/2026): deja más espacio al nombre y a la categoría.
+      $qrPorAncho = $dims['width_cm'] * 0.9;
+      // QR al 70% del tamaño calculado: deja margen de aire alrededor.
       $qrCm = min($qrPorAlto, $qrPorAncho) * 0.7;
       // Nombres de más de 14 caracteres ocupan dos líneas a 20pt y desbordan la pegatina
       // (la referencia caía a otra página). Por encima de 14 caracteres se usa 15pt.
@@ -82,16 +78,15 @@
     <div class="pegatina">
       <table>
         <tr class="fila-nombre">
-          <td colspan="2" style="font-size: {{ $nombrePt }}pt;">{{ $item['nombre'] }}</td>
+          <td style="font-size: {{ $nombrePt }}pt;">{{ $item['nombre'] }}</td>
         </tr>
         <tr>
           <td class="celda-qr">
             <img src="data:image/png;base64,{{ $item['qr'] }}" style="width: {{ $qrCm }}cm; height: {{ $qrCm }}cm;">
           </td>
-          <td class="celda-categoria">{{ $item['categoria'] }}</td>
         </tr>
         <tr class="fila-referencia">
-          <td colspan="2">{{ $item['referencia'] }}</td>
+          <td>{{ $item['referencia'] }}</td>
         </tr>
       </table>
     </div>
