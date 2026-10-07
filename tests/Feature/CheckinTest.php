@@ -215,6 +215,79 @@ class CheckinTest extends TestCase
         $this->assertEquals($primerTimestamp, $participante->refresh()->checked_in_at);
     }
 
+    /**
+     * Búsqueda por nombre/apellido (07/10/2026) — pedido real del
+     * organizador: con una carga masiva de ponentes sin ticket físico en
+     * mano, el staff en la puerta no siempre tiene el QR/referencia a
+     * mano. Devuelve una LISTA (a diferencia de checkinLookup) porque
+     * puede haber más de una coincidencia.
+     */
+    public function test_buscar_por_nombre_encuentra_por_nombre_o_apellido(): void
+    {
+        $this->crearParticipante(['nombre' => 'Alvaro', 'apellido' => 'Justiniano Grosz']);
+        $this->crearParticipante(['nombre' => 'Karina', 'apellido' => 'Justiniano Cortez', 'registration_id' => Registration::factory()->create([
+            'evento_id' => $this->evento->id, 'form_types_id' => FormType::factory()->create(['event_id' => $this->evento->id])->id,
+            'referencia' => 'LA-CHECKIN-'.uniqid(), 'fecha' => now(), 'evento_nombre' => $this->evento->nombre,
+            'tipo_pago' => 'pendiente', 'pago_status' => 'paid',
+        ])->id]);
+        $admin = $this->actingAsAdmin();
+        $admin->update(['rol' => 'super_admin']);
+
+        $response = $this->getJson("/api/v1/event/{$this->evento->id}/checkin-buscar?q=justiniano");
+
+        $response->assertStatus(200)->assertJson(['success' => true]);
+        $this->assertCount(2, $response->json('resultados'));
+        $apellidos = collect($response->json('resultados'))->pluck('apellido')->all();
+        $this->assertContains('Justiniano Grosz', $apellidos);
+        $this->assertContains('Justiniano Cortez', $apellidos);
+    }
+
+    public function test_buscar_por_nombre_no_trae_participantes_de_otro_evento(): void
+    {
+        $this->crearParticipante(['nombre' => 'Alvaro', 'apellido' => 'Justiniano']);
+        $otroEvento = Evento::factory()->create([
+            'organizador_id' => $this->evento->organizador_id,
+            'tipo_evento_id' => $this->evento->tipo_evento_id,
+            'subtipo_evento_id' => $this->evento->subtipo_evento_id,
+            'pais_id' => $this->evento->pais_id,
+            'ciudad_id' => $this->evento->ciudad_id,
+        ]);
+        $admin = $this->actingAsAdmin();
+        $admin->update(['rol' => 'super_admin']);
+
+        $response = $this->getJson("/api/v1/event/{$otroEvento->id}/checkin-buscar?q=alvaro");
+
+        $response->assertStatus(200)->assertJson(['success' => true]);
+        $this->assertCount(0, $response->json('resultados'));
+    }
+
+    public function test_buscar_por_nombre_exige_al_menos_dos_letras(): void
+    {
+        $admin = $this->actingAsAdmin();
+        $admin->update(['rol' => 'super_admin']);
+
+        $this->getJson("/api/v1/event/{$this->evento->id}/checkin-buscar?q=a")
+            ->assertStatus(422)
+            ->assertJson(['success' => false]);
+    }
+
+    public function test_admin_scoped_a_otro_evento_no_puede_buscar_por_nombre(): void
+    {
+        $this->crearParticipante(['nombre' => 'Alvaro', 'apellido' => 'Justiniano']);
+        $otroEvento = Evento::factory()->create([
+            'organizador_id' => $this->evento->organizador_id,
+            'tipo_evento_id' => $this->evento->tipo_evento_id,
+            'subtipo_evento_id' => $this->evento->subtipo_evento_id,
+            'pais_id' => $this->evento->pais_id,
+            'ciudad_id' => $this->evento->ciudad_id,
+        ]);
+        $admin = $this->actingAsAdmin();
+        $admin->update(['rol' => 'admin', 'evento_id' => $otroEvento->id]);
+
+        $this->getJson("/api/v1/event/{$this->evento->id}/checkin-buscar?q=alvaro")
+            ->assertStatus(403);
+    }
+
     public function test_admin_scoped_a_otro_evento_no_puede_acreditar(): void
     {
         $participante = $this->crearParticipante();

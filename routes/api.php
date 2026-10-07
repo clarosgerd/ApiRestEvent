@@ -264,6 +264,9 @@ Route::group(['prefix' => 'v1','namespace' => 'App\Http\Controllers'], function 
         // confirmar que la referencia es de ESE evento antes de mostrar
         // nada.
         Route::get('/event/{event}/checkin/{reference}', [RegistrationController::class, 'checkinLookup']);
+        // Búsqueda por nombre/apellido para acreditación (07/10/2026) — ver
+        // RegistrationController::checkinBuscarPorNombre().
+        Route::get('/event/{event}/checkin-buscar', [RegistrationController::class, 'checkinBuscarPorNombre']);
         Route::patch('/participantes/{participante}/checkin', [ParticipanteController::class, 'checkin']);
 
         // Dashboard de inscripciones (mismo conteo que ya se manda por

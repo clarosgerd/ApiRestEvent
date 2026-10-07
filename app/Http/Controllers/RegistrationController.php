@@ -407,6 +407,51 @@ public function estadoTransaccion(
     }
 
     /**
+     * Buscar participantes por nombre/apellido para acreditación (07/10/2026)
+     * — pedido real del organizador: con una carga masiva de "ponentes"
+     * sin ticket físico en mano, el staff en la puerta no siempre tiene el
+     * QR/referencia a mano para usar checkinLookup(). Devuelve una lista de
+     * coincidencias (no una sola inscripción, a diferencia de
+     * checkinLookup) con la referencia de cada una — el panel reusa
+     * checkinLookup()/buscarReferencia() para abrir el detalle completo
+     * (pagos, talleres, botón de acreditar) de la que elija el staff, en
+     * vez de duplicar esa lógica acá.
+     */
+    public function checkinBuscarPorNombre(Request $request, Evento $event): JsonResponse
+    {
+        $this->assertCanWriteEvento($event->id);
+
+        $q = trim((string) $request->input('q', ''));
+        if (mb_strlen($q) < 2) {
+            return response()->json(['success' => false, 'error' => 'Escribí al menos 2 letras para buscar.'], 422);
+        }
+
+        $participantes = Participante::query()
+            ->whereHas('registration', fn ($query) => $query->where('evento_id', $event->id))
+            ->where(function ($query) use ($q) {
+                $query->where('nombre', 'like', "%{$q}%")
+                    ->orWhere('apellido', 'like', "%{$q}%")
+                    ->orWhereRaw("CONCAT(nombre, ' ', apellido) LIKE ?", ["%{$q}%"]);
+            })
+            ->with('registration')
+            ->orderBy('nombre')
+            ->limit(25)
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'resultados' => $participantes->map(fn (Participante $p) => [
+                'id'          => $p->id,
+                'nombre'      => $p->nombre,
+                'apellido'    => $p->apellido,
+                'referencia'  => $p->registration->referencia,
+                'pagoStatus'  => $p->registration->pago_status,
+                'checkedInAt' => optional($p->checked_in_at)->toIso8601String(),
+            ]),
+        ]);
+    }
+
+    /**
      * Buscar una inscripción por referencia para acreditación (check-in) —
      * panel de administración, escaneando el QR que ya se manda en el
      * e-ticket/email (solo codifica la referencia, ver ReferenceQrService).
