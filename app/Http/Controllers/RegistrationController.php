@@ -29,6 +29,7 @@ use App\Services\QrService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
@@ -543,34 +544,21 @@ public function estadoTransaccion(
     {
         $this->assertIsSuperAdmin();
 
+        // Validación por fila (06/10/2026), no por archivo — antes
+        // 'participantes.*.X' validaba TODO el lote de una sola vez con
+        // $request->validate(): una sola fila con un dato inválido (ej. una
+        // fecha de nacimiento que no existe) rechazaba las 46 inscripciones
+        // del archivo con un 422, sin crear ninguna — ni siquiera las filas
+        // correctas. Mismo bug reportado por el usuario con un CSV real
+        // (30 de 46 filas con fecha inválida tumbaban el archivo entero).
+        // Ahora solo se valida acá la forma general del request; cada fila
+        // se valida DENTRO del loop de abajo (self::reglasFilaCarga()),
+        // mismo criterio que ya tenía 'talleres': una fila mala cae en
+        // $errores y el resto del archivo se sigue procesando.
         $data = $request->validate([
             'form_types_id' => ['required', 'integer'],
             'categoria' => ['required', 'string'],
             'participantes' => ['required', 'array', 'min:1'],
-            'participantes.*.numero_documento' => ['required', 'string'],
-            'participantes.*.tipo_documento' => ['required', 'string'],
-            'participantes.*.nombre' => ['required', 'string'],
-            'participantes.*.apellido' => ['required', 'string'],
-            'participantes.*.alias' => ['nullable', 'string'],
-            'participantes.*.genero' => ['required', 'string'],
-            'participantes.*.fecha_nacimiento' => ['required', 'date'],
-            'participantes.*.email' => ['required', 'email'],
-            // Dirección/Ciudad/Teléfono opcionales (31/08/2026) — esta
-            // carga masiva (05/08/2026, previa a ese cambio) se había
-            // quedado con `required`, mismo patrón de "un spot afuera del
-            // barrido" ya visto varias veces esta sesión. ParticipantDTO
-            // ya tiene el `?? ''` correspondiente desde el 01/09/2026.
-            'participantes.*.direccion' => ['nullable', 'string'],
-            'participantes.*.ciudad' => ['nullable', 'string'],
-            'participantes.*.telefono' => ['nullable', 'string'],
-            'participantes.*.contacto_emergencia_nombre' => ['required', 'string'],
-            'participantes.*.contacto_emergencia_telefono' => ['required', 'string'],
-            'participantes.*.contacto_emergencia_relacion' => ['required', 'string'],
-            // Talleres (21/08/2026) — opcional, string cruda del CSV (uno o
-            // más nombres de taller separados por ';'); se resuelve fila
-            // por fila en resolverTalleresFila() para que un nombre
-            // inválido/ambiguo rechace SOLO esa fila, no todo el archivo.
-            'participantes.*.talleres' => ['nullable', 'string'],
         ]);
 
         $formType = FormType::where('id', $data['form_types_id'])
@@ -617,6 +605,16 @@ public function estadoTransaccion(
 
         foreach ($data['participantes'] as $i => $row) {
             $fila = $i + 2; // +1 base 0→1, +1 fila de encabezado del CSV
+
+            $filaValidator = Validator::make($row, self::reglasFilaCarga());
+            if ($filaValidator->fails()) {
+                $errores[] = [
+                    'fila' => $fila,
+                    'numero_documento' => $row['numero_documento'] ?? null,
+                    'error' => implode(' ', $filaValidator->errors()->all()),
+                ];
+                continue;
+            }
 
             try {
                 // Talleres (21/08/2026) — ver
@@ -752,6 +750,41 @@ public function estadoTransaccion(
      * inscripciones de un congreso real, 2 pares de talleres con nombre
      * idéntico (mismo nombre, dictados en 2 horarios distintos cada uno).
      *
+     * Reglas de validación de UNA fila del CSV de carga masiva (06/10/2026)
+     * — extraídas del antiguo $request->validate() de importarBulk(), que
+     * validaba las 'participantes.*.X' de todo el archivo de una sola vez:
+     * una fila con un dato inválido (ej. una fecha de nacimiento que no
+     * existe, '1995-06-31') tumbaba las 46 filas del lote con un 422, sin
+     * crear ninguna. Ahora se corren fila por fila dentro del loop de
+     * importarBulk(): una fila mala cae en $errores, el resto sigue.
+     *
+     * @return array<string, array<int, string>>
+     */
+    private static function reglasFilaCarga(): array
+    {
+        return [
+            'numero_documento' => ['required', 'string'],
+            'tipo_documento' => ['required', 'string'],
+            'nombre' => ['required', 'string'],
+            'apellido' => ['required', 'string'],
+            'alias' => ['nullable', 'string'],
+            'genero' => ['required', 'string'],
+            'fecha_nacimiento' => ['required', 'date'],
+            'email' => ['required', 'email'],
+            // Dirección/Ciudad/Teléfono opcionales (31/08/2026) — ver
+            // comentario histórico en importarBulk(): ParticipantDTO ya
+            // tiene el `?? ''` correspondiente desde el 01/09/2026.
+            'direccion' => ['nullable', 'string'],
+            'ciudad' => ['nullable', 'string'],
+            'telefono' => ['nullable', 'string'],
+            'contacto_emergencia_nombre' => ['required', 'string'],
+            'contacto_emergencia_telefono' => ['required', 'string'],
+            'contacto_emergencia_relacion' => ['required', 'string'],
+            'talleres' => ['nullable', 'string'],
+        ];
+    }
+
+    /**
      * @return array{0: array<int, array{taller_id:int, sesion_congreso_id:int}>, 1: float}
      */
     private function resolverTalleresFila(Evento $event, string $celda): array
