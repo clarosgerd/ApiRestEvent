@@ -135,6 +135,28 @@ class EnviarCertificadosCongresoTest extends TestCase
         Mail::assertNothingSent();
     }
 
+    /**
+     * Interruptor por evento (07/10/2026) — pedido real del organizador:
+     * antes solo se podía apagar comentando la tarea programada entera en
+     * routes/console.php (todos los congresos a la vez). Mismo caso que
+     * el "happy path" (asistencia real a 2 sesiones), pero con el evento
+     * apagado — no debe mandar nada ni registrar idempotencia.
+     */
+    public function test_no_envia_si_el_evento_tiene_el_certificado_de_asistencia_desactivado(): void
+    {
+        $this->eventoCongresoCerrado->update(['certificado_asistencia_activo' => false]);
+        $sesion1 = SesionCongreso::factory()->create(['evento_id' => $this->eventoCongresoCerrado->id, 'titulo' => 'Keynote']);
+        $sesion2 = SesionCongreso::factory()->create(['evento_id' => $this->eventoCongresoCerrado->id, 'titulo' => 'Taller']);
+        $participante = $this->crearParticipante($this->eventoCongresoCerrado);
+        $this->marcarAsistencia($sesion1, $participante);
+        $this->marcarAsistencia($sesion2, $participante);
+
+        Artisan::call('certificados:enviar-congreso');
+
+        Mail::assertNothingSent();
+        $this->assertDatabaseCount('certificados_congreso_enviados', 0);
+    }
+
     public function test_no_envia_si_el_evento_cerrado_no_es_tipo_congreso(): void
     {
         $tipoCarrera = TipoEvento::factory()->create(['nombre' => 'Carrera de Ruta']);

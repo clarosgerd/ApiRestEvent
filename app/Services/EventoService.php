@@ -70,6 +70,10 @@ class EventoService
             // de eventos existentes intactos (defaults false/null). Ver
             // EventoController::gafetesPdf()/certificadosPdf().
             'certificadoSoloNombre' => 'certificado_solo_nombre',
+            // Interruptor por evento del certificado automático de
+            // asistencia a sesiones (07/10/2026) — ver
+            // EnviarCertificadosCongresoAction::handle().
+            'certificadoAsistenciaActivo' => 'certificado_asistencia_activo',
             'gafeteConfig'          => 'gafete_config',
             // SmartStand (25/09/2026).
             'expositoresConfig'     => 'expositores_config',

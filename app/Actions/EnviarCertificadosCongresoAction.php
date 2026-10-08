@@ -23,6 +23,16 @@ class EnviarCertificadosCongresoAction
 {
     public function handle(Evento $evento): int
     {
+        // Interruptor por evento (07/10/2026) — pedido real del
+        // organizador: hasta esta fecha, la única forma de apagar este
+        // envío automático era comentar la tarea programada ENTERA en
+        // routes/console.php (apagaba TODOS los congresos a la vez).
+        // Única fuente de verdad acá: cubre tanto el cron
+        // (certificados:enviar-congreso) como cualquier otro caller futuro.
+        if (!$evento->certificado_asistencia_activo) {
+            return 0;
+        }
+
         $participanteIdsConAsistencia = AsistenciaSesion::query()
             ->whereHas('sesion', fn ($q) => $q->where('evento_id', $evento->id))
             ->distinct()

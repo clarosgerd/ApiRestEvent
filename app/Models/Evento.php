@@ -104,6 +104,9 @@ class Evento extends Model
         // pedido real de COLABIOCLI 2026, manteniendo CIACRUZ y el resto de
         // eventos existentes intactos (defaults false/null).
         'certificado_solo_nombre',
+        // Interruptor por evento del certificado automático de asistencia a
+        // sesiones (07/10/2026) — default true, ver migración.
+        'certificado_asistencia_activo',
         'gafete_config',
         // SmartStand (25/09/2026) — links de app/instrucciones para expositores.
         'expositores_config',
@@ -123,6 +126,7 @@ protected $casts = [
     'mantener_datos_persona' => 'boolean',
     'secciones_orden'   => 'array',
     'certificado_solo_nombre' => 'boolean',
+    'certificado_asistencia_activo' => 'boolean',
     'gafete_config'     => 'array',
     'expositores_config' => 'array',
 ];
