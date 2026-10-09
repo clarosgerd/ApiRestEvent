@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Actions\ProvisionarCuentaExpositorAction;
 use App\Jobs\SendWhatsappMessageJob;
+use App\Jobs\SendWhatsappOficialMessageJob;
 use App\Mail\CupoRevertidoMail;
 use App\Mail\InscripcionPendienteMail;
 use App\Mail\PagoAdicionalConfirmadoMail;
@@ -14,6 +15,7 @@ use App\Mail\StaffAccesoMail;
 use App\Models\PagoAdicionalInscripcion;
 use App\Models\Registration;
 use App\Models\RegistrationNotification;
+use App\Models\WhatsappCuenta;
 use Illuminate\Mail\Mailable;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
@@ -28,11 +30,16 @@ use Illuminate\Support\Facades\Storage;
 class NotificacionService
 {
     /**
-     * Código de 3 letras para mensaje.tipo (§2.4) — pago_confirmado no está
-     * acá a propósito: ese correo va con PDF adjunto, no por WhatsApp.
+     * Código de 3 letras para mensaje.tipo (§2.4) — 'pago_confirmado' se
+     * sumó el 08/10/2026 (WhatsApp Business API oficial por organizador):
+     * antes estaba excluido a propósito porque ESE correo va con PDF
+     * adjunto, pero eso nunca fue una limitación real para un WhatsApp de
+     * texto aparte (no lleva el PDF, es solo el aviso) — y pedido real del
+     * usuario de poder mandar la confirmación de pago por WhatsApp.
      */
     private const WHATSAPP_TIPO_CODES = [
         'pendiente_creada' => 'PEN',
+        'pago_confirmado'  => 'PAG',
         'recordatorio_30'  => 'R30',
         'recordatorio_15'  => 'R15',
         'reversion_cupo'   => 'REV',
@@ -79,6 +86,16 @@ class NotificacionService
                 $registration,
                 'pago_confirmado',
                 fn () => new PagoConfirmadoMail($registration)
+            );
+
+            // WhatsApp (08/10/2026) — aparte del correo (que sigue siendo
+            // obligatorio, sin cambios): si el organizador tiene un canal
+            // de WhatsApp activo, también avisa por ahí. No aplica a
+            // es_staff (arriba) porque esa inscripción no paga nada.
+            $this->notificarWhatsappSiNoEnviado(
+                $registration,
+                'pago_confirmado',
+                fn () => "¡Pago confirmado! Tu inscripción a {$registration->evento_nombre} (ref: {$registration->referencia}) quedó registrada. Revisá tu correo para ver el comprobante."
             );
         }
 
@@ -294,8 +311,48 @@ class NotificacionService
         match ($registration->evento?->organizador?->whatsapp_canal) {
             'externo' => $this->encolarWhatsappExterno($registration, $tipo, $codigoTipo, $textoFactory),
             'openwa'  => $this->dispatchWhatsappOpenwa($registration, $tipo, $textoFactory),
+            'oficial' => $this->dispatchWhatsappOficial($registration, $tipo, $textoFactory),
             default   => null,
         };
+    }
+
+    /**
+     * WhatsApp Business API oficial (08/10/2026) — opt-in estricto por
+     * organizador (whatsapp_canal='oficial', solo lo activa un super_admin
+     * desde el panel cuando el organizador lo aceptó en el contrato). Si el
+     * organizador no tiene ninguna WhatsappCuenta activa todavía (el canal
+     * quedó en 'oficial' pero nadie cargó las credenciales), no manda nada
+     * — no hay a quién avisarle que falta configurar.
+     */
+    private function dispatchWhatsappOficial(Registration $registration, string $tipo, \Closure $textoFactory): void
+    {
+        $organizadorId = $registration->evento?->organizador_id;
+        $cuenta = $organizadorId
+            ? WhatsappCuenta::where('organizador_id', $organizadorId)->where('activo', true)->first()
+            : null;
+
+        if (!$cuenta) {
+            return;
+        }
+
+        $destinatarios = $registration->participants
+            ->map(fn ($p) => preg_replace('/\D+/', '', $p->telefono ?? ''))
+            ->filter(fn ($digitos) => $digitos !== '');
+
+        if ($destinatarios->isEmpty()) {
+            return;
+        }
+
+        // Reserva atómica ANTES de despachar nada — mismo motivo que
+        // encolarWhatsappExterno()/dispatchWhatsappOpenwa() arriba.
+        if (! $this->reservarNotificacion($registration, $tipo, 'whatsapp_oficial')) {
+            return;
+        }
+
+        $texto = $textoFactory();
+        foreach ($destinatarios as $digitos) {
+            SendWhatsappOficialMessageJob::dispatch($cuenta->id, $digitos, $texto);
+        }
     }
 
     private function encolarWhatsappExterno(Registration $registration, string $tipo, string $codigoTipo, \Closure $textoFactory): void

@@ -371,6 +371,11 @@ Route::group(['prefix' => 'v1','namespace' => 'App\Http\Controllers'], function 
         // AdminUserController). Ver PLAN-SIP-MULTIBANCO-28082026.md.
         Route::apiResource('/sip-bancos', \App\Http\Controllers\SipBancoController::class)->except(['create', 'edit']);
 
+        // WhatsApp Business API oficial por organizador (08/10/2026) — CRUD
+        // de cuentas, solo super_admin (asertado dentro del controller,
+        // mismo criterio que SipBancoController).
+        Route::apiResource('/whatsapp-cuentas', \App\Http\Controllers\WhatsappCuentaController::class)->except(['create', 'edit']);
+
         // Consolidación financiera (liquidación de utilidades) — solo
         // super_admin, ver LiquidarEventoAction y elascenso/event/brain/
         // (sesión 11/08/2026). Socios es config global (no scoped a un

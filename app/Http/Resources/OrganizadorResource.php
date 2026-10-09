@@ -27,6 +27,8 @@ class OrganizadorResource extends JsonResource
             'comision_especial' => $this->comision_especial !== null ? (float) $this->comision_especial : null,
             'convenio_notas'    => $this->convenio_notas,
             'activo'            => (bool) $this->activo,
+            // WhatsApp Business API oficial por organizador (08/10/2026).
+            'whatsapp_canal'    => $this->whatsapp_canal,
             // withCount('eventos')/loadCount('eventos') deja un atributo
             // plano `eventos_count` en el modelo — no una relación cargada
             // (relationLoaded('eventos') da false igual), por eso se chequea

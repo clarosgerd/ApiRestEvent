@@ -75,12 +75,16 @@ Schedule::command('notificaciones:pago-confirmado-faltante')->daily()->appendOut
 Schedule::command('expositores:reenviar-credenciales-faltantes')->daily()->appendOutputTo($schedulerLog);
 Schedule::command('expositores:reintentar-seguimientos')->daily()->appendOutputTo($schedulerLog);
 
-// ── WhatsApp OpenWA (§2.5 fase 7) ────────────────────────────────────────
-// SendWhatsappMessageJob es ShouldQueue (QUEUE_CONNECTION=database) — sin un
-// worker corriendo, los jobs se acumulan en la tabla `jobs` sin procesarse.
-// En vez de una segunda línea de cron en cPanel para `queue:work`, se cuelga
-// del mismo schedule:run que ya corre cada minuto, cada 8 horas.
-Schedule::command('queue:work --stop-when-empty')->cron('0 */8 * * *')->appendOutputTo($schedulerLog);
+// ── WhatsApp OpenWA / oficial (§2.5 fase 7, ampliado 08/10/2026) ──────────
+// SendWhatsappMessageJob/SendWhatsappOficialMessageJob son ShouldQueue
+// (QUEUE_CONNECTION=database) — sin un worker corriendo, los jobs se
+// acumulan en la tabla `jobs` sin procesarse. En vez de una segunda línea
+// de cron en cPanel para `queue:work`, se cuelga del mismo schedule:run que
+// ya corre cada minuto. Antes cada 8 horas (aceptable para recordatorios
+// diarios) — bajado a cada 15 minutos el 08/10/2026 porque el canal
+// 'oficial' ahora también manda la confirmación de pago, que se espera
+// casi inmediata (mismo criterio que el correo), no con horas de retraso.
+Schedule::command('queue:work --stop-when-empty')->cron('*/15 * * * *')->appendOutputTo($schedulerLog);
 
 // ── Marketing por gustos (§2.6/§6 fase 8) ───────────────────────────────
 // Corre diario; el comando filtra internamente por el día del mes que
