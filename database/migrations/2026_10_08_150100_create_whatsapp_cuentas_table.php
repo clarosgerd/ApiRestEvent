@@ -36,10 +36,12 @@ return new class extends Migration
             // las 24h de que la persona escribió primero) tienen que usar
             // una plantilla pre-aprobada por Meta — no texto libre. Se
             // aprueba UNA plantilla genérica de utilidad por organizador,
-            // con un solo parámetro de texto libre ({{1}}), para reusar el
-            // mismo mensaje que ya arma NotificacionService para
-            // correo/openwa/externo sin tener que aprobar una plantilla
-            // distinta por cada tipo de aviso.
+            // con un solo parámetro de texto libre con NOMBRE ({{mensaje}},
+            // nunca {{1}} suelto — Meta lo rechaza, ver
+            // WhatsappCloudApiService::NOMBRE_PARAMETRO, fix 09/10/2026),
+            // para reusar el mismo mensaje que ya arma NotificacionService
+            // para correo/openwa/externo sin tener que aprobar una
+            // plantilla distinta por cada tipo de aviso.
             $table->string('template_name')->default('notificacion_sistema');
             $table->string('template_lang')->default('es');
             $table->boolean('activo')->default(true);

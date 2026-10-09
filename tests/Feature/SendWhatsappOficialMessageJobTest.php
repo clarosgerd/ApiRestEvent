@@ -49,6 +49,10 @@ class SendWhatsappOficialMessageJobTest extends TestCase
                 && $request['to'] === '59177712345'
                 && $request['template']['name'] === 'notificacion_sistema'
                 && $request['template']['language']['code'] === 'es'
+                // parameter_name (09/10/2026) — Meta dejó de aceptar una
+                // variable posicional suelta ({{1}}), exige que el nombre
+                // del parámetro coincida con el de la plantilla aprobada.
+                && $request['template']['components'][0]['parameters'][0]['parameter_name'] === 'mensaje'
                 && $request['template']['components'][0]['parameters'][0]['text'] === 'Hola, tu pago fue confirmado.';
         });
     }

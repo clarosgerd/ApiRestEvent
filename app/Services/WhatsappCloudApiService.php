@@ -15,9 +15,22 @@ use Illuminate\Support\Facades\Http;
  * reusar el mismo mensaje que ya arma NotificacionService para los demás
  * canales sin tener que aprobar una plantilla distinta por cada tipo de
  * aviso (pago pendiente, confirmado, recordatorios, etc.).
+ *
+ * Fix real (09/10/2026): Meta ya no acepta una variable posicional suelta
+ * (`{{1}}`, sin `parameter_name`) — devuelve "La plantilla contiene
+ * parámetros variables con formato incorrecto" al intentar aprobarla.
+ * Ahora exige una variable CON NOMBRE (minúsculas/números/guion bajo) y
+ * rechaza que quede pegada al principio o al final del cuerpo. La
+ * convención de este proyecto: el cuerpo de la plantilla aprobada en Meta
+ * tiene que ser `Pass2Go: {{mensaje}}\n\nGracias por confiar en nosotros.`
+ * (o cualquier texto fijo antes/después de una variable llamada
+ * `mensaje`) — `parameter_name` acá tiene que coincidir exactamente con
+ * ese nombre.
  */
 class WhatsappCloudApiService
 {
+    private const NOMBRE_PARAMETRO = 'mensaje';
+
     /**
      * @throws \RuntimeException si Meta responde con un error — el caller
      *   (SendWhatsappOficialMessageJob) decide si reintentar o no según el
@@ -40,6 +53,11 @@ class WhatsappCloudApiService
                         'type' => 'body',
                         'parameters' => [[
                             'type' => 'text',
+                            // parameter_name (09/10/2026) — obligatorio desde
+                            // que Meta dejó de aceptar variables posicionales
+                            // sueltas; tiene que coincidir con el nombre de
+                            // la variable de la plantilla aprobada ({{mensaje}}).
+                            'parameter_name' => self::NOMBRE_PARAMETRO,
                             'text' => $textoParametro,
                         ]],
                     ]],
