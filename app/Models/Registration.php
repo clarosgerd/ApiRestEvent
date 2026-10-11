@@ -97,4 +97,13 @@ class Registration extends Model
     {
         return $this->hasMany(PagoAdicionalInscripcion::class);
     }
+
+    // Reporte "Detalle de inscritos" (11/10/2026) — columna de observaciones
+    // de caja a pedido del usuario. No existía ninguna relación inversa
+    // hacia caja_movimientos todavía (solo CajaMovimiento::registration()
+    // belongsTo). Ver ParticipanteExportData::mapear().
+    public function cajaMovimientos(): HasMany
+    {
+        return $this->hasMany(CajaMovimiento::class);
+    }
 }

@@ -2,7 +2,10 @@
 
 namespace Tests\Feature;
 
+use App\Models\AdminUser;
 use App\Models\Answer;
+use App\Models\CajaMovimiento;
+use App\Models\CajaTurno;
 use App\Models\Category;
 use App\Models\Ciudad;
 use App\Models\Evento;
@@ -143,6 +146,52 @@ class ParticipantesPorEventoTest extends TestCase
         $p = $response->json('participantes')[0];
         $this->assertNull($p['categoriaRecalculada']);
         $this->assertNull($p['categoriaRecalculadaColor']);
+    }
+
+    /**
+     * observacionesCaja (11/10/2026, pedido del usuario) — concatena las
+     * observaciones de todos los caja_movimientos de la inscripción, en
+     * orden cronológico. Sin ningún movimiento (pasarela/sync externo), va vacío.
+     */
+    public function test_expone_observaciones_caja_concatenadas_en_orden(): void
+    {
+        $participante = $this->crearInscripcion();
+        $admin = AdminUser::factory()->create();
+        $turno = CajaTurno::create([
+            'evento_id' => $this->evento->id, 'admin_user_id' => $admin->id, 'estado' => 'abierto',
+            'fondo_inicial' => 0, 'abierto_at' => now(),
+        ]);
+        CajaMovimiento::create([
+            'caja_turno_id' => $turno->id, 'evento_id' => $this->evento->id,
+            'registration_id' => $participante->registration_id, 'admin_user_id' => $admin->id,
+            'tipo' => 'inscripcion_nueva', 'monto' => 50, 'metodo_pago' => 'EFECTIVO',
+            'observaciones' => 'Pagó en dos partes',
+        ]);
+        CajaMovimiento::create([
+            'caja_turno_id' => $turno->id, 'evento_id' => $this->evento->id,
+            'registration_id' => $participante->registration_id, 'admin_user_id' => $admin->id,
+            'tipo' => 'edicion_pagada', 'monto' => 10, 'metodo_pago' => 'EFECTIVO',
+            'observaciones' => 'Agregó un taller',
+        ]);
+
+        $admin2 = $this->actingAsAdmin();
+        $admin2->update(['rol' => 'admin', 'evento_id' => $this->evento->id]);
+
+        $response = $this->getJson("/api/v1/event/{$this->evento->id}/participantes")->assertStatus(200);
+
+        $this->assertSame('Pagó en dos partes | Agregó un taller', $response->json('participantes')[0]['observacionesCaja']);
+    }
+
+    public function test_observaciones_caja_vacio_sin_movimientos_de_caja(): void
+    {
+        $this->crearInscripcion();
+
+        $admin = $this->actingAsAdmin();
+        $admin->update(['rol' => 'admin', 'evento_id' => $this->evento->id]);
+
+        $response = $this->getJson("/api/v1/event/{$this->evento->id}/participantes")->assertStatus(200);
+
+        $this->assertSame('', $response->json('participantes')[0]['observacionesCaja']);
     }
 
     public function test_filtra_por_pago_status(): void

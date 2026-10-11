@@ -173,6 +173,18 @@ class ParticipanteExportData
             // fila del grupo; el reporte lo muestra sin sumarlo por participante.
             'descuentoGrupal' => round((float) ($p->registration->totals?->descuento_registrante ?? 0), 2),
             'eventoConGrupal' => $this->eventoConGrupal,
+            // Observaciones de caja (11/10/2026, pedido del usuario) — nota
+            // libre que el cajero puede escribir al cobrar (ver
+            // CajaMovimiento::observaciones). Una inscripción puede tener
+            // varios movimientos (cobro inicial, taller agregado, anulación,
+            // etc.); se concatenan en orden cronológico, vacío si ninguno
+            // tiene observación. '' para inscripciones sin ningún
+            // movimiento de caja (pago por pasarela, sync externo, etc.).
+            'observacionesCaja' => $p->registration->cajaMovimientos
+                ->sortBy('id')
+                ->pluck('observaciones')
+                ->filter()
+                ->implode(' | '),
         ];
     }
 
