@@ -167,10 +167,11 @@ class NotificacionServiceWhatsappTest extends TestCase
         Queue::assertPushed(SendWhatsappOficialMessageJob::class, 1);
     }
 
-    public function test_pendiente_creada_tambien_funciona_por_canal_oficial(): void
+    public function test_pendiente_creada_no_despacha_whatsapp_por_canal_oficial(): void
     {
-        // Confirma que el case 'oficial' del match es genérico, no algo
-        // hardcodeado solo para pago_confirmado.
+        // Restricción pedida por el usuario (11/10/2026): el canal oficial
+        // solo manda WhatsApp en pago confirmado, nunca en pendiente de
+        // pago. El correo (no cubierto en este test) sigue igual.
         $this->organizador->update(['whatsapp_canal' => 'oficial']);
         WhatsappCuenta::create([
             'organizador_id' => $this->organizador->id,
@@ -183,7 +184,43 @@ class NotificacionServiceWhatsappTest extends TestCase
 
         app(NotificacionService::class)->notificarInscripcionPendiente($registration);
 
-        Queue::assertPushed(SendWhatsappOficialMessageJob::class, 1);
+        Queue::assertNothingPushed();
+    }
+
+    public function test_recordatorio_pendiente_no_despacha_whatsapp_por_canal_oficial(): void
+    {
+        // Mismo criterio (11/10/2026) para los recordatorios periódicos de
+        // pago pendiente (notificaciones:recordatorio-pendientes).
+        $this->organizador->update(['whatsapp_canal' => 'oficial']);
+        WhatsappCuenta::create([
+            'organizador_id' => $this->organizador->id,
+            'nombre' => 'Cuenta Prueba',
+            'phone_number_id' => '123456789',
+            'access_token' => 'token-test',
+            'activo' => true,
+        ]);
+        $registration = $this->crearRegistrationConParticipante();
+
+        app(NotificacionService::class)->notificarRecordatorioPendiente($registration, 1, 3);
+
+        Queue::assertNothingPushed();
+    }
+
+    public function test_reversion_cupo_no_despacha_whatsapp_por_canal_oficial(): void
+    {
+        $this->organizador->update(['whatsapp_canal' => 'oficial']);
+        WhatsappCuenta::create([
+            'organizador_id' => $this->organizador->id,
+            'nombre' => 'Cuenta Prueba',
+            'phone_number_id' => '123456789',
+            'access_token' => 'token-test',
+            'activo' => true,
+        ]);
+        $registration = $this->crearRegistrationConParticipante();
+
+        app(NotificacionService::class)->notificarReversionCupo($registration);
+
+        Queue::assertNothingPushed();
     }
 
     public function test_participante_sin_telefono_no_genera_job(): void

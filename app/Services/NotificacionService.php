@@ -326,6 +326,13 @@ class NotificacionService
      */
     private function dispatchWhatsappOficial(Registration $registration, string $tipo, \Closure $textoFactory): void
     {
+        // Restricción pedida por el usuario (11/10/2026): por ahora el canal
+        // oficial de WhatsApp solo manda en pago confirmado, nunca en
+        // pendiente/recordatorios/reversión de cupo. El correo no cambia.
+        if ($tipo !== 'pago_confirmado') {
+            return;
+        }
+
         $organizadorId = $registration->evento?->organizador_id;
         $cuenta = $organizadorId
             ? WhatsappCuenta::where('organizador_id', $organizadorId)->where('activo', true)->first()
