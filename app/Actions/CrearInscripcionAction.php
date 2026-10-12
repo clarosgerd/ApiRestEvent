@@ -20,6 +20,7 @@ use App\Services\RegistrationService;
 use App\Support\DisponibilidadItemData;
 use App\Support\CurrencyResolverData;
 use App\Support\Categoria\ValidarCategoriaAction;
+use App\Support\Taller\ResolverCombosTallerAction;
 use App\Support\Taller\ResolverPrecioTallerData;
 use App\Support\Taller\ValidarSeleccionesTallerAction;
 use Illuminate\Support\Facades\DB;
@@ -308,8 +309,19 @@ class CrearInscripcionAction
         // cada selección de taller del participante: resolver precio
         // efectivo server-side (cliente nunca es autoridad — mismo
         // criterio que precioCategoria/fee) y persistir snapshot.
+        //
+        // Combos de talleres (12/10/2026) — alta nueva: TODAS las
+        // selecciones son "nuevas" por definición (nunca hay nada
+        // persistido de antes), así que entran enteras al matching de
+        // combos. Ver ResolverCombosTallerAction y, para la edición de una
+        // inscripción YA pagada, ActualizarInscripcionPagadaAction (que sí
+        // excluye del matching lo que ya existía, para que un combo nunca
+        // se aplique retroactivo).
         if (! empty($dto->talleres)) {
             $evento = Evento::find($registration->evento_id);
+
+            $sesionesPorId = [];
+            $nuevas = [];
             foreach ($dto->talleres as $tallerSel) {
                 $sesion = \App\Models\SesionCongreso::with('taller')
                     ->where('id', $tallerSel->sesionCongresoId)
@@ -320,24 +332,28 @@ class CrearInscripcionAction
                     continue; // ya validado arriba; defensa silenciosa
                 }
 
-                $unitPrice = ResolverPrecioTallerData::unitPrice(
-                    $sesion->taller,
-                    $sesion,
-                    $evento
-                );
-                $total = ResolverPrecioTallerData::total(
-                    $sesion->taller,
-                    $sesion,
-                    $evento
-                );
+                $sesionesPorId[$sesion->id] = $sesion;
+                $nuevas[] = [
+                    'sesionId'  => $sesion->id,
+                    'tallerId'  => $sesion->taller_id,
+                    'unitPrice' => ResolverPrecioTallerData::unitPrice($sesion->taller, $sesion, $evento),
+                ];
+            }
+
+            $resueltasPorSesion = collect(ResolverCombosTallerAction::resolver($nuevas, $evento))
+                ->keyBy('sesionId');
+
+            foreach ($sesionesPorId as $sesionId => $sesion) {
+                $r = $resueltasPorSesion[$sesionId];
 
                 \App\Models\ParticipanteTallerSesion::create([
                     'participante_id'     => $participant->id,
-                    'sesion_congreso_id'  => $sesion->id,
+                    'sesion_congreso_id'  => $sesionId,
                     'taller_id'           => $sesion->taller_id,
-                    'unit_price'          => $unitPrice,
-                    'discount'            => 0,
-                    'total'               => $total,
+                    'unit_price'          => $r['unitPrice'],
+                    'discount'            => $r['discount'],
+                    'total'               => $r['total'],
+                    'taller_combo_id'     => $r['tallerComboId'],
                 ]);
             }
         }

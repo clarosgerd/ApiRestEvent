@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
@@ -80,5 +81,23 @@ class Taller extends Model
     public function participanteSesiones(): HasMany
     {
         return $this->hasMany(ParticipanteTallerSesion::class, 'taller_id');
+    }
+
+    /**
+     * Precios por período (12/10/2026) — ver
+     * App\Support\Taller\PrecioVigenteTallerData.
+     */
+    public function pricePeriods(): HasMany
+    {
+        return $this->hasMany(TallerPricePeriod::class, 'taller_id');
+    }
+
+    /**
+     * Combos donde este taller participa (12/10/2026) — útil para la UI
+     * admin ("¿en qué combos participa este taller?").
+     */
+    public function combos(): BelongsToMany
+    {
+        return $this->belongsToMany(TallerCombo::class, 'taller_combo_items');
     }
 }

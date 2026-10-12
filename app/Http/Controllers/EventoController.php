@@ -328,6 +328,14 @@ return response()->json([
                 'tipoEvento', 'subtipoEvento', 'pais',
                 'talleres' => fn ($q) => $q->where('activo', true)->orderBy('orden')->orderBy('id'),
                 'talleres.sesiones' => fn ($q) => $q->where('activa', true),
+                // Precios por período (12/10/2026) — ver TallerResource::precioVigente.
+                'talleres.pricePeriods',
+                // Combos de talleres (12/10/2026) — solo los activos; la
+                // vigencia por fecha se resuelve en runtime (vigenteHoy()),
+                // no en la query, para que el frontend pueda avisar de un
+                // combo próximo a vencer si en algún momento se lo pide.
+                'tallerCombos' => fn ($q) => $q->where('activo', true),
+                'tallerCombos.talleres',
             ])),
         ]);
 

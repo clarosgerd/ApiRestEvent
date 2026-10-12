@@ -122,6 +122,12 @@ class EventoResource extends JsonResource
             // para no inflar el payload público con datos admin. Cada taller
             // carga sus sesiones activas con cupo/ocupados.
             'talleres'                   =>TallerResource::collection($this->whenLoaded('talleres')),
+            // Combos de talleres (12/10/2026, pedido del usuario) —
+            // embebido en el mismo payload de evento, mismo criterio que
+            // `talleres`/`promoCodes` arriba: sin round-trip aparte, el
+            // proxy público (_registro_validacion.php) ya lo recibe junto
+            // con todo lo demás. Ver App\Models\TallerCombo.
+            'tallerCombos'               =>TallerComboResource::collection($this->whenLoaded('tallerCombos')),
             'talleresConCosto'           =>(bool) $this->talleres_con_costo,
             // Cargo de servicio sobre talleres, configurable por evento
             // (19/08/2026) — si es false, el fee vuelve a calcularse solo

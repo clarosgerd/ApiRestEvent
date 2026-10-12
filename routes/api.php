@@ -34,6 +34,8 @@ use App\Http\Controllers\SesionCongresoController;
 use App\Http\Controllers\SesionCongresoStaffController;
 use App\Http\Controllers\AsistenciaSesionController;
 use App\Http\Controllers\TallerCongresoController;
+use App\Http\Controllers\TallerPricePeriodController;
+use App\Http\Controllers\TallerComboController;
 use App\Http\Controllers\ItemBodegaController;
 use App\Http\Controllers\ItemStockController;
 use App\Http\Controllers\CalculoEdadController;
@@ -315,6 +317,21 @@ Route::group(['prefix' => 'v1','namespace' => 'App\Http\Controllers'], function 
         Route::get('/event/{event}/talleres/{taller}', [TallerCongresoController::class, 'show']);
         Route::put('/event/{event}/talleres/{taller}', [TallerCongresoController::class, 'update']);
         Route::delete('/event/{event}/talleres/{taller}', [TallerCongresoController::class, 'destroy']);
+
+        // Precios por período para talleres (12/10/2026) — mismo criterio
+        // que category-price-period arriba. Sin index propio: la lista ya
+        // viaja embebida en TallerResource.periodos.
+        Route::post('/taller/{taller}/periodos', [TallerPricePeriodController::class, 'store']);
+        Route::put('/taller-price-period/{tallerPricePeriod}', [TallerPricePeriodController::class, 'update']);
+        Route::delete('/taller-price-period/{tallerPricePeriod}', [TallerPricePeriodController::class, 'destroy']);
+
+        // Combos de talleres (12/10/2026, pedido del usuario) — "Taller A +
+        // Taller B por el precio de 1" o "por $300 fijo". Mismo scoping
+        // que talleres.
+        Route::get('/event/{event}/taller-combos', [TallerComboController::class, 'index']);
+        Route::post('/event/{event}/taller-combos', [TallerComboController::class, 'store']);
+        Route::put('/taller-combo/{tallerCombo}', [TallerComboController::class, 'update']);
+        Route::delete('/taller-combo/{tallerCombo}', [TallerComboController::class, 'destroy']);
         Route::get('/event/{event}/sesiones/{sesion}/lookup/{reference}', [AsistenciaSesionController::class, 'lookup']);
         Route::patch('/event/{event}/sesiones/{sesion}/participantes/{participante}/checkin', [AsistenciaSesionController::class, 'checkin']);
         Route::post('/event/{event}/sesiones/{sesion}/checkin-bulk', [AsistenciaSesionController::class, 'checkinBulk']);
