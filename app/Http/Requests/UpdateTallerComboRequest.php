@@ -18,17 +18,15 @@ class UpdateTallerComboRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'nombre'          => 'required|string|max:255',
-            'precio_combo'    => 'required|numeric|min:0',
-            'price_usd_combo' => 'nullable|numeric|min:0',
-            'fecha_desde'     => 'nullable|date',
-            'fecha_hasta'     => ['nullable', 'date', Rule::when(
+            'nombre'       => 'required|string|max:255',
+            'fecha_desde'  => 'nullable|date',
+            'fecha_hasta'  => ['nullable', 'date', Rule::when(
                 fn () => $this->filled('fecha_desde'),
                 ['after_or_equal:fecha_desde']
             )],
-            'activo'          => 'nullable|boolean',
-            'taller_ids'      => 'required|array|min:2',
-            'taller_ids.*'    => 'required|integer|exists:talleres,id',
+            'activo'       => 'nullable|boolean',
+            'taller_ids'   => 'required|array|min:2',
+            'taller_ids.*' => 'required|integer|exists:talleres,id',
         ];
     }
 }

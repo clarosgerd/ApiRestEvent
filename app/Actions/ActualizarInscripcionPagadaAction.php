@@ -250,7 +250,14 @@ class ActualizarInscripcionPagadaAction
                 // nueva aborta todo el request, sin excepción.
                 if (! empty($idsRemovidos)) {
                     if (! $permiteQuitarTalleres) {
-                        throw new \DomainException('No se pueden quitar talleres que ya fueron pagados.');
+                        // Mensaje ampliado (13/10/2026, pedido del usuario) —
+                        // caso real: alguien quiere cambiar un taller ya
+                        // pagado por los de un combo nuevo. Sigue bloqueado
+                        // igual (sin cambio de lógica), pero el mensaje viaja
+                        // verbatim hasta el participante (ver
+                        // elascenso/event/index.php) y antes no decía a
+                        // dónde ir.
+                        throw new \DomainException('No se pueden quitar talleres que ya fueron pagados desde tu cuenta. Si querés cambiarlos (por ejemplo, para aprovechar una promoción), contactanos por WhatsApp o resolvelo en Caja el día del evento.');
                     }
                     if (blank($data['motivo'] ?? null)) {
                         throw new \DomainException('Hay que indicar un motivo para quitar un taller ya pagado.');

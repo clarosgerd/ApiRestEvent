@@ -29,6 +29,11 @@ use App\Models\TallerCombo;
  * - El descuento de un combo aceptado se reparte proporcional al
  *   `unit_price` de cada taller miembro, con el resto de redondeo
  *   absorbido por el último ítem para que la suma cierre exacta.
+ * - Precio por categoría (13/10/2026, pedido del usuario): el mismo combo
+ *   (mismos talleres) puede cobrar distinto según la categoría del
+ *   participante — ver TallerCombo::precioParaCategoria(). Un combo sin
+ *   ninguna fila de precio aplicable a `$categoriaId` (ni una específica
+ *   ni la default) no es candidato en absoluto, no "sin descuento".
  */
 class ResolverCombosTallerAction
 {
@@ -36,7 +41,7 @@ class ResolverCombosTallerAction
      * @param  array<int, array{sesionId:int, tallerId:int, unitPrice:float}>  $selecciones
      * @return array<int, array{sesionId:int, tallerId:int, unitPrice:float, discount:float, total:float, tallerComboId:?int}>
      */
-    public static function resolver(array $selecciones, Evento $evento): array
+    public static function resolver(array $selecciones, Evento $evento, ?string $categoriaId = null): array
     {
         $resultado = [];
         foreach ($selecciones as $i => $s) {
@@ -47,8 +52,8 @@ class ResolverCombosTallerAction
             ];
         }
 
-        $combos = TallerCombo::where('evento_id', $evento->id)->with('talleres')->get()
-            ->filter(fn (TallerCombo $c) => $c->vigenteHoy())
+        $combos = TallerCombo::where('evento_id', $evento->id)->with(['talleres', 'precios'])->get()
+            ->filter(fn (TallerCombo $c) => $c->vigenteHoy() && $c->precioParaCategoria($categoriaId) !== null)
             ->values();
 
         if ($combos->isEmpty()) {
@@ -98,7 +103,7 @@ class ResolverCombosTallerAction
                 'combo' => $combo,
                 'tallerIds' => $tallerIdsCombo,
                 'suma' => $suma,
-                'ahorro' => $suma - (float) $combo->precio_combo,
+                'ahorro' => $suma - $combo->precioParaCategoria($categoriaId),
             ];
         }
 

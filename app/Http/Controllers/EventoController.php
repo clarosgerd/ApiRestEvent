@@ -336,6 +336,8 @@ return response()->json([
                 // combo próximo a vencer si en algún momento se lo pide.
                 'tallerCombos' => fn ($q) => $q->where('activo', true),
                 'tallerCombos.talleres',
+                // Precio por categoría (13/10/2026) — ver TallerComboResource::precios.
+                'tallerCombos.precios.category',
             ])),
         ]);
 

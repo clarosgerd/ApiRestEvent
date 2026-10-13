@@ -36,6 +36,7 @@ use App\Http\Controllers\AsistenciaSesionController;
 use App\Http\Controllers\TallerCongresoController;
 use App\Http\Controllers\TallerPricePeriodController;
 use App\Http\Controllers\TallerComboController;
+use App\Http\Controllers\TallerComboPrecioController;
 use App\Http\Controllers\ItemBodegaController;
 use App\Http\Controllers\ItemStockController;
 use App\Http\Controllers\CalculoEdadController;
@@ -332,6 +333,13 @@ Route::group(['prefix' => 'v1','namespace' => 'App\Http\Controllers'], function 
         Route::post('/event/{event}/taller-combos', [TallerComboController::class, 'store']);
         Route::put('/taller-combo/{tallerCombo}', [TallerComboController::class, 'update']);
         Route::delete('/taller-combo/{tallerCombo}', [TallerComboController::class, 'destroy']);
+
+        // Precio por categoría de un combo (13/10/2026, pedido del
+        // usuario) — el mismo combo puede costar distinto según la
+        // categoría del participante.
+        Route::post('/taller-combo/{tallerCombo}/precios', [TallerComboPrecioController::class, 'store']);
+        Route::put('/taller-combo-precio/{tallerComboPrecio}', [TallerComboPrecioController::class, 'update']);
+        Route::delete('/taller-combo-precio/{tallerComboPrecio}', [TallerComboPrecioController::class, 'destroy']);
         Route::get('/event/{event}/sesiones/{sesion}/lookup/{reference}', [AsistenciaSesionController::class, 'lookup']);
         Route::patch('/event/{event}/sesiones/{sesion}/participantes/{participante}/checkin', [AsistenciaSesionController::class, 'checkin']);
         Route::post('/event/{event}/sesiones/{sesion}/checkin-bulk', [AsistenciaSesionController::class, 'checkinBulk']);

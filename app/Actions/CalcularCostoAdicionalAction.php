@@ -89,7 +89,10 @@ class CalcularCostoAdicionalAction
             $idsNuevos = collect($participantData['talleres'] ?? [])->pluck('sesion_congreso_id')->map(fn ($id) => (int) $id)->all();
 
             if (! empty(array_diff($idsAnteriores, $idsNuevos))) {
-                throw new \DomainException('No se pueden quitar talleres que ya fueron pagados.');
+                // Mismo mensaje que ActualizarInscripcionPagadaAction
+                // (13/10/2026) — esta clase solo cotiza, tiene que coincidir
+                // con lo que de verdad pasaría al cobrar.
+                throw new \DomainException('No se pueden quitar talleres que ya fueron pagados desde tu cuenta. Si querés cambiarlos (por ejemplo, para aprovechar una promoción), contactanos por WhatsApp o resolvelo en Caja el día del evento.');
             }
 
             $idsAgregados = array_diff($idsNuevos, $idsAnteriores);

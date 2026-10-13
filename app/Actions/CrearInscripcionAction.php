@@ -340,7 +340,7 @@ class CrearInscripcionAction
                 ];
             }
 
-            $resueltasPorSesion = collect(ResolverCombosTallerAction::resolver($nuevas, $evento))
+            $resueltasPorSesion = collect(ResolverCombosTallerAction::resolver($nuevas, $evento, (string) $dto->category))
                 ->keyBy('sesionId');
 
             foreach ($sesionesPorId as $sesionId => $sesion) {

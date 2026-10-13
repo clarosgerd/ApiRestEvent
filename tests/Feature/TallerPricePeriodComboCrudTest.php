@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\AdminUser;
+use App\Models\Category;
 use App\Models\Ciudad;
 use App\Models\Evento;
 use App\Models\Organizador;
@@ -11,6 +12,7 @@ use App\Models\SesionCongreso;
 use App\Models\SubtipoEvento;
 use App\Models\Taller;
 use App\Models\TallerCombo;
+use App\Models\TallerComboPrecio;
 use App\Models\TallerPricePeriod;
 use App\Models\TipoEvento;
 use Illuminate\Support\Carbon;
@@ -162,7 +164,7 @@ class TallerPricePeriodComboCrudTest extends TestCase
         $this->actingAsAdmin($this->adminDeEvento($evento->id));
 
         $resp = $this->postJson("/api/v1/event/{$evento->id}/taller-combos", [
-            'nombre' => 'Combo A+B', 'precio_combo' => 100,
+            'nombre' => 'Combo A+B',
             'taller_ids' => [$a->id, $b->id],
         ]);
 
@@ -171,6 +173,7 @@ class TallerPricePeriodComboCrudTest extends TestCase
         $this->assertDatabaseHas('taller_combo_items', ['taller_id' => $a->id]);
         $this->assertDatabaseHas('taller_combo_items', ['taller_id' => $b->id]);
         $this->assertTrue($resp->json('data.vigente'));
+        $this->assertSame([], $resp->json('data.precios'));
     }
 
     public function test_rechaza_taller_de_otro_evento_en_el_combo(): void
@@ -182,7 +185,7 @@ class TallerPricePeriodComboCrudTest extends TestCase
         $this->actingAsAdmin($this->superAdmin());
 
         $this->postJson("/api/v1/event/{$evento->id}/taller-combos", [
-            'nombre' => 'Combo inválido', 'precio_combo' => 100,
+            'nombre' => 'Combo inválido',
             'taller_ids' => [$a->id, $tallerAjeno->id],
         ])->assertStatus(422)->assertJson(['success' => false]);
     }
@@ -204,7 +207,7 @@ class TallerPricePeriodComboCrudTest extends TestCase
         $this->actingAsAdmin($this->superAdmin());
 
         $this->postJson("/api/v1/event/{$evento->id}/taller-combos", [
-            'nombre' => 'Combo imposible', 'precio_combo' => 100,
+            'nombre' => 'Combo imposible',
             'taller_ids' => [$a->id, $b->id],
         ])->assertStatus(422)->assertJson(['success' => false]);
     }
@@ -221,7 +224,7 @@ class TallerPricePeriodComboCrudTest extends TestCase
         $this->actingAsAdmin($this->superAdmin());
 
         $this->postJson("/api/v1/event/{$evento->id}/taller-combos", [
-            'nombre' => 'Combo en armado', 'precio_combo' => 100,
+            'nombre' => 'Combo en armado',
             'taller_ids' => [$a->id, $b->id],
         ])->assertCreated();
     }
@@ -232,7 +235,7 @@ class TallerPricePeriodComboCrudTest extends TestCase
         [$a, $b] = $this->dosTalleresConSesionesCompatibles($evento);
         $this->actingAsAdmin($this->superAdmin());
 
-        $combo = TallerCombo::create(['evento_id' => $evento->id, 'nombre' => 'Combo', 'precio_combo' => 100]);
+        $combo = TallerCombo::create(['evento_id' => $evento->id, 'nombre' => 'Combo']);
         $combo->talleres()->sync([$a->id, $b->id]);
 
         $this->deleteJson("/api/v1/taller-combo/{$combo->id}")
@@ -240,5 +243,86 @@ class TallerPricePeriodComboCrudTest extends TestCase
 
         $this->assertDatabaseMissing('taller_combos', ['id' => $combo->id]);
         $this->assertDatabaseMissing('taller_combo_items', ['taller_combo_id' => $combo->id]);
+    }
+
+    // ── Precio por categoría del combo (13/10/2026, pedido del usuario) ─
+
+    public function test_admin_scoped_puede_cargar_precio_default_y_por_categoria(): void
+    {
+        $evento = $this->evento();
+        [$a, $b] = $this->dosTalleresConSesionesCompatibles($evento);
+        $combo = TallerCombo::create(['evento_id' => $evento->id, 'nombre' => 'Combo']);
+        $combo->talleres()->sync([$a->id, $b->id]);
+        $especialista = Category::factory()->create(['event_id' => $evento->id, 'name' => 'Especialistas']);
+        $this->actingAsAdmin($this->adminDeEvento($evento->id));
+
+        $respDefault = $this->postJson("/api/v1/taller-combo/{$combo->id}/precios", ['precio' => 900]);
+        $respDefault->assertCreated()->assertJson(['success' => true]);
+        $this->assertDatabaseHas('taller_combo_precios', ['taller_combo_id' => $combo->id, 'category_id' => null, 'precio' => 900]);
+
+        $respCategoria = $this->postJson("/api/v1/taller-combo/{$combo->id}/precios", [
+            'category_id' => $especialista->id, 'precio' => 1000,
+        ]);
+        $respCategoria->assertCreated()->assertJson(['success' => true]);
+        $this->assertDatabaseHas('taller_combo_precios', ['taller_combo_id' => $combo->id, 'category_id' => $especialista->id, 'precio' => 1000]);
+        $this->assertCount(2, $respCategoria->json('data.precios'));
+    }
+
+    public function test_rechaza_categoria_de_otro_evento_en_el_precio_del_combo(): void
+    {
+        $evento = $this->evento();
+        $otroEvento = $this->evento();
+        [$a, $b] = $this->dosTalleresConSesionesCompatibles($evento);
+        $combo = TallerCombo::create(['evento_id' => $evento->id, 'nombre' => 'Combo']);
+        $combo->talleres()->sync([$a->id, $b->id]);
+        $categoriaAjena = Category::factory()->create(['event_id' => $otroEvento->id]);
+        $this->actingAsAdmin($this->superAdmin());
+
+        $this->postJson("/api/v1/taller-combo/{$combo->id}/precios", [
+            'category_id' => $categoriaAjena->id, 'precio' => 1000,
+        ])->assertStatus(422)->assertJson(['success' => false]);
+    }
+
+    public function test_rechaza_una_segunda_fila_default_para_el_mismo_combo(): void
+    {
+        $evento = $this->evento();
+        [$a, $b] = $this->dosTalleresConSesionesCompatibles($evento);
+        $combo = TallerCombo::create(['evento_id' => $evento->id, 'nombre' => 'Combo']);
+        $combo->talleres()->sync([$a->id, $b->id]);
+        TallerComboPrecio::create(['taller_combo_id' => $combo->id, 'precio' => 900]);
+        $this->actingAsAdmin($this->superAdmin());
+
+        $this->postJson("/api/v1/taller-combo/{$combo->id}/precios", ['precio' => 850])
+            ->assertStatus(422)->assertJson(['success' => false]);
+    }
+
+    public function test_update_cambia_el_precio_de_la_fila(): void
+    {
+        $evento = $this->evento();
+        [$a, $b] = $this->dosTalleresConSesionesCompatibles($evento);
+        $combo = TallerCombo::create(['evento_id' => $evento->id, 'nombre' => 'Combo']);
+        $combo->talleres()->sync([$a->id, $b->id]);
+        $precio = TallerComboPrecio::create(['taller_combo_id' => $combo->id, 'precio' => 900]);
+        $this->actingAsAdmin($this->superAdmin());
+
+        $this->putJson("/api/v1/taller-combo-precio/{$precio->id}", ['precio' => 950])
+            ->assertOk()->assertJson(['success' => true]);
+
+        $this->assertDatabaseHas('taller_combo_precios', ['id' => $precio->id, 'precio' => 950]);
+    }
+
+    public function test_destroy_elimina_la_fila_de_precio(): void
+    {
+        $evento = $this->evento();
+        [$a, $b] = $this->dosTalleresConSesionesCompatibles($evento);
+        $combo = TallerCombo::create(['evento_id' => $evento->id, 'nombre' => 'Combo']);
+        $combo->talleres()->sync([$a->id, $b->id]);
+        $precio = TallerComboPrecio::create(['taller_combo_id' => $combo->id, 'precio' => 900]);
+        $this->actingAsAdmin($this->superAdmin());
+
+        $this->deleteJson("/api/v1/taller-combo-precio/{$precio->id}")
+            ->assertOk()->assertJson(['success' => true]);
+
+        $this->assertDatabaseMissing('taller_combo_precios', ['id' => $precio->id]);
     }
 }

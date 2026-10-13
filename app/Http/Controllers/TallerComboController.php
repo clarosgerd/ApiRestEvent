@@ -31,7 +31,7 @@ class TallerComboController extends Controller
             'success' => true,
             'data'    => TallerComboResource::collection(
                 TallerCombo::where('evento_id', $event->id)
-                    ->with('talleres')
+                    ->with(['talleres', 'precios.category'])
                     ->orderBy('id')
                     ->get()
             ),
@@ -52,13 +52,11 @@ class TallerComboController extends Controller
         }
 
         $combo = TallerCombo::create([
-            'evento_id'       => $event->id,
-            'nombre'          => $data['nombre'],
-            'precio_combo'    => $data['precio_combo'],
-            'price_usd_combo' => $data['price_usd_combo'] ?? null,
-            'fecha_desde'     => $data['fecha_desde'] ?? null,
-            'fecha_hasta'     => $data['fecha_hasta'] ?? null,
-            'activo'          => $data['activo'] ?? true,
+            'evento_id'   => $event->id,
+            'nombre'      => $data['nombre'],
+            'fecha_desde' => $data['fecha_desde'] ?? null,
+            'fecha_hasta' => $data['fecha_hasta'] ?? null,
+            'activo'      => $data['activo'] ?? true,
         ]);
         $combo->talleres()->sync($data['taller_ids']);
 
@@ -66,8 +64,8 @@ class TallerComboController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Combo de talleres creado correctamente.',
-            'data'    => new TallerComboResource($combo->load('talleres')),
+            'message' => 'Combo de talleres creado correctamente. Cargale el precio por categoría en /taller-combo/{id}/precios.',
+            'data'    => new TallerComboResource($combo->load(['talleres', 'precios.category'])),
         ], 201);
     }
 
@@ -87,12 +85,10 @@ class TallerComboController extends Controller
 
         $before = $tallerCombo->toArray();
         $tallerCombo->update([
-            'nombre'          => $data['nombre'],
-            'precio_combo'    => $data['precio_combo'],
-            'price_usd_combo' => $data['price_usd_combo'] ?? null,
-            'fecha_desde'     => $data['fecha_desde'] ?? null,
-            'fecha_hasta'     => $data['fecha_hasta'] ?? null,
-            'activo'          => $data['activo'] ?? $tallerCombo->activo,
+            'nombre'      => $data['nombre'],
+            'fecha_desde' => $data['fecha_desde'] ?? null,
+            'fecha_hasta' => $data['fecha_hasta'] ?? null,
+            'activo'      => $data['activo'] ?? $tallerCombo->activo,
         ]);
         $tallerCombo->talleres()->sync($data['taller_ids']);
 
@@ -101,7 +97,7 @@ class TallerComboController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Combo de talleres actualizado correctamente.',
-            'data'    => new TallerComboResource($tallerCombo->load('talleres')),
+            'data'    => new TallerComboResource($tallerCombo->load(['talleres', 'precios.category'])),
         ]);
     }
 

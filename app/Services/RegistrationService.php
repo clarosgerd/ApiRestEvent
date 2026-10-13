@@ -343,7 +343,7 @@ class RegistrationService
                 }
             }
 
-            $resueltasPorSesion = collect(\App\Support\Taller\ResolverCombosTallerAction::resolver($nuevas, $evento))
+            $resueltasPorSesion = collect(\App\Support\Taller\ResolverCombosTallerAction::resolver($nuevas, $evento, isset($data['categoria']) ? (string) $data['categoria'] : null))
                 ->keyBy('sesionId');
 
             foreach ($sesionesPorId as $sesionId => $sesion) {
