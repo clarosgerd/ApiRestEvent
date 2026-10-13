@@ -46,14 +46,16 @@ class ResolverCombosTallerActionTest extends TestCase
 
     /**
      * Precio por categoría (13/10/2026) — $categoriaId=null crea la fila
-     * DEFAULT (aplica a cualquier categoría sin fila propia).
+     * DEFAULT (aplica a cualquier categoría sin fila propia). $priceUsd
+     * opcional (13/10/2026, pedido del usuario) — ver resolverUsd().
      */
-    private function agregarPrecio(TallerCombo $combo, float $precio, ?int $categoriaId = null): TallerComboPrecio
+    private function agregarPrecio(TallerCombo $combo, float $precio, ?int $categoriaId = null, ?float $priceUsd = null): TallerComboPrecio
     {
         $fila = TallerComboPrecio::create([
             'taller_combo_id' => $combo->id,
             'category_id' => $categoriaId,
             'precio' => $precio,
+            'price_usd' => $priceUsd,
         ]);
         $combo->unsetRelation('precios');
 
@@ -296,5 +298,62 @@ class ResolverCombosTallerActionTest extends TestCase
 
         $this->assertNotNull($resultado[0]['tallerComboId']);
         $this->assertSame(900.0, round($resultado[0]['total'] + $resultado[1]['total'], 2));
+    }
+
+    // ── USD fijo (13/10/2026, pedido del usuario) ──────────────────────
+
+    public function test_resolver_usd_cobra_el_precio_usd_del_combo(): void
+    {
+        $a = Taller::factory()->create(['evento_id' => $this->evento->id]);
+        $b = Taller::factory()->create(['evento_id' => $this->evento->id]);
+        $combo = $this->crearCombo([$a, $b]);
+        $this->agregarPrecio($combo, 100, null, 45.0);
+
+        $resultado = ResolverCombosTallerAction::resolverUsd([
+            $this->seleccion($a, 30),
+            $this->seleccion($b, 25),
+        ], $this->evento);
+
+        $this->assertSame(45.0, round($resultado[0]['total'] + $resultado[1]['total'], 2));
+        $this->assertNotNull($resultado[0]['tallerComboId']);
+    }
+
+    public function test_resolver_usd_sin_price_usd_cargado_no_aplica(): void
+    {
+        $a = Taller::factory()->create(['evento_id' => $this->evento->id]);
+        $b = Taller::factory()->create(['evento_id' => $this->evento->id]);
+        $combo = $this->crearCombo([$a, $b]);
+        $this->agregarPrecio($combo, 100); // sin price_usd
+
+        $resultado = ResolverCombosTallerAction::resolverUsd([
+            $this->seleccion($a, 30),
+            $this->seleccion($b, 25),
+        ], $this->evento);
+
+        $this->assertNull($resultado[0]['tallerComboId']);
+        $this->assertSame(55.0, round($resultado[0]['total'] + $resultado[1]['total'], 2));
+    }
+
+    public function test_resolver_usd_independiente_de_resolver_bob(): void
+    {
+        // El mismo combo puede tener precio en Bs pero no en USD (o
+        // viceversa) — los 2 caminos son independientes, igual que ya pasa
+        // con talleres individuales.
+        $a = Taller::factory()->create(['evento_id' => $this->evento->id]);
+        $b = Taller::factory()->create(['evento_id' => $this->evento->id]);
+        $combo = $this->crearCombo([$a, $b]);
+        $this->agregarPrecio($combo, 100, null, 45.0);
+
+        $resultadoBob = ResolverCombosTallerAction::resolver([
+            $this->seleccion($a, 70, 1),
+            $this->seleccion($b, 60, 2),
+        ], $this->evento);
+        $resultadoUsd = ResolverCombosTallerAction::resolverUsd([
+            $this->seleccion($a, 30, 3),
+            $this->seleccion($b, 25, 4),
+        ], $this->evento);
+
+        $this->assertSame(100.0, round($resultadoBob[0]['total'] + $resultadoBob[1]['total'], 2));
+        $this->assertSame(45.0, round($resultadoUsd[0]['total'] + $resultadoUsd[1]['total'], 2));
     }
 }

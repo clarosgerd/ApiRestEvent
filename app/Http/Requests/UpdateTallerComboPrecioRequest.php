@@ -20,6 +20,7 @@ class UpdateTallerComboPrecioRequest extends FormRequest
         return [
             'category_id' => 'nullable|integer|exists:categories,id',
             'precio'      => 'required|numeric|min:0',
+            'price_usd'   => 'nullable|numeric|min:0',
         ];
     }
 }

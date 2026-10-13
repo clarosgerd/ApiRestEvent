@@ -187,6 +187,13 @@ class CurrencyResolverData
 
             $totalUsd += $precioUsdVigente;
 
+            // Combos de talleres en USD fijo (13/10/2026, pedido del
+            // usuario) — mismo matching/reparto que el camino BOB (ver
+            // ResolverCombosTallerAction::resolverUsd()), independiente:
+            // un combo sin price_usd cargado para esta categoría
+            // simplemente no es candidato, los talleres se suman sueltos.
+            $sesionesPorId = [];
+            $seleccionesUsd = [];
             foreach ($p->talleres as $tallerSel) {
                 $sesion = SesionCongreso::with('taller')
                     ->where('id', $tallerSel->sesionCongresoId)
@@ -204,8 +211,22 @@ class CurrencyResolverData
                     );
                 }
 
-                $totalUsd += $unitUsd;
-                $totalTalleresUsd += $unitUsd;
+                $sesionesPorId[$sesion->id] = $sesion;
+                $seleccionesUsd[] = [
+                    'sesionId' => $sesion->id,
+                    'tallerId' => $sesion->taller_id,
+                    'unitPrice' => $unitUsd,
+                ];
+            }
+
+            $resueltasPorSesion = collect(
+                \App\Support\Taller\ResolverCombosTallerAction::resolverUsd($seleccionesUsd, $evento, (string) $p->category)
+            )->keyBy('sesionId');
+
+            foreach ($sesionesPorId as $sesionId => $sesion) {
+                $total = (float) $resueltasPorSesion[$sesionId]['total'];
+                $totalUsd += $total;
+                $totalTalleresUsd += $total;
             }
         }
 

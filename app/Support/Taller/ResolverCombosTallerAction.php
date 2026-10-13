@@ -9,7 +9,7 @@ use App\Models\TallerCombo;
  * Matching y reparto de combos de talleres (12/10/2026, pedido del
  * usuario) — ej. "Taller A + Taller B por el precio de 1" o "por $300
  * fijo". Recibe SOLO selecciones NUEVAS de un mismo participante, ya
- * resueltas en `unit_price` por ResolverPrecioTallerData — nunca
+ * resueltas en `unitPrice` por ResolverPrecioTallerData — nunca
  * selecciones ya persistidas de una edición anterior (ver snapshot-lock
  * en RegistrationService::createParticipantFromData(), que es lo que
  * garantiza que un combo nunca se aplica retroactivo sobre algo ya
@@ -20,20 +20,30 @@ use App\Models\TallerCombo;
  *   selecciones (subconjunto, no igualdad exacta) — talleres adicionales
  *   sueltos quedan a precio normal.
  * - Si el participante seleccionó más de una sesión del mismo taller, solo
- *   la de menor `unit_price` participa del matching de combo; la otra
+ *   la de menor `unitPrice` participa del matching de combo; la otra
  *   queda siempre a precio normal fuera de cualquier combo.
  * - Si varios combos son aplicables a la vez, se aceptan en orden de mayor
- *   ahorro total primero (`suma de unit_price de sus talleres -
- *   precio_combo`), sin reutilizar un taller ya "consumido" por un combo
- *   ya aceptado en esta misma resolución (greedy).
+ *   ahorro total primero (`suma de unitPrice de sus talleres - precio del
+ *   combo`), sin reutilizar un taller ya "consumido" por un combo ya
+ *   aceptado en esta misma resolución (greedy).
  * - El descuento de un combo aceptado se reparte proporcional al
- *   `unit_price` de cada taller miembro, con el resto de redondeo
+ *   `unitPrice` de cada taller miembro, con el resto de redondeo
  *   absorbido por el último ítem para que la suma cierre exacta.
  * - Precio por categoría (13/10/2026, pedido del usuario): el mismo combo
  *   (mismos talleres) puede cobrar distinto según la categoría del
- *   participante — ver TallerCombo::precioParaCategoria(). Un combo sin
- *   ninguna fila de precio aplicable a `$categoriaId` (ni una específica
- *   ni la default) no es candidato en absoluto, no "sin descuento".
+ *   participante — ver TallerCombo::precioParaCategoria()/
+ *   precioUsdParaCategoria(). Un combo sin ninguna fila de precio
+ *   aplicable a `$categoriaId` (ni una específica ni la default) no es
+ *   candidato en absoluto, no "sin descuento".
+ * - USD fijo (13/10/2026, pedido del usuario): `resolverUsd()` hace
+ *   exactamente el mismo matching/reparto, pero sobre `unitPrice` en USD
+ *   y el precio del combo en USD — independiente del resultado en Bs
+ *   (mismo criterio ya existente para talleres individuales: BOB y USD
+ *   fijo son dos cálculos en paralelo, nunca uno depende del otro). Un
+ *   combo cuya fila de precio no tiene `price_usd` cargado tampoco es
+ *   candidato acá, igual que un taller sin precio USD — nunca se cobra de
+ *   menos en silencio, el caller (CurrencyResolverData::resolverPrecioFijo())
+ *   debe rechazar si corresponde.
  */
 class ResolverCombosTallerAction
 {
@@ -42,6 +52,33 @@ class ResolverCombosTallerAction
      * @return array<int, array{sesionId:int, tallerId:int, unitPrice:float, discount:float, total:float, tallerComboId:?int}>
      */
     public static function resolver(array $selecciones, Evento $evento, ?string $categoriaId = null): array
+    {
+        return self::resolverGenerico(
+            $selecciones,
+            $evento,
+            fn (TallerCombo $c) => $c->precioParaCategoria($categoriaId)
+        );
+    }
+
+    /**
+     * @param  array<int, array{sesionId:int, tallerId:int, unitPrice:float}>  $selecciones unitPrice en USD
+     * @return array<int, array{sesionId:int, tallerId:int, unitPrice:float, discount:float, total:float, tallerComboId:?int}>
+     */
+    public static function resolverUsd(array $selecciones, Evento $evento, ?string $categoriaId = null): array
+    {
+        return self::resolverGenerico(
+            $selecciones,
+            $evento,
+            fn (TallerCombo $c) => $c->precioUsdParaCategoria($categoriaId)
+        );
+    }
+
+    /**
+     * @param  array<int, array{sesionId:int, tallerId:int, unitPrice:float}>  $selecciones
+     * @param  \Closure(TallerCombo): ?float  $precioDelCombo resuelve el precio aplicable de un combo (Bs o USD,
+     *   ya filtrado por categoría) — `null` si ese combo no aplica.
+     */
+    private static function resolverGenerico(array $selecciones, Evento $evento, \Closure $precioDelCombo): array
     {
         $resultado = [];
         foreach ($selecciones as $i => $s) {
@@ -53,7 +90,7 @@ class ResolverCombosTallerAction
         }
 
         $combos = TallerCombo::where('evento_id', $evento->id)->with(['talleres', 'precios'])->get()
-            ->filter(fn (TallerCombo $c) => $c->vigenteHoy() && $c->precioParaCategoria($categoriaId) !== null)
+            ->filter(fn (TallerCombo $c) => $c->vigenteHoy() && $precioDelCombo($c) !== null)
             ->values();
 
         if ($combos->isEmpty()) {
@@ -103,7 +140,7 @@ class ResolverCombosTallerAction
                 'combo' => $combo,
                 'tallerIds' => $tallerIdsCombo,
                 'suma' => $suma,
-                'ahorro' => $suma - $combo->precioParaCategoria($categoriaId),
+                'ahorro' => $suma - $precioDelCombo($combo),
             ];
         }
 

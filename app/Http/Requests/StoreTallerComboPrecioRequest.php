@@ -23,6 +23,10 @@ class StoreTallerComboPrecioRequest extends FormRequest
         return [
             'category_id' => 'nullable|integer|exists:categories,id',
             'precio'      => 'required|numeric|min:0',
+            // price_usd (13/10/2026, pedido del usuario) — opcional, solo
+            // importa para eventos con "Precio USD fijo" activo. Ver
+            // TallerCombo::precioUsdParaCategoria().
+            'price_usd'   => 'nullable|numeric|min:0',
         ];
     }
 }

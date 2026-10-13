@@ -492,4 +492,80 @@ class PrecioUsdFijoTest extends TestCase
         $this->assertSame('USD', $reg->moneda_pago);
         $this->assertSame('paid', $reg->pago_status);
     }
+
+    // ────────────────────────────────────────────────────────────
+    // Combos de talleres en USD fijo (13/10/2026, pedido del usuario) —
+    // mismo matching/reparto que el camino en Bs (ResolverCombosTallerAction
+    // ::resolverUsd()), independiente: un combo sin price_usd cargado para
+    // la categoría simplemente no es candidato.
+    // ────────────────────────────────────────────────────────────
+
+    private function crearComboConTalleres(float $precio, ?float $priceUsd, ?int $categoryId = null): array
+    {
+        $this->evento->update(['talleres_con_costo' => true]);
+        $tallerA = Taller::factory()->create([
+            'evento_id' => $this->evento->id, 'modalidad' => 'OPTIONAL', 'precio' => 0, 'price_usd' => 30,
+        ]);
+        $tallerB = Taller::factory()->create([
+            'evento_id' => $this->evento->id, 'modalidad' => 'OPTIONAL', 'precio' => 0, 'price_usd' => 25,
+        ]);
+        $sesionA = SesionCongreso::factory()->create([
+            'evento_id' => $this->evento->id, 'taller_id' => $tallerA->id, 'cupo' => null,
+            'hora_inicio' => '09:00:00', 'hora_fin' => '10:00:00',
+        ]);
+        $sesionB = SesionCongreso::factory()->create([
+            'evento_id' => $this->evento->id, 'taller_id' => $tallerB->id, 'cupo' => null,
+            'hora_inicio' => '11:00:00', 'hora_fin' => '12:00:00',
+        ]);
+
+        $combo = \App\Models\TallerCombo::create(['evento_id' => $this->evento->id, 'nombre' => 'Combo']);
+        $combo->talleres()->sync([$tallerA->id, $tallerB->id]);
+        \App\Models\TallerComboPrecio::create([
+            'taller_combo_id' => $combo->id, 'category_id' => $categoryId, 'precio' => $precio, 'price_usd' => $priceUsd,
+        ]);
+
+        return [$sesionA, $sesionB];
+    }
+
+    public function test_combo_con_price_usd_cobra_el_precio_combo_no_la_suma(): void
+    {
+        [$sesionA, $sesionB] = $this->crearComboConTalleres(precio: 40, priceUsd: 45, categoryId: $this->categoriaConPrecioUsd->id);
+
+        $talleres = [
+            new TallerSesionDTO(tallerId: $sesionA->taller_id, sesionCongresoId: $sesionA->id),
+            new TallerSesionDTO(tallerId: $sesionB->taller_id, sesionCongresoId: $sesionB->id),
+        ];
+        // 50 (categoría) + 45 (combo, no 30+25=55) = 95, +5% fee = 99.75.
+        $dto = $this->makeRegistrationDTO(
+            $this->makeParticipant($this->categoriaConPrecioUsd, talleres: $talleres),
+            99.75
+        );
+
+        $reg = app(CrearInscripcionAction::class)->handle($dto);
+
+        $reg->refresh();
+        $this->assertEquals(99.75, (float) $reg->total_pagado);
+    }
+
+    public function test_combo_sin_price_usd_cobra_la_suma_de_los_talleres(): void
+    {
+        // Combo con precio en Bs pero SIN price_usd — no es candidato en
+        // USD, cada taller se suma suelto (30+25=55).
+        [$sesionA, $sesionB] = $this->crearComboConTalleres(precio: 40, priceUsd: null, categoryId: $this->categoriaConPrecioUsd->id);
+
+        $talleres = [
+            new TallerSesionDTO(tallerId: $sesionA->taller_id, sesionCongresoId: $sesionA->id),
+            new TallerSesionDTO(tallerId: $sesionB->taller_id, sesionCongresoId: $sesionB->id),
+        ];
+        // 50 (categoría) + 30 + 25 = 105, +5% fee = 110.25.
+        $dto = $this->makeRegistrationDTO(
+            $this->makeParticipant($this->categoriaConPrecioUsd, talleres: $talleres),
+            110.25
+        );
+
+        $reg = app(CrearInscripcionAction::class)->handle($dto);
+
+        $reg->refresh();
+        $this->assertEquals(110.25, (float) $reg->total_pagado);
+    }
 }

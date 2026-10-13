@@ -60,16 +60,35 @@ class TallerCombo extends Model
      */
     public function precioParaCategoria(?string $categoriaId): ?float
     {
+        $fila = $this->filaParaCategoria($categoriaId);
+
+        return $fila ? (float) $fila->precio : null;
+    }
+
+    /**
+     * Precio USD fijo de este combo para `$categoriaId` (13/10/2026,
+     * pedido del usuario) — misma fila que `precioParaCategoria()`
+     * (específica > default), pero `null` también cuando esa fila no tiene
+     * `price_usd` cargado (mismo criterio que un taller sin precio USD:
+     * nunca se cobra de menos en silencio, el caller debe rechazar).
+     */
+    public function precioUsdParaCategoria(?string $categoriaId): ?float
+    {
+        $fila = $this->filaParaCategoria($categoriaId);
+
+        return $fila && $fila->price_usd !== null ? (float) $fila->price_usd : null;
+    }
+
+    private function filaParaCategoria(?string $categoriaId): ?TallerComboPrecio
+    {
         if ($categoriaId !== null && ctype_digit($categoriaId)) {
             $especifico = $this->precios->firstWhere('category_id', (int) $categoriaId);
             if ($especifico) {
-                return (float) $especifico->precio;
+                return $especifico;
             }
         }
 
-        $default = $this->precios->firstWhere('category_id', null);
-
-        return $default ? (float) $default->precio : null;
+        return $this->precios->firstWhere('category_id', null);
     }
 
     /**

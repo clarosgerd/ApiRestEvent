@@ -18,11 +18,13 @@ class TallerComboPrecio extends Model
         'taller_combo_id',
         'category_id',
         'precio',
+        'price_usd',
     ];
 
     protected $casts = [
         'category_id' => 'integer',
         'precio'      => 'float',
+        'price_usd'   => 'float',
     ];
 
     public function tallerCombo(): BelongsTo

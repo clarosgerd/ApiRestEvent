@@ -34,6 +34,7 @@ class TallerComboResource extends JsonResource
                 'categoriaId'     => $p->category_id,
                 'categoriaNombre' => $p->category?->name,
                 'precio'          => (float) $p->precio,
+                'priceUsd'        => $p->price_usd !== null ? (float) $p->price_usd : null,
             ])->values()),
         ];
     }

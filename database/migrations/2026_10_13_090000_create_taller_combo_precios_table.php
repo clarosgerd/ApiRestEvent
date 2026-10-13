@@ -22,8 +22,12 @@ use Illuminate\Support\Facades\Schema;
  * validación de "a lo sumo una fila por categoría (o default) por combo"
  * vive en TallerComboPrecioController.
  *
- * Sin `price_usd` a propósito — mismo criterio que la decisión original de
- * los combos: todavía no aplican en modo "Precio USD fijo".
+ * `price_usd` (13/10/2026, mismo día — el usuario pidió agregarlo antes de
+ * que esto llegara a subirse a ningún ambiente real) — precio en USD fijo
+ * para esta categoría/combo, nullable: igual que con los talleres
+ * individuales, un combo puede no tener precio USD cargado (el evento no
+ * usa "Precio USD fijo", o todavía no se configuró). Ver
+ * App\Models\TallerCombo::precioUsdParaCategoria().
  */
 return new class extends Migration
 {
@@ -38,6 +42,7 @@ return new class extends Migration
             $table->unsignedInteger('category_id')->nullable();
             $table->foreign('category_id')->references('id')->on('categories')->cascadeOnDelete();
             $table->decimal('precio', 10, 2);
+            $table->decimal('price_usd', 10, 2)->nullable();
             $table->timestamps();
 
             $table->index(['taller_combo_id', 'category_id']);
