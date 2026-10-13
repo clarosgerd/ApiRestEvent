@@ -212,6 +212,17 @@ class CrearInscripcionAction
 
         $promoUsageId = $this->registrationService->consumePromoCode($registration->evento_id, $dto->promoCode, $registration->id, $registration->form_types_id);
 
+        // Categoría = nombre del form_type para staff/ponente/expositor
+        // (13/10/2026, pedido del usuario) — estos form_types nunca tienen
+        // una categoría real (requiere_categoria=false, forzado por
+        // FormType::booted()), así que participante.categoria (VARCHAR sin
+        // FK real, ver 2026_07_23_020000_change_categoria_to_string_...)
+        // pasa a ser el nombre del form_type en vez de lo que mande el
+        // cliente — autoritativo acá porque Caja y el formulario público
+        // mandaban valores distintos e inconsistentes ('0' vs el nombre).
+        $formType = FormType::find($registration->form_types_id);
+        $categoria = ($formType && !$formType->requiere_categoria) ? $formType->name : $dto->category;
+
         $participant = Participante::create([
 
             'registration_id' => $registration->id,
@@ -235,7 +246,7 @@ class CrearInscripcionAction
             'direccion' => $dto->address,
             'ciudad' => $dto->city,
             'telefono' => $dto->phone,
-            'categoria' => $dto->category,
+            'categoria' => $categoria,
             'equipo_id' => $dto->equipoId,
             'quiere_delivery' => $dto->quiereDelivery,
             'estado_delivery' => $dto->quiereDelivery ? 'pendiente' : null,

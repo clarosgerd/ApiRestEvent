@@ -216,6 +216,13 @@ class RegistrationService
 
         $birth = $data['nacimiento'];
 
+        // Categoría = nombre del form_type para staff/ponente/expositor
+        // (13/10/2026, mismo criterio que CrearInscripcionAction::createParticipant()
+        // — ver comentario ahí) — autoritativo acá también, cubre ediciones
+        // desde Caja y desde el formulario público.
+        $formType = FormType::find($registration->form_types_id);
+        $categoria = ($formType && !$formType->requiere_categoria) ? $formType->name : $data['categoria'];
+
         $participant = Participante::create([
             'registration_id'  => $registration->id,
             'nombre'           => $data['nombre'],
@@ -232,7 +239,7 @@ class RegistrationService
             'direccion'        => $data['direccion'] ?? '',
             'ciudad'           => $data['ciudad'] ?? '',
             'telefono'         => $data['telefono'] ?? '',
-            'categoria'        => $data['categoria'],
+            'categoria'        => $categoria,
             'equipo_id'        => $data['equipoId'] ?? null,
             'quiere_delivery'  => $data['quiereDelivery'] ?? false,
             'estado_delivery'  => ($data['quiereDelivery'] ?? false) ? 'pendiente' : null,

@@ -118,7 +118,14 @@ class ReporteInscritosData
 
         foreach ($participantes as $p) {
             $id = $p->categoria ?: 'sin_especificar';
-            $grupos[$id] ??= ['id' => $id, 'nombre' => $nombres[$id] ?? 'Sin especificar', 'cantidad' => 0, 'recaudacion' => 0.0];
+            // Staff/ponente/expositor (13/10/2026) — categoria no es un id
+            // real ahí, es el nombre del form_type (ver
+            // CrearInscripcionAction::createParticipant()); se muestra tal
+            // cual en vez de "Sin especificar" cuando no matchea ningún id
+            // real de categories. Solo el caso genuinamente vacío ($id ===
+            // 'sin_especificar') sigue mostrando ese texto.
+            $nombre = $nombres[$id] ?? ($id === 'sin_especificar' ? 'Sin especificar' : $id);
+            $grupos[$id] ??= ['id' => $id, 'nombre' => $nombre, 'cantidad' => 0, 'recaudacion' => 0.0];
             $grupos[$id]['cantidad']++;
             $grupos[$id]['recaudacion'] += (float) $p->subtotal;
         }
