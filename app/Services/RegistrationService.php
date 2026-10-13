@@ -345,7 +345,7 @@ class RegistrationService
                     $nuevas[] = [
                         'sesionId'  => $sesion->id,
                         'tallerId'  => $sesion->taller_id,
-                        'unitPrice' => \App\Support\Taller\ResolverPrecioTallerData::unitPrice($sesion->taller, $sesion, $evento),
+                        'unitPrice' => \App\Support\Taller\ResolverPrecioTallerData::unitPrice($sesion->taller, $sesion, $evento, isset($data['categoria']) ? (string) $data['categoria'] : null),
                     ];
                 }
             }

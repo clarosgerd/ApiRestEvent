@@ -20,6 +20,7 @@ class UpdateTallerPricePeriodRequest extends FormRequest
     {
         return [
             'nombre'      => 'required|string|max:255',
+            'category_id' => 'nullable|integer|exists:categories,id',
             'price'       => 'required|numeric|min:0',
             'price_usd'   => 'nullable|numeric|min:0',
             'fecha_desde' => 'required|date',

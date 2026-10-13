@@ -104,6 +104,111 @@ class TallerPricePeriodComboCrudTest extends TestCase
         ])->assertStatus(422)->assertJson(['success' => false]);
     }
 
+    // ── Período por categoría (13/10/2026, pedido del usuario) ──────────
+
+    public function test_rechaza_overlap_de_periodo_de_la_misma_categoria(): void
+    {
+        $evento = $this->evento();
+        $taller = Taller::factory()->create(['evento_id' => $evento->id]);
+        $categoria = Category::factory()->create(['event_id' => $evento->id]);
+        $this->actingAsAdmin($this->superAdmin());
+
+        TallerPricePeriod::create([
+            'taller_id' => $taller->id, 'category_id' => $categoria->id,
+            'nombre' => 'Preventa especialista', 'price' => 100,
+            'fecha_desde' => Carbon::today(), 'fecha_hasta' => Carbon::today()->addDays(10),
+        ]);
+
+        $this->postJson("/api/v1/taller/{$taller->id}/periodos", [
+            'nombre' => 'Otro para la misma categoria', 'price' => 90, 'category_id' => $categoria->id,
+            'fecha_desde' => Carbon::today()->addDays(5),
+            'fecha_hasta' => Carbon::today()->addDays(20),
+        ])->assertStatus(422)->assertJson(['success' => false]);
+    }
+
+    /** Un período específico y uno general SÍ pueden solaparse en fecha — son tracks independientes. */
+    public function test_permite_solapar_periodo_especifico_con_el_general(): void
+    {
+        $evento = $this->evento();
+        $taller = Taller::factory()->create(['evento_id' => $evento->id]);
+        $categoria = Category::factory()->create(['event_id' => $evento->id]);
+        $this->actingAsAdmin($this->superAdmin());
+
+        TallerPricePeriod::create([
+            'taller_id' => $taller->id, 'category_id' => null,
+            'nombre' => 'Preventa general', 'price' => 50,
+            'fecha_desde' => Carbon::today(), 'fecha_hasta' => Carbon::today()->addDays(10),
+        ]);
+
+        $this->postJson("/api/v1/taller/{$taller->id}/periodos", [
+            'nombre' => 'Preventa especialista', 'price' => 100, 'category_id' => $categoria->id,
+            'fecha_desde' => Carbon::today(), 'fecha_hasta' => Carbon::today()->addDays(10),
+        ])->assertCreated()->assertJson(['success' => true]);
+    }
+
+    /** Dos categorías distintas también pueden solaparse — nunca compiten por el mismo participante. */
+    public function test_permite_solapar_periodos_de_categorias_distintas(): void
+    {
+        $evento = $this->evento();
+        $taller = Taller::factory()->create(['evento_id' => $evento->id]);
+        $catA = Category::factory()->create(['event_id' => $evento->id]);
+        $catB = Category::factory()->create(['event_id' => $evento->id]);
+        $this->actingAsAdmin($this->superAdmin());
+
+        TallerPricePeriod::create([
+            'taller_id' => $taller->id, 'category_id' => $catA->id,
+            'nombre' => 'Preventa A', 'price' => 100,
+            'fecha_desde' => Carbon::today(), 'fecha_hasta' => Carbon::today()->addDays(10),
+        ]);
+
+        $this->postJson("/api/v1/taller/{$taller->id}/periodos", [
+            'nombre' => 'Preventa B', 'price' => 80, 'category_id' => $catB->id,
+            'fecha_desde' => Carbon::today(), 'fecha_hasta' => Carbon::today()->addDays(10),
+        ])->assertCreated()->assertJson(['success' => true]);
+    }
+
+    public function test_rechaza_categoria_de_otro_evento_en_el_periodo(): void
+    {
+        $evento = $this->evento();
+        $otroEvento = $this->evento();
+        $taller = Taller::factory()->create(['evento_id' => $evento->id]);
+        $categoriaAjena = Category::factory()->create(['event_id' => $otroEvento->id]);
+        $this->actingAsAdmin($this->superAdmin());
+
+        $this->postJson("/api/v1/taller/{$taller->id}/periodos", [
+            'nombre' => 'Preventa', 'price' => 100, 'category_id' => $categoriaAjena->id,
+            'fecha_desde' => Carbon::today(), 'fecha_hasta' => Carbon::today()->addDays(10),
+        ])->assertStatus(422)->assertJson(['success' => false]);
+    }
+
+    public function test_show_del_taller_trae_precio_vigente_por_categoria(): void
+    {
+        $evento = $this->evento();
+        $taller = Taller::factory()->create(['evento_id' => $evento->id, 'precio' => 80]);
+        $categoria = Category::factory()->create(['event_id' => $evento->id, 'name' => 'Especialista']);
+        TallerPricePeriod::create([
+            'taller_id' => $taller->id, 'category_id' => null,
+            'nombre' => 'General', 'price' => 50,
+            'fecha_desde' => Carbon::today()->subDays(5), 'fecha_hasta' => Carbon::today()->addDays(5),
+        ]);
+        TallerPricePeriod::create([
+            'taller_id' => $taller->id, 'category_id' => $categoria->id,
+            'nombre' => 'Especialista', 'price' => 100,
+            'fecha_desde' => Carbon::today()->subDays(5), 'fecha_hasta' => Carbon::today()->addDays(5),
+        ]);
+        $this->actingAsAdmin($this->superAdmin());
+
+        $resp = $this->getJson("/api/v1/event/{$evento->id}/talleres/{$taller->id}")->assertOk();
+
+        $porCategoria = collect($resp->json('data.precioVigentePorCategoria'));
+        $general = $porCategoria->firstWhere('categoriaId', null);
+        $especifica = $porCategoria->firstWhere('categoriaId', $categoria->id);
+
+        $this->assertEquals(50, $general['precio']);
+        $this->assertEquals(100, $especifica['precio']);
+        $this->assertSame('Especialista', $especifica['categoriaNombre']);
+    }
+
     public function test_show_del_taller_trae_precio_vigente_y_periodos(): void
     {
         $evento = $this->evento();

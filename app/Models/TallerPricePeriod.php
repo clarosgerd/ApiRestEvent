@@ -11,6 +11,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * "Precio regular" — libre, no enum). Ver
  * App\Support\Taller\PrecioVigenteTallerData para la regla de qué
  * período/precio aplica hoy.
+ *
+ * category_id (13/10/2026, pedido del usuario) — opcional; con categoría,
+ * el período solo afecta a esa categoría ("track" exclusivo, ver
+ * PrecioVigenteTallerData::paraTaller()); sin categoría (NULL), sigue
+ * siendo general como antes.
  */
 class TallerPricePeriod extends Model
 {
@@ -18,6 +23,7 @@ class TallerPricePeriod extends Model
 
     protected $fillable = [
         'taller_id',
+        'category_id',
         'nombre',
         'price',
         'price_usd',
@@ -35,5 +41,10 @@ class TallerPricePeriod extends Model
     public function taller(): BelongsTo
     {
         return $this->belongsTo(Taller::class);
+    }
+
+    public function category(): BelongsTo
+    {
+        return $this->belongsTo(Category::class);
     }
 }

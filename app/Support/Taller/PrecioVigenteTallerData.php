@@ -24,6 +24,16 @@ use Carbon\CarbonImmutable;
  * sesión (`sesiones_congreso.precio`) sigue ganando siempre por encima de
  * esto — ver ResolverPrecioTallerData::unitPrice(), que solo llama a esta
  * clase cuando la sesión no tiene override cargado.
+ *
+ * Período por categoría (13/10/2026, pedido del usuario) — un período
+ * puede opcionalmente asociarse a una categoría. `paraTaller($taller,
+ * $categoriaId)` resuelve un solo "track" exclusivo, igual que
+ * TallerCombo::precioParaCategoria(): si `$categoriaId` tiene al menos un
+ * período propio, el algoritmo de 4 casos de arriba corre SOLO sobre esos
+ * períodos (nunca mira los generales, ni siquiera como fallback); si no
+ * tiene ninguno, corre sobre los períodos generales (category_id=NULL) —
+ * comportamiento idéntico al de antes de este cambio cuando no se pasa
+ * categoría.
  */
 class PrecioVigenteTallerData
 {
@@ -33,23 +43,33 @@ class PrecioVigenteTallerData
      *   precio_usd: ?float,
      *   periodo_nombre: ?string,
      *   periodo_fecha_hasta: ?string,
-     *   periodos: array<int, array{id:int, nombre:string, price:float, price_usd:?float, fecha_desde:string, fecha_hasta:string}>
+     *   periodos: array<int, array{id:int, categoriaId:?int, categoriaNombre:?string, nombre:string, price:float, price_usd:?float, fecha_desde:string, fecha_hasta:string}>
      * }
      */
-    public static function paraTaller(Taller $taller): array
+    public static function paraTaller(Taller $taller, ?string $categoriaId = null): array
     {
-        $periodos = $taller->pricePeriods()->orderBy('fecha_desde')->get();
+        $todosLosPeriodos = $taller->pricePeriods()->with('category')->orderBy('fecha_desde')->get();
 
-        $periodosArray = $periodos->map(fn (TallerPricePeriod $p) => [
-            'id'          => $p->id,
-            'nombre'      => $p->nombre,
-            'price'       => (float) $p->price,
-            'price_usd'   => $p->price_usd !== null ? (float) $p->price_usd : null,
-            'fecha_desde' => $p->fecha_desde->toDateString(),
-            'fecha_hasta' => $p->fecha_hasta->toDateString(),
+        $periodosArray = $todosLosPeriodos->map(fn (TallerPricePeriod $p) => [
+            'id'              => $p->id,
+            'categoriaId'     => $p->category_id,
+            'categoriaNombre' => $p->category?->name,
+            'nombre'          => $p->nombre,
+            'price'           => (float) $p->price,
+            'price_usd'       => $p->price_usd !== null ? (float) $p->price_usd : null,
+            'fecha_desde'     => $p->fecha_desde->toDateString(),
+            'fecha_hasta'     => $p->fecha_hasta->toDateString(),
         ])->values()->all();
 
-        // Caso 1: sin períodos configurados.
+        // Track exclusivo (13/10/2026) — categoría específica si tiene
+        // períodos propios, si no el general. Nunca se mezclan.
+        $tienePropios = $categoriaId !== null && ctype_digit($categoriaId)
+            && $todosLosPeriodos->contains(fn (TallerPricePeriod $p) => $p->category_id === (int) $categoriaId);
+        $periodos = $tienePropios
+            ? $todosLosPeriodos->filter(fn (TallerPricePeriod $p) => $p->category_id === (int) $categoriaId)->values()
+            : $todosLosPeriodos->filter(fn (TallerPricePeriod $p) => $p->category_id === null)->values();
+
+        // Caso 1: sin períodos configurados (en este track).
         if ($periodos->isEmpty()) {
             return [
                 'precio'              => (float) ($taller->precio ?? 0),

@@ -347,7 +347,7 @@ class CrearInscripcionAction
                 $nuevas[] = [
                     'sesionId'  => $sesion->id,
                     'tallerId'  => $sesion->taller_id,
-                    'unitPrice' => ResolverPrecioTallerData::unitPrice($sesion->taller, $sesion, $evento),
+                    'unitPrice' => ResolverPrecioTallerData::unitPrice($sesion->taller, $sesion, $evento, (string) $dto->category),
                 ];
             }
 

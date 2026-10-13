@@ -204,7 +204,7 @@ class CurrencyResolverData
                     throw new \DomainException('El taller seleccionado no pertenece a este evento.');
                 }
 
-                $unitUsd = ResolverPrecioTallerData::unitPriceUsd($sesion->taller, $sesion, $evento);
+                $unitUsd = ResolverPrecioTallerData::unitPriceUsd($sesion->taller, $sesion, $evento, (string) $p->category);
                 if ($unitUsd === null) {
                     throw new \DomainException(
                         "El taller '{$sesion->taller->nombre}' no tiene precio USD configurado para este evento. Recargá la página e intentá de nuevo."

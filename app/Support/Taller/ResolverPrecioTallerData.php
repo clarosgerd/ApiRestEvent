@@ -34,7 +34,7 @@ class ResolverPrecioTallerData
      * Devuelve el precio unitario (sin descuento) que se va a persistir
      * como snapshot en `participante_taller_sesion.unit_price`.
      */
-    public static function unitPrice(Taller $taller, SesionCongreso $sesion, Evento $evento): float
+    public static function unitPrice(Taller $taller, SesionCongreso $sesion, Evento $evento, ?string $categoriaId = null): float
     {
         if (! $evento->talleres_con_costo) {
             return 0.0;
@@ -44,7 +44,7 @@ class ResolverPrecioTallerData
             return (float) $sesion->precio;
         }
 
-        return PrecioVigenteTallerData::paraTaller($taller)['precio'];
+        return PrecioVigenteTallerData::paraTaller($taller, $categoriaId)['precio'];
     }
 
     /**
@@ -53,9 +53,9 @@ class ResolverPrecioTallerData
      * a esta función, nunca acá — este método sigue siendo "precio
      * individual sin ninguna promoción", igual que antes.
      */
-    public static function total(Taller $taller, SesionCongreso $sesion, Evento $evento): float
+    public static function total(Taller $taller, SesionCongreso $sesion, Evento $evento, ?string $categoriaId = null): float
     {
-        $unit = self::unitPrice($taller, $sesion, $evento);
+        $unit = self::unitPrice($taller, $sesion, $evento, $categoriaId);
         $discount = 0.0;
 
         return round($unit - $discount, 2);
@@ -73,7 +73,7 @@ class ResolverPrecioTallerData
      * - talleres_con_costo=true y ninguno tiene price_usd → null (el
      *   caller debe rechazar la inscripción, no cobrar $0 en silencio).
      */
-    public static function unitPriceUsd(Taller $taller, SesionCongreso $sesion, Evento $evento): ?float
+    public static function unitPriceUsd(Taller $taller, SesionCongreso $sesion, Evento $evento, ?string $categoriaId = null): ?float
     {
         if (! $evento->talleres_con_costo) {
             return 0.0;
@@ -83,6 +83,6 @@ class ResolverPrecioTallerData
             return (float) $sesion->price_usd;
         }
 
-        return PrecioVigenteTallerData::paraTaller($taller)['precio_usd'];
+        return PrecioVigenteTallerData::paraTaller($taller, $categoriaId)['precio_usd'];
     }
 }

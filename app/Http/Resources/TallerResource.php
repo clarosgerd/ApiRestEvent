@@ -27,6 +27,38 @@ class TallerResource extends JsonResource
         // CategoryResource).
         $vigente = PrecioVigenteTallerData::paraTaller($this->resource);
 
+        // Precio vigente por categoría (13/10/2026, pedido del usuario) —
+        // resuelto UNA SOLA VEZ acá (server-side, con la fecha de hoy ya
+        // aplicada) para cada categoría que tenga al menos un período
+        // propio, más la fila general (categoriaId null, mismo valor que
+        // precioVigente/precioUsdVigente arriba) — así el proxy PHP y el
+        // JS del formulario público solo hacen una búsqueda plana
+        // específica→default (igual que ya hacen con tallerCombos.precios)
+        // sin tener que replicar el algoritmo de 4 casos de fechas.
+        $categoriasConPeriodosPropios = collect($vigente['periodos'])
+            ->filter(fn (array $p) => $p['categoriaId'] !== null)
+            ->unique('categoriaId');
+
+        $precioVigentePorCategoria = $categoriasConPeriodosPropios
+            ->map(function (array $p) {
+                $v = PrecioVigenteTallerData::paraTaller($this->resource, (string) $p['categoriaId']);
+
+                return [
+                    'categoriaId'     => $p['categoriaId'],
+                    'categoriaNombre' => $p['categoriaNombre'],
+                    'precio'          => $v['precio'],
+                    'priceUsd'        => $v['precio_usd'],
+                ];
+            })
+            ->values()
+            ->prepend([
+                'categoriaId'     => null,
+                'categoriaNombre' => null,
+                'precio'          => $vigente['precio'],
+                'priceUsd'        => $vigente['precio_usd'],
+            ])
+            ->all();
+
         return [
             'id'          => $this->id,
             'eventoId'    => $this->evento_id,
@@ -49,6 +81,7 @@ class TallerResource extends JsonResource
             'periodoVigenteNombre'     => $vigente['periodo_nombre'],
             'periodoVigenteFechaHasta' => $vigente['periodo_fecha_hasta'],
             'periodos'                 => $vigente['periodos'],
+            'precioVigentePorCategoria' => $precioVigentePorCategoria,
             'sesiones'    => TallerSesionResource::collection(
                 $this->whenLoaded('sesiones')
             ),

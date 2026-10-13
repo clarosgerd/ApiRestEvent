@@ -6,6 +6,7 @@ use App\Http\Controllers\Concerns\AuthorizesEventoScope;
 use App\Http\Requests\StoreTallerPricePeriodRequest;
 use App\Http\Requests\UpdateTallerPricePeriodRequest;
 use App\Http\Resources\TallerResource;
+use App\Models\Category;
 use App\Models\Taller;
 use App\Models\TallerPricePeriod;
 use App\Services\AdminAuditLogger;
@@ -31,6 +32,9 @@ class TallerPricePeriodController extends Controller
 
         $data = $request->validated();
 
+        if ($error = $this->rechazaSiCategoriaAjenaAlEvento($taller, $data)) {
+            return $error;
+        }
         if ($error = $this->rechazaSiSePisaConOtro($taller, $data)) {
             return $error;
         }
@@ -53,6 +57,9 @@ class TallerPricePeriodController extends Controller
 
         $data = $request->validated();
 
+        if ($error = $this->rechazaSiCategoriaAjenaAlEvento($taller, $data)) {
+            return $error;
+        }
         if ($error = $this->rechazaSiSePisaConOtro($taller, $data, excluir: $tallerPricePeriod->id)) {
             return $error;
         }
@@ -88,13 +95,26 @@ class TallerPricePeriodController extends Controller
 
     /**
      * Mismo chequeo de overlap que CategoryPricePeriodController, aplicado
-     * por taller.
+     * por taller — ahora también scoped por categoría (13/10/2026, pedido
+     * del usuario): dos períodos de la MISMA categoría (o ambos generales,
+     * category_id=NULL) que se solapan en fecha siguen rechazándose
+     * (ambiguo, no se sabe cuál aplica); un período específico y uno
+     * general pueden solaparse libremente — son "tracks" independientes
+     * que nunca compiten por el mismo participante (ver
+     * PrecioVigenteTallerData::paraTaller()), igual que dos categorías
+     * distintas entre sí.
      */
     private function rechazaSiSePisaConOtro(Taller $taller, array $data, ?int $excluir = null): ?JsonResponse
     {
         $query = TallerPricePeriod::where('taller_id', $taller->id)
             ->where('fecha_hasta', '>=', $data['fecha_desde'])
             ->where('fecha_desde', '<=', $data['fecha_hasta']);
+
+        if (($data['category_id'] ?? null) === null) {
+            $query->whereNull('category_id');
+        } else {
+            $query->where('category_id', $data['category_id']);
+        }
 
         if ($excluir !== null) {
             $query->where('id', '!=', $excluir);
@@ -103,7 +123,25 @@ class TallerPricePeriodController extends Controller
         if ($query->exists()) {
             return response()->json([
                 'success' => false,
-                'error'   => 'Este rango de fechas se pisa con otro período ya cargado para este taller.',
+                'error'   => 'Este rango de fechas se pisa con otro período ya cargado para esta misma categoría (o general) en este taller.',
+            ], 422);
+        }
+
+        return null;
+    }
+
+    private function rechazaSiCategoriaAjenaAlEvento(Taller $taller, array $data): ?JsonResponse
+    {
+        $categoryId = $data['category_id'] ?? null;
+        if ($categoryId === null) {
+            return null;
+        }
+
+        $categoria = Category::find($categoryId);
+        if (! $categoria || (int) $categoria->event_id !== (int) $taller->evento_id) {
+            return response()->json([
+                'success' => false,
+                'error'   => 'Esa categoría no pertenece al evento de este taller.',
             ], 422);
         }
 
