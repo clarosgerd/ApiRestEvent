@@ -56,9 +56,16 @@ function buildSummary(){
     const souvTxt   = p.souvenirs.length
       ? p.souvenirs.map(s => `${escHtml(s.nombre)} (${formatMoney(s.precio)})`).join(', ')
       : '—';
-    const talleresTotal = (p.talleres || []).reduce((a, t) => a + (t.unit_price || 0), 0);
+    // Combos de talleres (12/10/2026) — sumar `total` (post-descuento), no
+    // `unit_price`, para que el resumen refleje el precio combo real.
+    const talleresTotal = (p.talleres || []).reduce((a, t) => a + (t.total ?? t.unit_price ?? 0), 0);
     const talleresTxt   = (p.talleres && p.talleres.length)
-      ? p.talleres.map(t => `${escHtml(t.taller_nombre)}: ${escHtml(t.titulo)}${t.unit_price > 0 ? ' — '+formatMoney(t.unit_price) : ''}`).join('<br>')
+      ? p.talleres.map(t => {
+          const precioTxt = t.unit_price > 0
+            ? ' — ' + (t.discount > 0 ? `<s style="color:var(--muted);">${formatMoney(t.unit_price)}</s> ${formatMoney(t.total)} 🏷️` : formatMoney(t.unit_price))
+            : '';
+          return `${escHtml(t.taller_nombre)}: ${escHtml(t.titulo)}${precioTxt}`;
+        }).join('<br>')
       : '—';
     const disc      = p.promoDescuento > 0 ? p.promoDescuento : 0;
     const sub       = ins + p.donacion + souvTotal + talleresTotal - disc;

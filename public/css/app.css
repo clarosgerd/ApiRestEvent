@@ -380,6 +380,14 @@
       border-radius: var(--radius); padding: 10px 14px; font-size: 13px;
       margin-bottom: 14px;
     }
+    /* Combos de talleres (12/10/2026) — promo vigente (amarillo, invita a
+       completarla) vs. ya aplicada (verde, confirma el ahorro). */
+    .taller-combo-promo, .taller-combo-applied {
+      border-radius: var(--radius); padding: 10px 14px; font-size: 13px;
+      margin-bottom: 10px; font-weight: 600;
+    }
+    .taller-combo-promo { background: #fff8e6; border: 1px solid #f0d998; color: #8a6d1d; }
+    .taller-combo-applied { background: #e9f8ef; border: 1px solid #a9e3c0; color: #1d7a45; }
     .taller-block {
       border: 1.5px solid var(--border); border-radius: var(--radius);
       padding: 14px 16px; margin-bottom: 14px; background: var(--white);

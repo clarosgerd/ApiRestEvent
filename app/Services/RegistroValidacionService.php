@@ -89,6 +89,209 @@ class RegistroValidacionService
     }
 
     /**
+     * Precio por categoría de un combo (13/10/2026, pedido del usuario) — el
+     * mismo combo (mismos talleres) puede costar distinto según la categoría
+     * del participante. Gana una fila específica de esa categoría; si no hay,
+     * la fila default (categoriaId null); si no hay ninguna de las dos,
+     * `null` (el combo no aplica a esa categoría — no hay "precio base" al
+     * que caer). Mismo criterio que TallerCombo::precioParaCategoria()
+     * (ApiRestEvent).
+     *
+     * USD fijo (13/10/2026, pedido del usuario) — `$usarPriceUsd=true` lee
+     * `priceUsd` en vez de `precio`; `null` también si la fila encontrada no
+     * tiene `priceUsd` cargado (mismo criterio que un taller sin precio USD:
+     * nunca se cobra de menos en silencio).
+     */
+    private function precioComboParaCategoria(array $combo, mixed $categoriaId, bool $usarPriceUsd = false): ?float
+    {
+        $precios = $combo['precios'] ?? [];
+        $campo = $usarPriceUsd ? 'priceUsd' : 'precio';
+        $default = null;
+
+        foreach ($precios as $p) {
+            if ($p['categoriaId'] === null) {
+                $default = isset($p[$campo]) && $p[$campo] !== null ? (float) $p[$campo] : null;
+                continue;
+            }
+            if ($categoriaId !== null && ctype_digit((string) $categoriaId) && (int) $p['categoriaId'] === (int) $categoriaId) {
+                return isset($p[$campo]) && $p[$campo] !== null ? (float) $p[$campo] : null;
+            }
+        }
+
+        return $default;
+    }
+
+    /**
+     * Precio vigente de un taller por categoría (13/10/2026, pedido del
+     * usuario) — mismo criterio que precioComboParaCategoria(), pero para
+     * períodos de precio por fecha de un taller. ApiRestEvent ya resolvió
+     * "hoy" para cada track (general + cada categoría con período propio) en
+     * TallerResource::precioVigentePorCategoria — este servicio solo hace la
+     * misma búsqueda plana específica→default, nunca el algoritmo de fechas
+     * (eso vive solo en PrecioVigenteTallerData, ApiRestEvent).
+     *
+     * A diferencia de los combos, la fila general (categoriaId null) siempre
+     * está presente — si por algún motivo no lo está (payload viejo/caché),
+     * cae a `precioVigente`/`precioUsdVigente` planos como red de seguridad.
+     */
+    private function precioVigenteParaCategoria(array $taller, mixed $categoriaId, bool $usarPriceUsd = false): ?float
+    {
+        $filas = $taller['precioVigentePorCategoria'] ?? null;
+        $campo = $usarPriceUsd ? 'priceUsd' : 'precio';
+
+        if ($filas === null) {
+            $campoPlano = $usarPriceUsd ? 'precioUsdVigente' : 'precioVigente';
+
+            return isset($taller[$campoPlano]) && $taller[$campoPlano] !== null ? (float) $taller[$campoPlano] : null;
+        }
+
+        $default = null;
+        foreach ($filas as $fila) {
+            if ($fila['categoriaId'] === null) {
+                $default = isset($fila[$campo]) && $fila[$campo] !== null ? (float) $fila[$campo] : null;
+                continue;
+            }
+            if ($categoriaId !== null && ctype_digit((string) $categoriaId) && (int) $fila['categoriaId'] === (int) $categoriaId) {
+                return isset($fila[$campo]) && $fila[$campo] !== null ? (float) $fila[$campo] : null;
+            }
+        }
+
+        return $default;
+    }
+
+    /**
+     * Combos de talleres (12/10/2026, pedido del usuario) — "Taller A + Taller
+     * B por el precio de 1" o "por $300 fijo". Réplica en PHP del mismo
+     * algoritmo que ResolverCombosTallerAction en ApiRestEvent: un combo se
+     * aplica si TODOS sus talleres miembro están entre las selecciones
+     * (subconjunto), eligiendo entre combos superpuestos el de mayor ahorro
+     * total (greedy, sin reusar un taller ya consumido), repartiendo el
+     * descuento proporcional al unit_price de cada ítem con el resto de
+     * redondeo en el último para que la suma cierre exacta.
+     *
+     * Es una capa de preview/defensa en profundidad — quien decide y persiste
+     * de verdad qué se cobra es ApiRestEvent (RegistrationService::
+     * createParticipantFromData(), que NUNCA confía en el unit_price que
+     * mande este servicio, y que además excluye del matching cualquier
+     * sesión ya persistida de una edición anterior, para que un combo nunca
+     * se aplique retroactivo sobre algo ya cobrado — ver el snapshot-lock
+     * ahí).
+     *
+     * USD fijo (13/10/2026, pedido del usuario) — `$usarPriceUsd=true` corre
+     * exactamente el mismo matching/reparto, pero sobre `unit_price` en USD y
+     * el precio del combo en USD — independiente del resultado en Bs (mismo
+     * criterio ya existente para talleres individuales). Un combo cuya fila
+     * de precio no tiene `priceUsd` cargado tampoco es candidato en ese modo.
+     */
+    private function resolverCombosTaller(array $selecciones, array $tallerCombos, mixed $categoriaId = null, bool $usarPriceUsd = false): array
+    {
+        foreach ($selecciones as &$s) {
+            $s['discount'] = 0.0;
+            $s['total'] = round($s['unit_price'], 2);
+            $s['taller_combo_id'] = null;
+        }
+        unset($s);
+
+        $combosVigentes = [];
+        foreach ($tallerCombos as $combo) {
+            if (empty($combo['vigente'])) {
+                continue;
+            }
+            $precio = $this->precioComboParaCategoria($combo, $categoriaId, $usarPriceUsd);
+            if ($precio === null) {
+                continue;
+            }
+            $combo['_precioResuelto'] = $precio;
+            $combosVigentes[] = $combo;
+        }
+
+        if (empty($combosVigentes)) {
+            return $selecciones;
+        }
+
+        $indicePorTaller = [];
+        foreach ($selecciones as $i => $s) {
+            $tid = $s['taller_id'];
+            if (! isset($indicePorTaller[$tid]) || $s['unit_price'] < $selecciones[$indicePorTaller[$tid]]['unit_price']) {
+                $indicePorTaller[$tid] = $i;
+            }
+        }
+
+        $candidatos = [];
+        foreach ($combosVigentes as $combo) {
+            $tallerIdsCombo = $combo['tallerIds'] ?? [];
+            sort($tallerIdsCombo);
+            if (empty($tallerIdsCombo)) {
+                continue;
+            }
+
+            $todosPresentes = true;
+            foreach ($tallerIdsCombo as $tid) {
+                if (! isset($indicePorTaller[$tid])) {
+                    $todosPresentes = false;
+                    break;
+                }
+            }
+            if (! $todosPresentes) {
+                continue;
+            }
+
+            $suma = 0.0;
+            foreach ($tallerIdsCombo as $tid) {
+                $suma += $selecciones[$indicePorTaller[$tid]]['unit_price'];
+            }
+
+            $candidatos[] = [
+                'combo'     => $combo,
+                'tallerIds' => $tallerIdsCombo,
+                'suma'      => $suma,
+                'ahorro'    => $suma - (float) $combo['_precioResuelto'],
+            ];
+        }
+
+        usort($candidatos, function ($a, $b) {
+            if ($a['ahorro'] == $b['ahorro']) {
+                return $a['combo']['id'] <=> $b['combo']['id'];
+            }
+
+            return $b['ahorro'] <=> $a['ahorro'];
+        });
+
+        $consumidos = [];
+        foreach ($candidatos as $c) {
+            if (array_intersect($c['tallerIds'], $consumidos)) {
+                continue;
+            }
+
+            $descuentoTotal = round(max(0.0, $c['ahorro']), 2);
+            $indices = array_map(fn ($tid) => $indicePorTaller[$tid], $c['tallerIds']);
+            $ultimo = count($indices) - 1;
+            $acumulado = 0.0;
+
+            foreach ($indices as $pos => $idx) {
+                $unit = $selecciones[$idx]['unit_price'];
+
+                if ($pos === $ultimo) {
+                    $discount = round($descuentoTotal - $acumulado, 2);
+                } elseif ($c['suma'] > 0) {
+                    $discount = round($descuentoTotal * $unit / $c['suma'], 2);
+                } else {
+                    $discount = 0.0;
+                }
+                $acumulado += $discount;
+
+                $selecciones[$idx]['discount'] = $discount;
+                $selecciones[$idx]['total'] = round($unit - $discount, 2);
+                $selecciones[$idx]['taller_combo_id'] = $c['combo']['id'];
+            }
+
+            $consumidos = array_merge($consumidos, $c['tallerIds']);
+        }
+
+        return $selecciones;
+    }
+
+    /**
      * Revalida cada participante contra el evento/tipo de formulario y
      * recalcula totales en el servidor.
      *
@@ -243,6 +446,7 @@ class RegistroValidacionService
             }
 
             $talleres = [];
+            $talleresUsd = [];
             $talleresTotal = 0.0;
             $talleresTotalUsd = 0.0;
             foreach (($p['talleres'] ?? []) as $ts) {
@@ -268,12 +472,24 @@ class RegistroValidacionService
                     return ['error' => "La sesión seleccionada no pertenece al taller '{$taller['nombre']}'."];
                 }
 
+                // Precio efectivo: si el evento NO cobra por talleres,
+                // siempre 0 (los talleres siguen siendo seleccionables,
+                // pero no suman). Override de la sesión gana; si no hay,
+                // precio vigente del taller PARA LA CATEGORÍA de este
+                // participante (13/10/2026, ver precioVigenteParaCategoria()
+                // — ya resuelto "hoy" por ApiRestEvent,
+                // TallerResource::precioVigentePorCategoria, que tiene en
+                // cuenta tanto el período de precio por fecha como la
+                // categoría si el taller tiene alguno cargado). Este
+                // servicio no reimplementa esa lógica, solo consume el
+                // campo.
                 $unitPrice = 0.0;
                 if ($talleresConCosto) {
                     if (isset($sesion['precio']) && $sesion['precio'] !== null) {
                         $unitPrice = (float) $sesion['precio'];
-                    } elseif (isset($taller['precio']) && $taller['precio'] !== null) {
-                        $unitPrice = (float) $taller['precio'];
+                    } else {
+                        $vigente = $this->precioVigenteParaCategoria($taller, $p['categoria'] ?? null);
+                        $unitPrice = $vigente ?? 0.0;
                     }
                 }
 
@@ -281,10 +497,13 @@ class RegistroValidacionService
                 if ($talleresConCosto && $usdPrecioFijo) {
                     if (isset($sesion['precioUsd']) && $sesion['precioUsd'] !== null) {
                         $unitPriceUsd = (float) $sesion['precioUsd'];
-                    } elseif (isset($taller['precioUsd']) && $taller['precioUsd'] !== null) {
-                        $unitPriceUsd = (float) $taller['precioUsd'];
                     } else {
-                        return ['error' => "El taller '{$taller['nombre']}' no tiene precio USD configurado para este evento."];
+                        $vigenteUsd = $this->precioVigenteParaCategoria($taller, $p['categoria'] ?? null, true);
+                        if ($vigenteUsd !== null) {
+                            $unitPriceUsd = $vigenteUsd;
+                        } else {
+                            return ['error' => "El taller '{$taller['nombre']}' no tiene precio USD configurado para este evento."];
+                        }
                     }
                 }
 
@@ -293,8 +512,35 @@ class RegistroValidacionService
                     'sesion_congreso_id' => (int) $sesion['id'],
                     'unit_price' => $unitPrice,
                 ];
-                $talleresTotal += $unitPrice;
-                $talleresTotalUsd += $unitPriceUsd;
+                if ($usdPrecioFijo) {
+                    $talleresUsd[] = [
+                        'taller_id' => (int) $taller['id'],
+                        'sesion_congreso_id' => (int) $sesion['id'],
+                        'unit_price' => $unitPriceUsd,
+                    ];
+                }
+            }
+
+            // Combos de talleres (12/10/2026, pedido del usuario) —
+            // preview: quien decide y persiste de verdad qué se cobra es
+            // ApiRestEvent (nunca confía en el unit_price que mande este
+            // servicio), así que una discrepancia acá nunca compromete la
+            // integridad de los datos, solo el monto que se le muestra al
+            // participante antes de confirmar.
+            $talleres = $this->resolverCombosTaller($talleres, $evento['tallerCombos'] ?? [], $p['categoria'] ?? null);
+            $talleresTotal = 0.0;
+            foreach ($talleres as $t) {
+                $talleresTotal += $t['total'];
+            }
+
+            // USD fijo (13/10/2026, pedido del usuario) — mismo matching,
+            // independiente, en USD (ver resolverCombosTaller($usarPriceUsd=true)).
+            $talleresTotalUsd = 0.0;
+            if ($usdPrecioFijo) {
+                $talleresUsdResueltos = $this->resolverCombosTaller($talleresUsd, $evento['tallerCombos'] ?? [], $p['categoria'] ?? null, true);
+                foreach ($talleresUsdResueltos as $t) {
+                    $talleresTotalUsd += $t['total'];
+                }
             }
 
             $base = $inscripcion + $donacion + $souvenirsTotal;

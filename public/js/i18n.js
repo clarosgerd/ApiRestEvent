@@ -139,6 +139,11 @@ const translations = {
       talleresRequiredMissing: 'You must select at least one schedule for every required workshop before continuing.',
       tallerRequerido: 'Required', tallerOpcional: 'Optional', tallerPrice: 'Price',
       tallerSinLimite: 'No limit', tallerConflict: 'Schedule conflict',
+      // Combos de talleres (12/10/2026, pedido del usuario) — anuncio de
+      // la promo en el formulario ("2x1" o precio fijo por 2+ talleres).
+      // %TALLERES%/%PRECIO%/%ANTES%/%AHORRO% se reemplazan en JS.
+      comboAnuncio: '🏷️ Promo: choose %TALLERES% together and pay %PRECIO% (instead of %ANTES%)',
+      comboAplicado: '✅ Combo applied — you save %AHORRO%',
       talleresAgendaBtn: '📅 Workshop schedule', talleresAgendaTitle: 'Workshop schedule',
       talleresAgendaEmpty: 'No workshops scheduled yet.',
       tallerCuposDisponibles: '%d seats available', tallerCuposQuedan: '%d seats left',
@@ -342,6 +347,8 @@ const translations = {
       talleresRequiredMissing: 'Tenés que seleccionar al menos un horario de cada taller obligatorio antes de continuar.',
       tallerRequerido: 'Obligatorio', tallerOpcional: 'Opcional', tallerPrice: 'Precio',
       tallerSinLimite: 'Sin límite', tallerConflict: 'Conflicto de horario',
+      comboAnuncio: '🏷️ Promo: elegí %TALLERES% juntos y pagá %PRECIO% (en vez de %ANTES%)',
+      comboAplicado: '✅ Combo aplicado — ahorrás %AHORRO%',
       talleresAgendaBtn: '📅 Agenda de talleres', talleresAgendaTitle: 'Agenda de talleres',
       talleresAgendaEmpty: 'Todavía no hay talleres programados.',
       tallerCuposDisponibles: '%d cupos disponibles', tallerCuposQuedan: 'Quedan %d cupos',
@@ -545,6 +552,8 @@ const translations = {
       talleresRequiredMissing: 'Selecione pelo menos um horário de cada oficina obrigatória antes de continuar.',
       tallerRequerido: 'Obrigatória', tallerOpcional: 'Opcional', tallerPrice: 'Preço',
       tallerSinLimite: 'Sem limite', tallerConflict: 'Conflito de horário',
+      comboAnuncio: '🏷️ Promoção: escolha %TALLERES% juntas e pague %PRECIO% (em vez de %ANTES%)',
+      comboAplicado: '✅ Combo aplicado — você economiza %AHORRO%',
       talleresAgendaBtn: '📅 Agenda das oficinas', talleresAgendaTitle: 'Agenda das oficinas',
       talleresAgendaEmpty: 'Ainda não há oficinas programadas.',
       tallerCuposDisponibles: '%d vagas disponíveis', tallerCuposQuedan: 'Restam %d vagas',

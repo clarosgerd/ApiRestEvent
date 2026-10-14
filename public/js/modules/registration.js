@@ -1022,8 +1022,14 @@ function formatTallerPrice(amountBOB, amountUsd){
 
 // Precio USD efectivo de una sesión (override) o su taller (fallback) —
 // null si ninguno tiene precio USD cargado.
-function resolverTallerPrecioUsd(taller, sesion){
+// Precios por período y por categoría (12-13/10/2026) — precioVigenteParaCategoriaJS
+// ya resuelve el período vigente (y la categoría, si el taller tiene un
+// período propio para ella) — mismo criterio que precioTallerEfectivo
+// en renderTalleresSelector().
+function resolverTallerPrecioUsd(taller, sesion, categoriaId){
   if (sesion.precioUsd !== null && sesion.precioUsd !== undefined) return Number(sesion.precioUsd);
+  const vigente = precioVigenteParaCategoriaJS(taller, categoriaId ?? null, true);
+  if (vigente !== null) return vigente;
   if (taller.precioUsd !== null && taller.precioUsd !== undefined) return Number(taller.precioUsd);
   return null;
 }
@@ -1043,6 +1049,11 @@ function collectSelectedTalleresForParticipant() {
   const talleres = getEventTalleres();
   const talleresById = Object.fromEntries(talleres.map(t => [String(t.id), t]));
   const conCosto = !!(currentEvent && currentEvent.talleresConCosto);
+  // Categoría elegida (13/10/2026) — el precio vigente de un taller puede
+  // ser distinto según la categoría (período de precio por fecha, ver
+  // precioVigenteParaCategoriaJS); mismo lookup que ya usa saveParticipant()
+  // para armar `categoria:` del participante.
+  const categoriaIdActual = document.querySelector('.category-card.selected')?.dataset.id ?? null;
 
   const out = [];
   document.querySelectorAll('.taller-sesion-cb:checked').forEach(cb => {
@@ -1056,13 +1067,25 @@ function collectSelectedTalleresForParticipant() {
     let unitPriceUsd = 0;
     let unitPriceUsdFaltante = false;
     if (conCosto) {
-      if (sesion.precio !== null && sesion.precio !== undefined) unitPrice = Number(sesion.precio);
-      else if (taller.precio !== null && taller.precio !== undefined) unitPrice = Number(taller.precio);
+      // Precios por período y por categoría (12-13/10/2026) — override de
+      // sesión gana siempre; si no, el precio VIGENTE del taller PARA LA
+      // CATEGORÍA elegida (ver precioVigenteParaCategoriaJS) en vez del
+      // precio base crudo.
+      if (sesion.precio !== null && sesion.precio !== undefined) {
+        unitPrice = Number(sesion.precio);
+      } else {
+        const vigente = precioVigenteParaCategoriaJS(taller, categoriaIdActual);
+        unitPrice = vigente !== null ? vigente : Number(taller.precio || 0);
+      }
 
       if (currentEvent && currentEvent.usdPrecioFijo) {
-        if (sesion.precioUsd !== null && sesion.precioUsd !== undefined) unitPriceUsd = Number(sesion.precioUsd);
-        else if (taller.precioUsd !== null && taller.precioUsd !== undefined) unitPriceUsd = Number(taller.precioUsd);
-        else unitPriceUsdFaltante = true;
+        if (sesion.precioUsd !== null && sesion.precioUsd !== undefined) {
+          unitPriceUsd = Number(sesion.precioUsd);
+        } else {
+          const vigenteUsd = precioVigenteParaCategoriaJS(taller, categoriaIdActual, true);
+          if (vigenteUsd !== null) unitPriceUsd = vigenteUsd;
+          else unitPriceUsdFaltante = true;
+        }
       }
     }
 
@@ -1079,9 +1102,160 @@ function collectSelectedTalleresForParticipant() {
       unit_price: unitPrice,
       unit_price_usd: unitPriceUsd,
       unit_price_usd_faltante: unitPriceUsdFaltante,
+      // discount/total/taller_combo_id (12/10/2026) — se completan abajo
+      // por resolverCombosTallerJS(); sin combo vigente que aplique,
+      // quedan en 0/unit_price/null. Solo preview — ApiRestEvent es la
+      // única autoridad real (ver ResolverCombosTallerAction).
+      discount: 0,
+      total: unitPrice,
+      taller_combo_id: null,
+      // discountUsd/totalUsd (13/10/2026) — mismo criterio pero en USD
+      // fijo, resuelto independiente de discount/total (ver
+      // resolverCombosTallerJS(usarPriceUsd=true) más abajo).
+      discountUsd: 0,
+      totalUsd: unitPriceUsd,
     });
   });
+  resolverCombosTallerJS(out, categoriaIdActual);
+  if (currentEvent && currentEvent.usdPrecioFijo) {
+    resolverCombosTallerJS(out, categoriaIdActual, true);
+  }
   return out;
+}
+
+/**
+ * Precio por categoría de un combo (13/10/2026, pedido del usuario) — el
+ * mismo combo (mismos talleres) puede costar distinto según la categoría.
+ * Gana una fila específica de esa categoría; si no hay, la fila default
+ * (categoriaId null); si no hay ninguna, `null` (el combo no aplica).
+ * Mismo criterio que precioComboParaCategoria() (ApiRestEvent/RegistroValidacionService).
+ *
+ * USD fijo (13/10/2026, pedido del usuario) — `usarPriceUsd=true` lee
+ * `priceUsd` en vez de `precio`; `null` también si la fila encontrada no
+ * tiene `priceUsd` cargado (nunca se cobra de menos en silencio).
+ */
+function precioComboParaCategoriaJS(combo, categoriaId, usarPriceUsd = false) {
+  const precios = combo.precios || [];
+  const campo = usarPriceUsd ? 'priceUsd' : 'precio';
+  let defaultPrecio = null;
+
+  for (const p of precios) {
+    if (p.categoriaId === null) {
+      defaultPrecio = (p[campo] !== null && p[campo] !== undefined) ? Number(p[campo]) : null;
+      continue;
+    }
+    if (categoriaId !== null && categoriaId !== undefined && String(p.categoriaId) === String(categoriaId)) {
+      return (p[campo] !== null && p[campo] !== undefined) ? Number(p[campo]) : null;
+    }
+  }
+
+  return defaultPrecio;
+}
+
+/**
+ * Precio vigente de un taller por categoría (13/10/2026, pedido del
+ * usuario) — mismo criterio que precioComboParaCategoriaJS(), pero para
+ * períodos de precio por fecha de un taller. ApiRestEvent ya resolvió
+ * "hoy" para cada track (general + cada categoría con período propio) en
+ * TallerResource::precioVigentePorCategoria — este preview solo hace la
+ * misma búsqueda plana específica→default, nunca el algoritmo de fechas.
+ *
+ * A diferencia de los combos, la fila general (categoriaId null) siempre
+ * está presente — si por algún motivo no lo está (payload viejo/caché),
+ * cae a `precioVigente`/`precioUsdVigente` planos como red de seguridad.
+ */
+function precioVigenteParaCategoriaJS(taller, categoriaId, usarPriceUsd = false) {
+  const filas = taller.precioVigentePorCategoria;
+  const campo = usarPriceUsd ? 'priceUsd' : 'precio';
+
+  if (!filas) {
+    const campoPlano = usarPriceUsd ? 'precioUsdVigente' : 'precioVigente';
+    const v = taller[campoPlano];
+    return (v !== null && v !== undefined) ? Number(v) : null;
+  }
+
+  let defaultPrecio = null;
+  for (const fila of filas) {
+    if (fila.categoriaId === null) {
+      defaultPrecio = (fila[campo] !== null && fila[campo] !== undefined) ? Number(fila[campo]) : null;
+      continue;
+    }
+    if (categoriaId !== null && categoriaId !== undefined && String(fila.categoriaId) === String(categoriaId)) {
+      return (fila[campo] !== null && fila[campo] !== undefined) ? Number(fila[campo]) : null;
+    }
+  }
+
+  return defaultPrecio;
+}
+
+/**
+ * Combos de talleres (12/10/2026, pedido del usuario) — réplica en JS,
+ * solo para el preview en vivo del formulario, del mismo algoritmo que
+ * ResolverCombosTallerAction (ApiRestEvent): un combo se aplica si TODOS
+ * sus talleres miembro están entre las selecciones (subconjunto),
+ * eligiendo entre combos superpuestos el de mayor ahorro total (greedy),
+ * con el descuento repartido proporcional al unit_price de cada ítem y el
+ * resto de redondeo en el último. ApiRestEvent es la única autoridad real
+ * — esto es puramente para que el participante vea el total correcto
+ * ANTES de confirmar.
+ *
+ * USD fijo (13/10/2026, pedido del usuario) — `usarPriceUsd=true` corre
+ * exactamente el mismo matching/reparto, pero sobre `unit_price_usd` y el
+ * `priceUsd` del combo, escribiendo `discountUsd`/`totalUsd` en vez de
+ * `discount`/`total` (independiente del resultado en Bs). Un combo cuya
+ * fila de precio no tiene `priceUsd` cargado tampoco es candidato acá.
+ */
+function resolverCombosTallerJS(selecciones, categoriaId, usarPriceUsd = false) {
+  const campoUnit = usarPriceUsd ? 'unit_price_usd' : 'unit_price';
+  const campoDiscount = usarPriceUsd ? 'discountUsd' : 'discount';
+  const campoTotal = usarPriceUsd ? 'totalUsd' : 'total';
+
+  const combos = ((currentEvent || {}).tallerCombos || [])
+    .filter(c => c.vigente)
+    .map(c => ({ ...c, _precioResuelto: precioComboParaCategoriaJS(c, categoriaId, usarPriceUsd) }))
+    .filter(c => c._precioResuelto !== null);
+  if (!combos.length || !selecciones.length) return selecciones;
+
+  const indicePorTaller = {};
+  selecciones.forEach((s, i) => {
+    const tid = s.taller_id;
+    if (!(tid in indicePorTaller) || s[campoUnit] < selecciones[indicePorTaller[tid]][campoUnit]) {
+      indicePorTaller[tid] = i;
+    }
+  });
+
+  const candidatos = [];
+  combos.forEach(combo => {
+    const tallerIds = (combo.tallerIds || []).slice().sort((a, b) => a - b);
+    if (!tallerIds.length || !tallerIds.every(tid => tid in indicePorTaller)) return;
+    const suma = tallerIds.reduce((a, tid) => a + selecciones[indicePorTaller[tid]][campoUnit], 0);
+    candidatos.push({ combo, tallerIds, suma, ahorro: suma - combo._precioResuelto });
+  });
+  candidatos.sort((a, b) => (b.ahorro - a.ahorro) || (a.combo.id - b.combo.id));
+
+  const consumidos = new Set();
+  candidatos.forEach(c => {
+    if (c.tallerIds.some(tid => consumidos.has(tid))) return;
+
+    const descuentoTotal = Math.max(0, Math.round(c.ahorro * 100) / 100);
+    const indices = c.tallerIds.map(tid => indicePorTaller[tid]);
+    let acumulado = 0;
+    indices.forEach((idx, pos) => {
+      const unit = selecciones[idx][campoUnit];
+      let discount;
+      if (pos === indices.length - 1) discount = Math.round((descuentoTotal - acumulado) * 100) / 100;
+      else if (c.suma > 0) discount = Math.round((descuentoTotal * unit / c.suma) * 100) / 100;
+      else discount = 0;
+      acumulado += discount;
+
+      selecciones[idx][campoDiscount] = discount;
+      selecciones[idx][campoTotal] = Math.round((unit - discount) * 100) / 100;
+      if (!usarPriceUsd) selecciones[idx].taller_combo_id = c.combo.id;
+    });
+    c.tallerIds.forEach(tid => consumidos.add(tid));
+  });
+
+  return selecciones;
 }
 
 /**
@@ -1155,6 +1329,10 @@ function renderTalleresSelector() {
   if (usdFijoAviso) usdFijoAviso.style.display = (currentEvent && currentEvent.usdPrecioFijo) ? '' : 'none';
 
   const conCosto = !!(currentEvent && currentEvent.talleresConCosto);
+  // Categoría elegida (13/10/2026) — el precio vigente de un taller puede
+  // ser distinto según la categoría, mismo lookup que
+  // collectSelectedTalleresForParticipant().
+  const categoriaIdActual = document.querySelector('.category-card.selected')?.dataset.id ?? null;
   const requiredFirst = [...talleres].sort((a, b) => {
     if (a.modalidad === b.modalidad) return (a.orden || 0) - (b.orden || 0);
     return a.modalidad === 'REQUIRED' ? -1 : 1;
@@ -1166,12 +1344,18 @@ function renderTalleresSelector() {
 
     const sesionesHtml = sesiones.map(s => {
       const full = s.cupo !== null && s.disponibles !== null && s.disponibles <= 0;
-      const precioUsdEfectivo = resolverTallerPrecioUsd(taller, s);
+      const precioUsdEfectivo = resolverTallerPrecioUsd(taller, s, categoriaIdActual);
+      // Precios por período y por categoría (12-13/10/2026) — un taller
+      // sin `precio` base propio (cobra solo vía un período de fecha)
+      // mostraba el precio vacío acá. Mismo fallback: override de sesión
+      // > precioVigente del taller PARA LA CATEGORÍA elegida > precio base.
+      const precioVigenteCat = precioVigenteParaCategoriaJS(taller, categoriaIdActual);
+      const precioTallerEfectivo = precioVigenteCat !== null ? precioVigenteCat : taller.precio;
       const priceTxt = conCosto
         ? (s.precio !== null && s.precio !== undefined
             ? `${t('registration.tallerPrice')}: ${formatTallerPrice(Number(s.precio), precioUsdEfectivo)}`
-            : (taller.precio !== null && taller.precio !== undefined
-              ? `${t('registration.tallerPrice')}: ${formatTallerPrice(Number(taller.precio), precioUsdEfectivo)}`
+            : (precioTallerEfectivo !== null && precioTallerEfectivo !== undefined
+              ? `${t('registration.tallerPrice')}: ${formatTallerPrice(Number(precioTallerEfectivo), precioUsdEfectivo)}`
               : ''))
         : '';
       const cupoInfo = formatCupoAvailability(s.cupo, s.ocupados);
@@ -1233,6 +1417,71 @@ function updateTallerConflictsUI() {
   });
   const reqWarn = document.getElementById('talleres-required-warning');
   if (reqWarn) reqWarn.style.display = allRequiredTalleresSelected() ? 'none' : '';
+  renderComboBanner();
+}
+
+/**
+ * Combos de talleres (12/10/2026, pedido del usuario) — anuncia las
+ * promos vigentes del evento ("2x1" o precio fijo por 2+ talleres) arriba
+ * del selector, y las marca como aplicadas (con el ahorro real) en cuanto
+ * el participante completa la selección. Se repinta en cada cambio de
+ * checkbox (ver updateTallerConflictsUI()).
+ */
+function renderComboBanner() {
+  const container = document.getElementById('talleres-combos-banner');
+  if (!container) return;
+
+  // Categoría elegida (13/10/2026) — sin categoría todavía, solo se
+  // anuncian los combos con precio DEFAULT (precioComboParaCategoriaJS
+  // ignora las filas de categorías específicas cuando categoriaId es
+  // null) — evita prometer un precio que depende de una categoría que
+  // todavía no se eligió.
+  const categoriaIdActual = document.querySelector('.category-card.selected')?.dataset.id ?? null;
+  // USD fijo (13/10/2026) — el evento cobra EXCLUSIVAMENTE en USD, así que
+  // el banner también anuncia/formatea en USD; un combo sin priceUsd
+  // cargado no se anuncia.
+  const usarUsd = !!(currentEvent && currentEvent.usdPrecioFijo);
+  const fmt = usarUsd ? (n => `$${Number(n).toFixed(2)}`) : formatMoney;
+
+  const combos = ((currentEvent || {}).tallerCombos || [])
+    .filter(c => c.vigente)
+    .map(c => ({ ...c, _precioResuelto: precioComboParaCategoriaJS(c, categoriaIdActual, usarUsd) }))
+    .filter(c => c._precioResuelto !== null);
+  if (!combos.length) { container.innerHTML = ''; return; }
+
+  const talleres = getEventTalleres();
+  const nombrePorTaller = {};
+  talleres.forEach(tl => { nombrePorTaller[tl.id] = tl.nombre; });
+
+  const seleccionadas = collectSelectedTalleresForParticipant();
+  const comboIdsAplicados = new Set(seleccionadas.filter(s => s.taller_combo_id).map(s => s.taller_combo_id));
+
+  container.innerHTML = combos.map(combo => {
+    const nombres = (combo.tallerIds || []).map(tid => nombrePorTaller[tid] || `#${tid}`);
+
+    if (comboIdsAplicados.has(combo.id)) {
+      const ahorro = seleccionadas
+        .filter(s => s.taller_combo_id === combo.id)
+        .reduce((a, s) => a + ((usarUsd ? s.discountUsd : s.discount) || 0), 0);
+      const msg = t('registration.comboAplicado').replace('%AHORRO%', fmt(ahorro));
+      return `<div class="taller-combo-applied">${escHtml(msg)}</div>`;
+    }
+
+    const antes = (combo.tallerIds || []).reduce((a, tid) => {
+      const tl = talleres.find(x => x.id === tid);
+      if (!tl) return a;
+      // Período por categoría (13/10/2026) — mismo criterio que el resto
+      // de los call sites: precio vigente PARA LA CATEGORÍA elegida.
+      const vigente = precioVigenteParaCategoriaJS(tl, categoriaIdActual, usarUsd);
+      const precio = vigente !== null ? vigente : (usarUsd ? tl.precioUsd : tl.precio);
+      return a + Number(precio || 0);
+    }, 0);
+    const msg = t('registration.comboAnuncio')
+      .replace('%TALLERES%', nombres.join(' + '))
+      .replace('%PRECIO%', fmt(combo._precioResuelto))
+      .replace('%ANTES%', fmt(antes));
+    return `<div class="taller-combo-promo">${escHtml(msg)}</div>`;
+  }).join('');
 }
 
 // ════════════════════════════════════════════════════════════
@@ -1249,6 +1498,8 @@ function renderTalleresAgendaModal(){
 
   const talleres = getEventTalleres();
   const conCosto = !!(currentEvent && currentEvent.talleresConCosto);
+  // Categoría elegida (13/10/2026) — mismo lookup que renderTalleresSelector().
+  const categoriaIdActual = document.querySelector('.category-card.selected')?.dataset.id ?? null;
 
   const items = [];
   talleres.forEach(taller => {
@@ -1286,9 +1537,14 @@ function renderTalleresAgendaModal(){
       const roomChip = s.sala ? `<span class="agenda-chip">📍 ${escHtml(s.sala)}</span>` : '';
       let priceChip = '';
       if (conCosto) {
+        // Precios por período y por categoría (12-13/10/2026) — mismo
+        // fallback que renderTalleresSelector(): override de sesión >
+        // precioVigente para la categoría elegida > precio base.
+        const precioVigenteCat = precioVigenteParaCategoriaJS(taller, categoriaIdActual);
+        const precioTallerEfectivo = precioVigenteCat !== null ? precioVigenteCat : taller.precio;
         const precio = (s.precio !== null && s.precio !== undefined) ? Number(s.precio)
-          : (taller.precio !== null && taller.precio !== undefined ? Number(taller.precio) : 0);
-        const precioUsdEfectivo = resolverTallerPrecioUsd(taller, s);
+          : (precioTallerEfectivo !== null && precioTallerEfectivo !== undefined ? Number(precioTallerEfectivo) : 0);
+        const precioUsdEfectivo = resolverTallerPrecioUsd(taller, s, categoriaIdActual);
         priceChip = `<span class="agenda-chip">${escHtml(formatTallerPrice(precio, precioUsdEfectivo))}</span>`;
       }
       const cupoInfo = formatCupoAvailability(s.cupo, s.ocupados);

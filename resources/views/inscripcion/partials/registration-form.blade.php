@@ -386,6 +386,12 @@
                    backend rechaza la inscripción recién al confirmar el pago.
                    Este aviso lo dice antes, para no sorprender al participante. -->
               <div id="talleres-usd-fijo-aviso" class="talleres-required-warning" style="display:none;" data-i18n="registration.talleresUsdFijoAviso"></div>
+              <!-- Combos de talleres (12/10/2026, pedido del usuario) —
+                   anuncio de promos vigentes ("2x1" o precio fijo por 2+
+                   talleres) y confirmación cuando ya se completó uno.
+                   Wrapper fijo acá, contenido armado en
+                   renderComboBanner() — mismo patrón que #talleresGrid. -->
+              <div id="talleres-combos-banner"></div>
               <div id="talleresGrid"></div>
               <hr class="divider">
             </div>
