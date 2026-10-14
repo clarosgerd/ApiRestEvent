@@ -20,6 +20,9 @@
     <a href="{{ route('admin.eventos.dashboard', $evento['id']) }}" class="text-sm text-brand-600 hover:underline self-center">
         ← Volver al dashboard
     </a>
+    <a href="{{ route('admin.eventos.calendario', $evento['id']) }}" class="text-sm text-brand-600 hover:underline self-center">
+        Calendario
+    </a>
 </div>
 
 {{-- Filtros --}}

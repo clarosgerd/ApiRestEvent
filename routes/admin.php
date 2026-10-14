@@ -45,6 +45,10 @@ use App\Http\Controllers\Admin\SocioController;
 use App\Http\Controllers\Admin\SouvenirController;
 use App\Http\Controllers\Admin\SubtipoEventoController;
 use App\Http\Controllers\Admin\TallerCongresoController;
+use App\Http\Controllers\Admin\TallerComboController;
+use App\Http\Controllers\Admin\TallerComboPrecioController;
+use App\Http\Controllers\Admin\TallerPricePeriodController;
+use App\Http\Controllers\Admin\CalendarioEventoController;
 use App\Http\Controllers\Admin\TipoEventoController;
 use Illuminate\Support\Facades\Route;
 
@@ -97,6 +101,10 @@ Route::prefix('admin')->name('admin.')->group(function () {
         // demanda desde Acreditación.
         Route::get('/eventos/{event}/participantes/{participante}/gafete-pdf', [EventoController::class, 'gafetePdfParticipante'])->name('eventos.gafete-pdf-participante');
 
+        // Calendario del evento (05/10/2026) — agenda + sesiones de congreso
+        // por mes/semana/día.
+        Route::get('/eventos/{event}/calendario', [CalendarioEventoController::class, 'index'])->name('eventos.calendario');
+
         // Fase 1e-i — dashboard de inscripciones + reportes de participantes.
         Route::get('/eventos/{event}/dashboard', [DashboardInscripcionesController::class, 'show'])->name('eventos.dashboard');
         Route::get('/eventos/{event}/dashboard/talleres/csv', [DashboardInscripcionesController::class, 'csvTalleres'])->name('eventos.dashboard.talleres.csv');
@@ -139,6 +147,25 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::post('/eventos/{event}/talleres', [TallerCongresoController::class, 'store'])->name('talleres.store');
         Route::put('/eventos/{event}/talleres/{taller}', [TallerCongresoController::class, 'update'])->name('talleres.update');
         Route::delete('/eventos/{event}/talleres/{taller}', [TallerCongresoController::class, 'destroy'])->name('talleres.destroy');
+
+        // Precios por período para talleres (12/10/2026, pedido del
+        // usuario) — mismo criterio que categorias.periodos arriba.
+        Route::get('/eventos/{event}/talleres/{taller}/periodos', [TallerPricePeriodController::class, 'index'])->name('talleres.periodos.index');
+        Route::post('/eventos/{event}/talleres/{taller}/periodos', [TallerPricePeriodController::class, 'store'])->name('talleres.periodos.store');
+        Route::put('/eventos/{event}/talleres/{taller}/periodos/{tallerPricePeriod}', [TallerPricePeriodController::class, 'update'])->name('talleres.periodos.update');
+        Route::delete('/eventos/{event}/talleres/{taller}/periodos/{tallerPricePeriod}', [TallerPricePeriodController::class, 'destroy'])->name('talleres.periodos.destroy');
+
+        // Combos de talleres (12/10/2026, pedido del usuario) — "Taller A +
+        // Taller B por el precio de 1" o "por $300 fijo".
+        Route::get('/eventos/{event}/taller-combos', [TallerComboController::class, 'index'])->name('taller-combos.index');
+        Route::post('/eventos/{event}/taller-combos', [TallerComboController::class, 'store'])->name('taller-combos.store');
+        Route::put('/eventos/{event}/taller-combos/{tallerCombo}', [TallerComboController::class, 'update'])->name('taller-combos.update');
+        Route::delete('/eventos/{event}/taller-combos/{tallerCombo}', [TallerComboController::class, 'destroy'])->name('taller-combos.destroy');
+
+        // Precio por categoría de un combo (13/10/2026, pedido del usuario).
+        Route::post('/eventos/{event}/taller-combos/{tallerCombo}/precios', [TallerComboPrecioController::class, 'store'])->name('taller-combos.precios.store');
+        Route::put('/eventos/{event}/taller-combos/{tallerCombo}/precios/{tallerComboPrecio}', [TallerComboPrecioController::class, 'update'])->name('taller-combos.precios.update');
+        Route::delete('/eventos/{event}/taller-combos/{tallerCombo}/precios/{tallerComboPrecio}', [TallerComboPrecioController::class, 'destroy'])->name('taller-combos.precios.destroy');
 
         // Fase 1e-iii — Bodega de stock, stock por talla/sexo de un ítem,
         // lista de espera (solo lectura) y mapa de delivery (solo lectura).

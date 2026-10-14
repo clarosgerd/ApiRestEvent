@@ -10,6 +10,10 @@
         <p class="text-sm text-slate-500">Agrupación de sesiones con modalidad y precio propio. Las sesiones del taller se configuran en <a href="{{ route('admin.sesiones.index', $evento['id']) }}" class="text-brand-600 hover:underline">Sesiones</a> (campo "Taller").</p>
     </div>
     <div class="flex gap-2">
+        {{-- Combos de talleres (12/10/2026, pedido del usuario) --}}
+        <a href="{{ route('admin.taller-combos.index', $evento['id']) }}" class="text-sm text-brand-600 hover:underline self-center">
+            Combos de talleres
+        </a>
         <a href="{{ route('admin.sesiones.index', $evento['id']) }}" class="text-sm text-brand-600 hover:underline self-center">
             ← Volver a sesiones
         </a>
@@ -49,6 +53,11 @@
                     </td>
                     <td class="px-4 py-2">
                         {{ $taller['precio'] !== null ? 'Bs. '.number_format((float) $taller['precio'], 2) : '—' }}
+                        <div>
+                            <a href="{{ route('admin.talleres.periodos.index', [$evento['id'], $taller['id']]) }}" class="text-xs text-brand-600 hover:underline">
+                                Períodos de precio
+                            </a>
+                        </div>
                     </td>
                     <td class="px-4 py-2">
                         {{-- Este endpoint (index) devuelve el modelo Eloquent crudo,

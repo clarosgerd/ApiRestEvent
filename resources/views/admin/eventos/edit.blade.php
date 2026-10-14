@@ -26,6 +26,10 @@
                 Dashboard de inscripciones
             </a>
         @endif
+        <a href="{{ route('admin.eventos.calendario', $evento['id']) }}"
+           class="text-sm bg-white border border-slate-300 hover:bg-slate-50 px-3 py-1.5 rounded-md font-semibold">
+            Calendario
+        </a>
         @if (Route::has('admin.participantes.index'))
             <a href="{{ route('admin.participantes.index', $evento['id']) }}"
                class="text-sm bg-white border border-slate-300 hover:bg-slate-50 px-3 py-1.5 rounded-md font-semibold">
