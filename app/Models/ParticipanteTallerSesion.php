@@ -34,6 +34,10 @@ class ParticipanteTallerSesion extends Model
         // en efectivo ahí mismo), o confirmados por SIP (ya cobrado
         // online). Ver ActualizarInscripcionPagadaAction::handle().
         'pago_pendiente',
+        // Combos de talleres (12/10/2026) — qué combo (si alguno) explica
+        // el discount/total de esta fila. Ver
+        // App\Support\Taller\ResolverCombosTallerAction.
+        'taller_combo_id',
     ];
 
     protected $casts = [
@@ -41,6 +45,7 @@ class ParticipanteTallerSesion extends Model
         'discount' => 'decimal:2',
         'total' => 'decimal:2',
         'pago_pendiente' => 'boolean',
+        'taller_combo_id' => 'integer',
     ];
 
     public function participante(): BelongsTo
@@ -56,5 +61,10 @@ class ParticipanteTallerSesion extends Model
     public function taller(): BelongsTo
     {
         return $this->belongsTo(Taller::class, 'taller_id');
+    }
+
+    public function tallerCombo(): BelongsTo
+    {
+        return $this->belongsTo(TallerCombo::class);
     }
 }

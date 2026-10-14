@@ -195,12 +195,33 @@ class RegistrationService
      * Crear participante desde array raw (para actualización) — colaborador
      * compartido por App\Actions\ActualizarInscripcionAction y
      * App\Actions\ActualizarInscripcionPagadaAction.
+     *
+     * $snapshotTalleresPrevios (12/10/2026, combos de talleres) — keyed por
+     * `sesion_congreso_id`, con `unit_price`/`discount`/`total`/
+     * `taller_combo_id` de las filas de `participante_taller_sesion` que
+     * YA EXISTÍAN antes de esta edición (si alguna). Vacío por default:
+     * ActualizarInscripcionAction (inscripción pendiente, nada cobrado
+     * todavía) no lo necesita y no lo pasa — ahí se recalcula libremente
+     * todo el conjunto en cada guardado, combos incluidos. Solo
+     * ActualizarInscripcionPagadaAction lo pasa: las sesiones presentes en
+     * este snapshot se re-insertan TAL CUAL (nunca se recalcula su precio
+     * ni se las deja entrar al matching de combos), y quedan totalmente
+     * excluidas del pool que sí ve ResolverCombosTallerAction — así un
+     * combo nunca puede nacer "a medias" con algo ya cobrado de una
+     * edición anterior. Ver ResolverCombosTallerAction.
      */
-    public function createParticipantFromData(Registration $registration, array $data): void
+    public function createParticipantFromData(Registration $registration, array $data, array $snapshotTalleresPrevios = []): void
     {
         $promoUsageId = $this->consumePromoCode($registration->evento_id, $data['promoCodigo'] ?? '', $registration->id, $registration->form_types_id);
 
         $birth = $data['nacimiento'];
+
+        // Categoría = nombre del form_type para staff/ponente/expositor
+        // (13/10/2026, mismo criterio que CrearInscripcionAction::createParticipant()
+        // — ver comentario ahí) — autoritativo acá también, cubre ediciones
+        // desde Caja y desde el formulario público.
+        $formType = FormType::find($registration->form_types_id);
+        $categoria = ($formType && !$formType->requiere_categoria) ? $formType->name : $data['categoria'];
 
         $participant = Participante::create([
             'registration_id'  => $registration->id,
@@ -218,7 +239,7 @@ class RegistrationService
             'direccion'        => $data['direccion'] ?? '',
             'ciudad'           => $data['ciudad'] ?? '',
             'telefono'         => $data['telefono'] ?? '',
-            'categoria'        => $data['categoria'],
+            'categoria'        => $categoria,
             'equipo_id'        => $data['equipoId'] ?? null,
             'quiere_delivery'  => $data['quiereDelivery'] ?? false,
             'estado_delivery'  => ($data['quiereDelivery'] ?? false) ? 'pendiente' : null,
@@ -300,6 +321,9 @@ class RegistrationService
         // o se hace en ActualizarInscripcionPagadaAction.
         if (! empty($data['talleres'])) {
             $evento = Evento::find($registration->evento_id);
+
+            $sesionesPorId = [];
+            $nuevas = [];
             foreach ($data['talleres'] as $tallerSel) {
                 $sesion = SesionCongreso::with('taller')
                     ->where('id', $tallerSel['sesion_congreso_id'])
@@ -310,24 +334,52 @@ class RegistrationService
                     continue; // defensa silenciosa; validación ya corrió
                 }
 
-                $unitPrice = \App\Support\Taller\ResolverPrecioTallerData::unitPrice(
-                    $sesion->taller,
-                    $sesion,
-                    $evento
-                );
-                $total = \App\Support\Taller\ResolverPrecioTallerData::total(
-                    $sesion->taller,
-                    $sesion,
-                    $evento
-                );
+                $sesionesPorId[$sesion->id] = $sesion;
+
+                // Nunca retroactivo (12/10/2026) — si esta sesión ya
+                // existía antes de esta edición, queda afuera del pool de
+                // combos (más abajo se re-inserta tal cual, sin recalcular
+                // nada). Solo las genuinamente nuevas en esta llamada
+                // entran al matching.
+                if (! isset($snapshotTalleresPrevios[$sesion->id])) {
+                    $nuevas[] = [
+                        'sesionId'  => $sesion->id,
+                        'tallerId'  => $sesion->taller_id,
+                        'unitPrice' => \App\Support\Taller\ResolverPrecioTallerData::unitPrice($sesion->taller, $sesion, $evento, isset($data['categoria']) ? (string) $data['categoria'] : null),
+                    ];
+                }
+            }
+
+            $resueltasPorSesion = collect(\App\Support\Taller\ResolverCombosTallerAction::resolver($nuevas, $evento, isset($data['categoria']) ? (string) $data['categoria'] : null))
+                ->keyBy('sesionId');
+
+            foreach ($sesionesPorId as $sesionId => $sesion) {
+                $previa = $snapshotTalleresPrevios[$sesionId] ?? null;
+
+                if ($previa !== null) {
+                    ParticipanteTallerSesion::create([
+                        'participante_id'     => $participant->id,
+                        'sesion_congreso_id'  => $sesionId,
+                        'taller_id'           => $sesion->taller_id,
+                        'unit_price'          => $previa['unit_price'],
+                        'discount'            => $previa['discount'],
+                        'total'               => $previa['total'],
+                        'taller_combo_id'     => $previa['taller_combo_id'],
+                    ]);
+
+                    continue;
+                }
+
+                $r = $resueltasPorSesion[$sesionId];
 
                 ParticipanteTallerSesion::create([
                     'participante_id'     => $participant->id,
-                    'sesion_congreso_id'  => $sesion->id,
+                    'sesion_congreso_id'  => $sesionId,
                     'taller_id'           => $sesion->taller_id,
-                    'unit_price'          => $unitPrice,
-                    'discount'            => 0,
-                    'total'               => $total,
+                    'unit_price'          => $r['unitPrice'],
+                    'discount'            => $r['discount'],
+                    'total'               => $r['total'],
+                    'taller_combo_id'     => $r['tallerComboId'],
                 ]);
             }
         }

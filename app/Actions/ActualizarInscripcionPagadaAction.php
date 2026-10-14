@@ -165,6 +165,15 @@ class ActualizarInscripcionPagadaAction
 
             $tallerIdsNuevosPorIndice = [];
             $pagoPendientePorIndiceYSesion = [];
+            // Combos de talleres (12/10/2026) — snapshot financiero
+            // ANTERIOR (unit_price/discount/total/taller_combo_id) por
+            // sesion_congreso_id, tomado ANTES del delete de más abajo.
+            // Se pasa a createParticipantFromData() para que las sesiones
+            // ya existentes se re-inserten tal cual (nunca se recalcula su
+            // precio ni entran al matching de un combo nuevo) — ver
+            // RegistrationService::createParticipantFromData() y
+            // ResolverCombosTallerAction.
+            $snapshotTalleresPorIndice = [];
             $deltaCategoria = 0.0;
             $deltaSouvenirs = 0.0;
             $deltaSouvenirsConCargo = 0.0;
@@ -187,6 +196,16 @@ class ActualizarInscripcionPagadaAction
                 // siguiente edición aunque nadie lo haya cobrado todavía).
                 $pagoPendientePorIndiceYSesion[$i] = $anterior->talleresSesiones
                     ->pluck('pago_pendiente', 'sesion_congreso_id')
+                    ->all();
+
+                $snapshotTalleresPorIndice[$i] = $anterior->talleresSesiones
+                    ->keyBy('sesion_congreso_id')
+                    ->map(fn ($pts) => [
+                        'unit_price'      => (float) $pts->unit_price,
+                        'discount'        => (float) $pts->discount,
+                        'total'           => (float) $pts->total,
+                        'taller_combo_id' => $pts->taller_combo_id,
+                    ])
                     ->all();
 
                 // Cambio de categoría (25/08/2026, ampliado 02/09/2026 —
@@ -231,7 +250,14 @@ class ActualizarInscripcionPagadaAction
                 // nueva aborta todo el request, sin excepción.
                 if (! empty($idsRemovidos)) {
                     if (! $permiteQuitarTalleres) {
-                        throw new \DomainException('No se pueden quitar talleres que ya fueron pagados.');
+                        // Mensaje ampliado (13/10/2026, pedido del usuario) —
+                        // caso real: alguien quiere cambiar un taller ya
+                        // pagado por los de un combo nuevo. Sigue bloqueado
+                        // igual (sin cambio de lógica), pero el mensaje viaja
+                        // verbatim hasta el participante (ver
+                        // elascenso/event/index.php) y antes no decía a
+                        // dónde ir.
+                        throw new \DomainException('No se pueden quitar talleres que ya fueron pagados desde tu cuenta. Si querés cambiarlos (por ejemplo, para aprovechar una promoción), contactanos por WhatsApp o resolvelo en Caja el día del evento.');
                     }
                     if (blank($data['motivo'] ?? null)) {
                         throw new \DomainException('Hay que indicar un motivo para quitar un taller ya pagado.');
@@ -277,8 +303,12 @@ class ActualizarInscripcionPagadaAction
             // participantes.
             $this->registrationService->validateStockForParticipants($data['participantes']);
 
-            foreach ($data['participantes'] as $participantData) {
-                $this->registrationService->createParticipantFromData($registration, $participantData);
+            foreach ($data['participantes'] as $i => $participantData) {
+                $this->registrationService->createParticipantFromData(
+                    $registration,
+                    $participantData,
+                    $snapshotTalleresPorIndice[$i] ?? []
+                );
             }
 
             // Costo real de los talleres agregados (25/08/2026) — a

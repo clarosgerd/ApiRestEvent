@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Controllers\Concerns\AuthorizesEventoScope;
 use App\Http\Requests\StoreTallerRequest;
 use App\Http\Requests\UpdateTallerRequest;
+use App\Http\Resources\TallerResource;
 use App\Models\Evento;
 use App\Models\Taller;
 use App\Services\AdminAuditLogger;
@@ -67,9 +68,15 @@ class TallerCongresoController extends Controller
         $this->assertCanWriteEvento($event->id);
         abort_if($taller->evento_id !== $event->id, 404);
 
+        // TallerResource (12/10/2026) — antes devolvía el modelo crudo;
+        // nada en admin-eventos llamaba a este endpoint todavía (grep
+        // confirmado), así que no hay ningún contrato previo que romper.
+        // Se cambia a TallerResource para traer `precioVigente`/`periodos`
+        // (precios por período) listos para la pantalla de admin-eventos
+        // sin un segundo round-trip.
         return response()->json([
             'success' => true,
-            'data'    => $taller->load('sesiones'),
+            'data'    => new TallerResource($taller->load(['sesiones', 'pricePeriods'])),
         ]);
     }
 

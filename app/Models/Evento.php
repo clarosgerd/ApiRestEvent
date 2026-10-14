@@ -218,6 +218,14 @@ protected $casts = [
         return $this->hasMany(Taller::class, 'evento_id')->orderBy('orden')->orderBy('id');
     }
 
+    /**
+     * Combos de talleres (12/10/2026) — ver App\Models\TallerCombo.
+     */
+    public function tallerCombos()
+    {
+        return $this->hasMany(TallerCombo::class, 'evento_id');
+    }
+
     public function organizador()
     {
         return $this->belongsTo(Organizador::class, 'organizador_id');

@@ -346,7 +346,13 @@ class ValidarSeleccionesTallerAction
         }
     }
 
-    private static function seSolapan(SesionCongreso $a, SesionCongreso $b): bool
+    /**
+     * Pública (12/10/2026) — reusada por TallerComboController para
+     * rechazar un combo cuyos talleres nunca podrían seleccionarse juntos
+     * (todas sus sesiones se solapan entre sí). Ver plan de combos de
+     * talleres, sección "Elegibilidad por horario y cupo".
+     */
+    public static function seSolapan(SesionCongreso $a, SesionCongreso $b): bool
     {
         $aStart = CarbonImmutable::parse($a->fecha->format('Y-m-d').' '.$a->hora_inicio);
         $aEnd   = CarbonImmutable::parse($a->fecha->format('Y-m-d').' '.$a->hora_fin);

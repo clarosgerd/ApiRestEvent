@@ -6,6 +6,7 @@ use App\Models\Category;
 use App\Models\Evento;
 use App\Models\FormType;
 use App\Models\Participante;
+use App\Support\CalendarioEventoData;
 use App\Models\Registration;
 use App\Models\TipoEvento;
 use App\Http\Resources\CoordinateResource;
@@ -327,6 +328,16 @@ return response()->json([
                 'tipoEvento', 'subtipoEvento', 'pais',
                 'talleres' => fn ($q) => $q->where('activo', true)->orderBy('orden')->orderBy('id'),
                 'talleres.sesiones' => fn ($q) => $q->where('activa', true),
+                // Precios por período (12/10/2026) — ver TallerResource::precioVigente.
+                'talleres.pricePeriods',
+                // Combos de talleres (12/10/2026) — solo los activos; la
+                // vigencia por fecha se resuelve en runtime (vigenteHoy()),
+                // no en la query, para que el frontend pueda avisar de un
+                // combo próximo a vencer si en algún momento se lo pide.
+                'tallerCombos' => fn ($q) => $q->where('activo', true),
+                'tallerCombos.talleres',
+                // Precio por categoría (13/10/2026) — ver TallerComboResource::precios.
+                'tallerCombos.precios.category',
             ])),
         ]);
 
@@ -439,6 +450,19 @@ return response()->json([
         ]);
 
         return $pdf->stream('agenda-' . Str::slug($event->nombre) . '.pdf');
+    }
+
+    /**
+     * Calendario del evento (05/10/2026): agenda y sesiones de congreso en una
+     * sola lista por fecha y hora, para la pantalla de calendario de admin-eventos.
+     * Público, igual que agenda-pdf y agenda-ics (el evento ya filtra).
+     */
+    public function calendario(Evento $event)
+    {
+        return response()->json([
+            'success' => true,
+            'calendario' => CalendarioEventoData::paraEvento($event),
+        ]);
     }
 
     /**

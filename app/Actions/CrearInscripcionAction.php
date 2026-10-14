@@ -20,6 +20,7 @@ use App\Services\RegistrationService;
 use App\Support\DisponibilidadItemData;
 use App\Support\CurrencyResolverData;
 use App\Support\Categoria\ValidarCategoriaAction;
+use App\Support\Taller\ResolverCombosTallerAction;
 use App\Support\Taller\ResolverPrecioTallerData;
 use App\Support\Taller\ValidarSeleccionesTallerAction;
 use Illuminate\Support\Facades\DB;
@@ -211,6 +212,17 @@ class CrearInscripcionAction
 
         $promoUsageId = $this->registrationService->consumePromoCode($registration->evento_id, $dto->promoCode, $registration->id, $registration->form_types_id);
 
+        // Categoría = nombre del form_type para staff/ponente/expositor
+        // (13/10/2026, pedido del usuario) — estos form_types nunca tienen
+        // una categoría real (requiere_categoria=false, forzado por
+        // FormType::booted()), así que participante.categoria (VARCHAR sin
+        // FK real, ver 2026_07_23_020000_change_categoria_to_string_...)
+        // pasa a ser el nombre del form_type en vez de lo que mande el
+        // cliente — autoritativo acá porque Caja y el formulario público
+        // mandaban valores distintos e inconsistentes ('0' vs el nombre).
+        $formType = FormType::find($registration->form_types_id);
+        $categoria = ($formType && !$formType->requiere_categoria) ? $formType->name : $dto->category;
+
         $participant = Participante::create([
 
             'registration_id' => $registration->id,
@@ -234,7 +246,7 @@ class CrearInscripcionAction
             'direccion' => $dto->address,
             'ciudad' => $dto->city,
             'telefono' => $dto->phone,
-            'categoria' => $dto->category,
+            'categoria' => $categoria,
             'equipo_id' => $dto->equipoId,
             'quiere_delivery' => $dto->quiereDelivery,
             'estado_delivery' => $dto->quiereDelivery ? 'pendiente' : null,
@@ -308,8 +320,19 @@ class CrearInscripcionAction
         // cada selección de taller del participante: resolver precio
         // efectivo server-side (cliente nunca es autoridad — mismo
         // criterio que precioCategoria/fee) y persistir snapshot.
+        //
+        // Combos de talleres (12/10/2026) — alta nueva: TODAS las
+        // selecciones son "nuevas" por definición (nunca hay nada
+        // persistido de antes), así que entran enteras al matching de
+        // combos. Ver ResolverCombosTallerAction y, para la edición de una
+        // inscripción YA pagada, ActualizarInscripcionPagadaAction (que sí
+        // excluye del matching lo que ya existía, para que un combo nunca
+        // se aplique retroactivo).
         if (! empty($dto->talleres)) {
             $evento = Evento::find($registration->evento_id);
+
+            $sesionesPorId = [];
+            $nuevas = [];
             foreach ($dto->talleres as $tallerSel) {
                 $sesion = \App\Models\SesionCongreso::with('taller')
                     ->where('id', $tallerSel->sesionCongresoId)
@@ -320,24 +343,28 @@ class CrearInscripcionAction
                     continue; // ya validado arriba; defensa silenciosa
                 }
 
-                $unitPrice = ResolverPrecioTallerData::unitPrice(
-                    $sesion->taller,
-                    $sesion,
-                    $evento
-                );
-                $total = ResolverPrecioTallerData::total(
-                    $sesion->taller,
-                    $sesion,
-                    $evento
-                );
+                $sesionesPorId[$sesion->id] = $sesion;
+                $nuevas[] = [
+                    'sesionId'  => $sesion->id,
+                    'tallerId'  => $sesion->taller_id,
+                    'unitPrice' => ResolverPrecioTallerData::unitPrice($sesion->taller, $sesion, $evento, (string) $dto->category),
+                ];
+            }
+
+            $resueltasPorSesion = collect(ResolverCombosTallerAction::resolver($nuevas, $evento, (string) $dto->category))
+                ->keyBy('sesionId');
+
+            foreach ($sesionesPorId as $sesionId => $sesion) {
+                $r = $resueltasPorSesion[$sesionId];
 
                 \App\Models\ParticipanteTallerSesion::create([
                     'participante_id'     => $participant->id,
-                    'sesion_congreso_id'  => $sesion->id,
+                    'sesion_congreso_id'  => $sesionId,
                     'taller_id'           => $sesion->taller_id,
-                    'unit_price'          => $unitPrice,
-                    'discount'            => 0,
-                    'total'               => $total,
+                    'unit_price'          => $r['unitPrice'],
+                    'discount'            => $r['discount'],
+                    'total'               => $r['total'],
+                    'taller_combo_id'     => $r['tallerComboId'],
                 ]);
             }
         }

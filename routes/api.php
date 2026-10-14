@@ -80,6 +80,7 @@ Route::group(['prefix' => 'v1','namespace' => 'App\Http\Controllers'], function 
     Route::apiResource('/event',EventoController::class)->only(['index', 'show']);
     Route::get('/event/{event}/agenda-pdf', [EventoController::class, 'agendaPdf']);
     Route::get('/event/{event}/agenda-ics', [EventoController::class, 'agendaIcs']);
+    Route::get('/event/{event}/calendario', [EventoController::class, 'calendario']);
     Route::get('/event/{event}/gafetes-pdf', [EventoController::class, 'gafetesPdf']);
     // Gafete por demanda (23/09/2026) — un solo participante, para
     // Acreditación. Mismo grupo/criterio de acceso que gafetes-pdf de
@@ -314,6 +315,29 @@ Route::group(['prefix' => 'v1','namespace' => 'App\Http\Controllers'], function 
         Route::get('/event/{event}/talleres/{taller}', [TallerCongresoController::class, 'show']);
         Route::put('/event/{event}/talleres/{taller}', [TallerCongresoController::class, 'update']);
         Route::delete('/event/{event}/talleres/{taller}', [TallerCongresoController::class, 'destroy']);
+
+        // Precios por período para talleres (12/10/2026) — mismo criterio
+        // que category-price-period arriba. Sin index propio: la lista ya
+        // viaja embebida en TallerResource.periodos.
+        Route::post('/taller/{taller}/periodos', [\App\Http\Controllers\TallerPricePeriodController::class, 'store']);
+        Route::put('/taller-price-period/{tallerPricePeriod}', [\App\Http\Controllers\TallerPricePeriodController::class, 'update']);
+        Route::delete('/taller-price-period/{tallerPricePeriod}', [\App\Http\Controllers\TallerPricePeriodController::class, 'destroy']);
+
+        // Combos de talleres (12/10/2026, pedido del usuario) — "Taller A +
+        // Taller B por el precio de 1" o "por $300 fijo". Mismo scoping
+        // que talleres.
+        Route::get('/event/{event}/taller-combos', [\App\Http\Controllers\TallerComboController::class, 'index']);
+        Route::post('/event/{event}/taller-combos', [\App\Http\Controllers\TallerComboController::class, 'store']);
+        Route::put('/taller-combo/{tallerCombo}', [\App\Http\Controllers\TallerComboController::class, 'update']);
+        Route::delete('/taller-combo/{tallerCombo}', [\App\Http\Controllers\TallerComboController::class, 'destroy']);
+
+        // Precio por categoría de un combo (13/10/2026, pedido del
+        // usuario) — el mismo combo puede costar distinto según la
+        // categoría del participante.
+        Route::post('/taller-combo/{tallerCombo}/precios', [\App\Http\Controllers\TallerComboPrecioController::class, 'store']);
+        Route::put('/taller-combo-precio/{tallerComboPrecio}', [\App\Http\Controllers\TallerComboPrecioController::class, 'update']);
+        Route::delete('/taller-combo-precio/{tallerComboPrecio}', [\App\Http\Controllers\TallerComboPrecioController::class, 'destroy']);
+
         Route::get('/event/{event}/sesiones/{sesion}/lookup/{reference}', [AsistenciaSesionController::class, 'lookup']);
         Route::patch('/event/{event}/sesiones/{sesion}/participantes/{participante}/checkin', [AsistenciaSesionController::class, 'checkin']);
         Route::post('/event/{event}/sesiones/{sesion}/checkin-bulk', [AsistenciaSesionController::class, 'checkinBulk']);
