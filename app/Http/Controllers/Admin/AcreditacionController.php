@@ -57,6 +57,17 @@ class AcreditacionController extends Controller
         return $api->checkinLookup($request, $event, $referencia);
     }
 
+    /**
+     * Búsqueda por nombre/apellido para acreditación (07/10/2026) — ver
+     * RegistrationController::checkinBuscarPorNombre() (API).
+     */
+    public function buscarPorNombre(Request $request, Evento $event, ApiRegistrationController $api): JsonResponse
+    {
+        $this->assertCanViewEvento($event->id);
+
+        return $api->checkinBuscarPorNombre($request, $event);
+    }
+
     public function checkin(Evento $event, Participante $participante, ApiParticipanteController $api): JsonResponse
     {
         $this->assertCanViewEvento($event->id);

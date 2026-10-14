@@ -176,6 +176,67 @@ class RegistroManualBulkTest extends TestCase
             ->assertStatus(403);
     }
 
+    // ── Sin categoría (07/10/2026) — ver importarBulk() en RegistrationController.
+
+    public function test_form_type_sin_categoria_requerida_no_necesita_categoria_y_usa_precio_base(): void
+    {
+        $admin = $this->actingAsAdmin();
+        $admin->update(['rol' => 'super_admin']);
+
+        // es_staff fuerza requiere_categoria=false y precio_base=0 al
+        // guardar (FormType::booted()) — mismo tipo que "GAFETES STANDS",
+        // pedido real del organizador de poder cargar este tipo por CSV.
+        $formTypeSinCategoria = FormType::factory()->create([
+            'event_id' => $this->evento->id, 'has_team' => false, 'es_staff' => true,
+        ]);
+
+        $response = $this->postJson("/api/v1/event/{$this->evento->id}/registro-manual/bulk", [
+            'form_types_id' => $formTypeSinCategoria->id,
+            'participantes' => [$this->participanteRow()],
+        ]);
+
+        $response->assertStatus(200)->assertJson(['success' => true]);
+        $this->assertCount(1, $response->json('creados'));
+
+        $participante = Participante::first();
+        $this->assertSame($formTypeSinCategoria->name, $participante->categoria);
+        $this->assertEquals(0, $participante->precio_categoria);
+    }
+
+    /** Si igual se manda 'categoria' (ej. un CSV viejo con esa columna), se ignora. */
+    public function test_form_type_sin_categoria_requerida_ignora_categoria_enviada(): void
+    {
+        $admin = $this->actingAsAdmin();
+        $admin->update(['rol' => 'super_admin']);
+
+        $formTypeSinCategoria = FormType::factory()->create([
+            'event_id' => $this->evento->id, 'has_team' => false, 'es_staff' => true,
+        ]);
+
+        $response = $this->postJson("/api/v1/event/{$this->evento->id}/registro-manual/bulk", [
+            'form_types_id' => $formTypeSinCategoria->id,
+            'categoria' => 'NoExiste',
+            'participantes' => [$this->participanteRow()],
+        ]);
+
+        $response->assertStatus(200)->assertJson(['success' => true]);
+        $this->assertCount(1, $response->json('creados'));
+    }
+
+    /** Un tipo que SÍ requiere categoría sigue rechazando sin ella. */
+    public function test_form_type_con_categoria_requerida_sigue_rechazando_sin_categoria(): void
+    {
+        $admin = $this->actingAsAdmin();
+        $admin->update(['rol' => 'super_admin']);
+
+        $response = $this->postJson("/api/v1/event/{$this->evento->id}/registro-manual/bulk", [
+            'form_types_id' => $this->formType->id,
+            'participantes' => [$this->participanteRow()],
+        ]);
+
+        $response->assertStatus(422)->assertJson(['success' => false]);
+    }
+
     // ── Validación por fila (06/10/2026) — ver reglasFilaCarga() en
     // RegistrationController. Reportado por un usuario con un CSV real: 30
     // de 46 filas con una fecha de nacimiento que no existe ("1995-06-31")

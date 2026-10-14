@@ -203,6 +203,17 @@ class EventoController extends Controller
     }
 
     /**
+     * Gafete de UN participante puntual (23/09/2026) — "impresión por
+     * demanda" desde Acreditación, a diferencia de gafetesPdf() (bulk).
+     */
+    public function gafetePdfParticipante(Evento $event, \App\Models\Participante $participante, ApiEventoController $api): Response
+    {
+        $this->assertCanViewEvento($event->id);
+
+        return $api->gafetePdfParticipante($event, $participante);
+    }
+
+    /**
      * `UpdateEventosRequest` tampoco se type-hintea directo — igual que en
      * store(), `feePctPorcentaje` (humano, "5") tiene que convertirse a
      * `feePct` (fracción, "0.05") ANTES de validar, porque la regla es

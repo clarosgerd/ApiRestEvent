@@ -27,6 +27,10 @@ class CajaMovimiento extends Model
         // ActualizarInscripcionPagadaAction cuando el movimiento incluye
         // quitar un taller ya cobrado. Ver Caja controller.
         'motivo',
+        // Observaciones (07/10/2026) — nota libre y opcional, disponible
+        // para cualquier forma de pago (a diferencia de `motivo`, que es
+        // específico y obligatorio solo al quitar un taller pagado).
+        'observaciones',
         // Anular un cobro (02/10/2026) — en el movimiento tipo='anulacion',
         // apunta al movimiento original que revierte. Ver AnularCobroAction.
         'anula_movimiento_id',

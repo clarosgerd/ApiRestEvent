@@ -92,6 +92,9 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::patch('/eventos/{event}/despublicar', [EventoController::class, 'despublicar'])->name('eventos.despublicar');
         Route::get('/eventos/{event}/gafetes-pdf', [EventoController::class, 'gafetesPdf'])->name('eventos.gafetes-pdf');
         Route::get('/eventos/{event}/certificados-pdf', [EventoController::class, 'certificadosPdf'])->name('eventos.certificados-pdf');
+        // Gafete de un participante puntual (23/09/2026) — impresión por
+        // demanda desde Acreditación.
+        Route::get('/eventos/{event}/participantes/{participante}/gafete-pdf', [EventoController::class, 'gafetePdfParticipante'])->name('eventos.gafete-pdf-participante');
 
         // Fase 1e-i — dashboard de inscripciones + reportes de participantes.
         Route::get('/eventos/{event}/dashboard', [DashboardInscripcionesController::class, 'show'])->name('eventos.dashboard');
@@ -111,6 +114,8 @@ Route::prefix('admin')->name('admin.')->group(function () {
 
         Route::get('/eventos/{event}/acreditacion', [AcreditacionController::class, 'index'])->name('acreditacion.index');
         Route::post('/eventos/{event}/acreditacion/lookup', [AcreditacionController::class, 'lookup'])->name('acreditacion.lookup');
+        // Búsqueda por nombre/apellido (07/10/2026) — ver AcreditacionController::buscarPorNombre().
+        Route::get('/eventos/{event}/acreditacion/buscar', [AcreditacionController::class, 'buscarPorNombre'])->name('acreditacion.buscar');
         Route::patch('/eventos/{event}/acreditacion/{participante}', [AcreditacionController::class, 'checkin'])->name('acreditacion.checkin');
 
         Route::get('/eventos/{event}/resultados', [ChronoTrackController::class, 'index'])->name('chronotrack.index');
@@ -176,10 +181,14 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('/eventos/{event}/caja/buscar/resultados', [CajaController::class, 'buscar'])->name('caja.buscar.resultados');
         Route::get('/eventos/{event}/caja/persona', [CajaController::class, 'buscarPersona'])->name('caja.persona');
         Route::post('/eventos/{event}/caja/registrations/{reference}/cobrar-pendiente', [CajaController::class, 'cobrarPendiente'])->name('caja.cobrar-pendiente');
+        Route::get('/eventos/{event}/caja/registrations/{reference}/movimientos', [CajaController::class, 'movimientos'])->name('caja.movimientos');
+        Route::post('/eventos/{event}/caja/registrations/{reference}/anular-cobro', [CajaController::class, 'anularCobro'])->name('caja.anular-cobro');
         Route::get('/eventos/{event}/caja/registrations/{reference}/editar', [CajaController::class, 'editar'])->name('caja.editar');
         Route::post('/eventos/{event}/caja/registrations/{reference}/editar', [CajaController::class, 'storeEditar'])->name('caja.editar.store');
         Route::get('/eventos/{event}/caja/registrations/{reference}/comprobante', [CajaController::class, 'eticket'])->name('caja.eticket');
         Route::get('/eventos/{event}/caja/cierres', [CajaController::class, 'cierres'])->name('caja.cierres');
+        Route::get('/eventos/{event}/caja/cierres/{turno}', [CajaController::class, 'cierreDetalle'])->name('caja.cierres.detalle');
+        Route::get('/eventos/{event}/caja/cierres/{turno}/csv', [CajaController::class, 'cierreCsv'])->name('caja.cierres.csv');
 
         Route::post('/eventos/{evento}/categorias', [CategoriaController::class, 'store'])->name('categorias.store');
         Route::put('/categorias/{categoria}', [CategoriaController::class, 'update'])->name('categorias.update');

@@ -21,6 +21,7 @@ use App\Models\Evento;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\View\View;
 
 /**
@@ -134,6 +135,27 @@ class CajaController extends Controller
         return $api->cobrarPendiente($request, $reference);
     }
 
+    /**
+     * Historia de movimientos de caja de una inscripción (02/10/2026) —
+     * para elegir cuál anular, ver caja/buscar.blade.php.
+     */
+    public function movimientos(Request $request, Evento $event, string $reference, ApiCajaController $api): JsonResponse
+    {
+        return $api->movimientos($request, $reference);
+    }
+
+    /**
+     * Anular un cobro ya registrado (02/10/2026) — ver AnularCobroAction
+     * (ApiRestEvent). Mismo patrón mergeAndValidate() que storeNueva/
+     * storeEditar, FormRequest type-hinteado en la firma del método API.
+     */
+    public function anularCobro(Request $request, Evento $event, string $reference, ApiCajaController $api, \App\Actions\AnularCobroAction $action): JsonResponse
+    {
+        $validated = $this->mergeAndValidate(\App\Http\Requests\AnularCobroRequest::class, $request, []);
+
+        return $api->anularCobro($validated, $reference, $action);
+    }
+
     public function editar(Evento $event, string $reference, ApiEventoController $apiEvento, ApiRegistrationController $apiReg): View
     {
         $registro = $apiReg->show($reference)->getData(true)['data'] ?? null;
@@ -204,10 +226,112 @@ class CajaController extends Controller
 
         $payload = $apiTurno->index($request, $event)->getData(true);
 
+        // Detalle de cierre de caja (27/08/2026) — el filtro de cajero
+        // necesita la lista de cajeros que tuvieron turnos en este evento
+        // (no existe un endpoint de "admins del evento" reusable acá). Se
+        // deriva de una consulta SIN el filtro de cajero (respetando
+        // fecha, si hay), no de la lista ya filtrada — si no, elegir un
+        // cajero haría desaparecer del <select> a los demás.
+        if ($request->filled('cajero')) {
+            $sinCajero = new Request(array_filter([
+                'desde' => $request->input('desde'),
+                'hasta' => $request->input('hasta'),
+            ]));
+            $todosLosTurnos = $apiTurno->index($sinCajero, $event)->getData(true)['turnos'] ?? [];
+        } else {
+            $todosLosTurnos = $payload['turnos'] ?? [];
+        }
+        $cajeros = collect($todosLosTurnos)
+            ->unique('cajeroId')
+            ->map(fn ($t) => ['id' => $t['cajeroId'], 'nombre' => $t['cajeroNombre'] ?? ('#'.$t['cajeroId'])])
+            ->sortBy('nombre')
+            ->values();
+
         return view('admin.caja.cierres', [
             'evento' => $this->eventoData($event, $apiEvento),
             'turnos' => $payload['turnos'] ?? [],
+            'cajeros' => $cajeros,
             'error'  => (!($payload['success'] ?? false)) ? ($payload['error'] ?? 'No se pudo conectar con el servidor.') : null,
+        ]);
+    }
+
+    /**
+     * Detalle de un turno (27/08/2026) — drill-down pedido por el usuario
+     * desde el reporte de cierres, mismo patrón que editar()/eticket().
+     */
+    public function cierreDetalle(Evento $event, CajaTurno $turno, ApiEventoController $apiEvento, ApiCajaTurnoController $apiTurno): View
+    {
+        $payload = $apiTurno->show($event, $turno)->getData(true);
+
+        abort_if(!($payload['success'] ?? false), 404, $payload['error'] ?? 'No se pudo cargar el detalle del turno.');
+
+        return view('admin.caja.cierre-detalle', [
+            'evento' => $this->eventoData($event, $apiEvento),
+            'turno'  => $payload['turno'],
+        ]);
+    }
+
+    /**
+     * CSV del detalle de un turno (08/10/2026) — pedido real del usuario,
+     * junto con "Imprimir": una fila por movimiento, mismos datos que la
+     * tabla de admin/caja/cierre-detalle.blade.php (incluye motivo/
+     * observaciones). Reusa el mismo endpoint que cierreDetalle(), sin
+     * volver a calcular nada.
+     */
+    public function cierreCsv(Evento $event, CajaTurno $turno, ApiEventoController $apiEvento, ApiCajaTurnoController $apiTurno): Response
+    {
+        $payload = $apiTurno->show($event, $turno)->getData(true);
+
+        abort_if(!($payload['success'] ?? false), 404, $payload['error'] ?? 'No se pudo generar el archivo.');
+
+        $eventoData = $this->eventoData($event, $apiEvento);
+        $t = $payload['turno'];
+
+        $tipoLabels = [
+            'inscripcion_nueva' => 'Inscripción nueva',
+            'cobro_pendiente'   => 'Cobro pendiente',
+            'edicion_pagada'    => 'Edición pagada',
+            'anulacion'         => 'Anulación',
+        ];
+
+        $handle = fopen('php://temp', 'w+');
+        fwrite($handle, "\xEF\xBB\xBF");
+
+        fputcsv($handle, ['Evento', $eventoData['name'] ?? '']);
+        fputcsv($handle, ['Cajero', $t['cajeroNombre'] ?? ('#'.$t['cajeroId'])]);
+        fputcsv($handle, ['Abierto', $t['abiertoAt'] ?? '']);
+        fputcsv($handle, ['Cerrado', $t['cerradoAt'] ?? '']);
+        fputcsv($handle, ['Fondo inicial', $t['fondoInicial'] ?? 0]);
+        fputcsv($handle, ['Esperado', $t['montoEsperado'] ?? '']);
+        fputcsv($handle, ['Contado', $t['montoContado'] ?? '']);
+        fputcsv($handle, ['Diferencia', $t['diferencia'] ?? '']);
+        fputcsv($handle, ['Efectivo', $t['totalEfectivo'] ?? 0]);
+        fputcsv($handle, ['QR', $t['totalQr'] ?? 0]);
+        fputcsv($handle, ['Depósito', $t['totalDeposito'] ?? 0]);
+        fputcsv($handle, ['Organizador', $t['totalOrganizador'] ?? 0]);
+        fputcsv($handle, ['Cortesía', $t['totalCortesia'] ?? 0]);
+        fputcsv($handle, []);
+
+        fputcsv($handle, ['fecha_hora', 'tipo', 'referencia', 'metodo_pago', 'monto', 'motivo', 'observaciones']);
+        foreach ($t['movimientos'] ?? [] as $m) {
+            fputcsv($handle, [
+                $m['createdAt'] ?? '',
+                $tipoLabels[$m['tipo']] ?? $m['tipo'],
+                $m['registrationReferencia'] ?? '',
+                $m['metodoPago'] ?? '',
+                $m['monto'] ?? 0,
+                $m['motivo'] ?? '',
+                $m['observaciones'] ?? '',
+            ]);
+        }
+
+        rewind($handle);
+        $csv = stream_get_contents($handle);
+        fclose($handle);
+
+        return response($csv, 200, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => "attachment; filename=\"cierre-caja-turno-{$turno->id}.csv\"",
         ]);
     }
 

@@ -46,11 +46,14 @@
                     @endforeach
                 </select>
             </div>
-            <div>
+            <div id="categoriaWrapper">
                 <label class="block text-sm font-semibold mb-1">Categoría</label>
                 <select name="categoria" id="categoriaSelect" required class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm">
                     <option value="">Seleccionar…</option>
                 </select>
+                <p id="sinCategoriaAviso" class="text-xs text-slate-500 mt-1" style="display:none;">
+                    Este tipo de formulario no usa categoría — no hace falta elegir ninguna.
+                </p>
             </div>
         </div>
 
@@ -110,11 +113,31 @@
     // script — corrompe las comillas del JSON (bug real encontrado el
     // 27/08/2026 en caja/_formulario.blade.php, mismo motivo).
     const CATEGORIES = @json($evento['categories'] ?? []);
+    // requiereCategoria por form_type (07/10/2026) — un tipo de formulario
+    // sin categoría (Staff, Ponente, o cualquier otro armado así desde
+    // admin-eventos, ej. "GAFETES STANDS") no tiene nada que elegir acá;
+    // antes el <select> quedaba vacío y "required" bloqueaba el envío del
+    // formulario entero sin ningún mensaje claro.
+    const FORM_TYPES = @json($evento['formTypes'] ?? []);
     const formTypeSelect = document.querySelector('select[name="form_types_id"]');
     const categoriaSelect = document.getElementById('categoriaSelect');
+    const sinCategoriaAviso = document.getElementById('sinCategoriaAviso');
 
     function renderCategorias() {
         const formTypeId = formTypeSelect.value;
+        const formType = FORM_TYPES.find(ft => String(ft.id) === String(formTypeId));
+        const requiereCategoria = formType ? !!formType.requiereCategoria : true;
+
+        categoriaSelect.style.display = requiereCategoria ? '' : 'none';
+        categoriaSelect.required = requiereCategoria;
+        sinCategoriaAviso.style.display = requiereCategoria ? 'none' : '';
+
+        if (!requiereCategoria) {
+            categoriaSelect.innerHTML = '<option value="">Seleccionar…</option>';
+            categoriaSelect.value = '';
+            return;
+        }
+
         const disponibles = CATEGORIES.filter(
             c => c.formulario_id == null || String(c.formulario_id) === String(formTypeId)
         );

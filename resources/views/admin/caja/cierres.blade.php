@@ -22,6 +22,17 @@
         <label class="block text-xs font-semibold mb-1" for="hasta">Hasta</label>
         <input type="date" name="hasta" id="hasta" value="{{ request('hasta') }}" class="border border-slate-300 rounded-md px-3 py-2 text-sm">
     </div>
+    {{-- Filtro por cajero (27/08/2026) — el backend (CajaTurnoController::index())
+         ya lo soportaba, faltaba exponerlo acá. --}}
+    <div>
+        <label class="block text-xs font-semibold mb-1" for="cajero">Cajero</label>
+        <select name="cajero" id="cajero" class="border border-slate-300 rounded-md px-3 py-2 text-sm">
+            <option value="">— Todos —</option>
+            @foreach ($cajeros as $c)
+                <option value="{{ $c['id'] }}" @selected(request('cajero') == $c['id'])>{{ $c['nombre'] }}</option>
+            @endforeach
+        </select>
+    </div>
     <button type="submit" class="bg-brand-600 hover:bg-brand-700 text-white rounded-md px-4 py-2 text-sm font-semibold">Filtrar</button>
 </form>
 
@@ -38,6 +49,7 @@
                 <th class="px-3 py-2 text-right">Contado</th>
                 <th class="px-3 py-2 text-right">Diferencia</th>
                 <th class="px-3 py-2">Estado</th>
+                <th class="px-3 py-2"></th>
             </tr>
         </thead>
         <tbody>
@@ -58,9 +70,12 @@
                             {{ $t['estado'] }}
                         </span>
                     </td>
+                    <td class="px-3 py-2">
+                        <a href="{{ route('admin.caja.cierres.detalle', [$evento['id'], $t['id']]) }}" class="text-xs text-brand-600 hover:underline whitespace-nowrap">Ver detalle</a>
+                    </td>
                 </tr>
             @empty
-                <tr><td colspan="9" class="px-3 py-6 text-center text-slate-400">Todavía no hay turnos de caja registrados.</td></tr>
+                <tr><td colspan="10" class="px-3 py-6 text-center text-slate-400">Todavía no hay turnos de caja registrados.</td></tr>
             @endforelse
         </tbody>
     </table>

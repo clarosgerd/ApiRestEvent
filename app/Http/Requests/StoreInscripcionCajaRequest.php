@@ -32,6 +32,10 @@ class StoreInscripcionCajaRequest extends FormRequest
             // total a 0, sin importar categoría/talleres elegidos). Default
             // 'EFECTIVO' si no viene, ver CajaController::inscripcion().
             'metodo_pago'                            => ['nullable', 'string', Rule::in(['EFECTIVO', 'QR', 'DEPOSITO', 'ORGANIZADOR', 'CORTESIA'])],
+            // Observaciones (07/10/2026) — nota libre y opcional del
+            // cajero, válida para cualquier método de pago. Ver
+            // CajaMovimiento::$fillable.
+            'observaciones'                          => ['nullable', 'string', 'max:1000'],
 
             'participante.nombre'                    => ['required', 'string'],
             'participante.apellido'                  => ['required', 'string'],

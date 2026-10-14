@@ -150,4 +150,61 @@ class RegistroManualTest extends TestCase
         $response->assertSessionHasErrors('general');
         $this->assertDatabaseMissing('participantes', ['numero_documento' => '12345678']);
     }
+
+    /**
+     * Recuperación Windows-1252 (07/10/2026) — una celda con caracteres
+     * que no son UTF-8 (típico al guardar desde Excel en español como
+     * "CSV" en vez de "CSV UTF-8") ya no tumba el archivo completo.
+     */
+    public function test_un_campo_con_acentos_en_windows_1252_se_corrige_solo_y_no_tumba_el_archivo(): void
+    {
+        // "AMÉRICAS" con la É codificada en Windows-1252 (0xC9), no en UTF-8.
+        $nombreRoto = "AM" . chr(0xC9) . "RICAS";
+        $this->assertFalse(mb_check_encoding($nombreRoto, 'UTF-8'), 'el byte de prueba debe ser inválido en UTF-8');
+
+        $handle = fopen('php://temp', 'w+');
+        fwrite($handle, "\xEF\xBB\xBF");
+        fputcsv($handle, ['numero_documento', 'tipo_documento', 'nombre', 'apellido', 'alias', 'genero', 'fecha_nacimiento', 'email', 'direccion', 'ciudad', 'telefono', 'contacto_emergencia_nombre', 'contacto_emergencia_telefono', 'contacto_emergencia_relacion', 'talleres']);
+        fputcsv($handle, ['12345678', 'DNI', $nombreRoto, 'Prueba', '', 'Femenino', '1995-06-15', 'ana@example.net', 'Calle Falsa 123', 'La Paz', '77712345', 'Juan Prueba', '77798765', 'Padre', '']);
+        rewind($handle);
+        $csv = stream_get_contents($handle);
+        fclose($handle);
+
+        $archivo = UploadedFile::fake()->createWithContent('lote.csv', $csv);
+
+        $response = $this->withSession($this->superSession)
+            ->post("/admin/eventos/{$this->evento->id}/registro-manual", [
+                'form_types_id' => $this->formType->id,
+                'categoria' => '5K',
+                'csv' => $archivo,
+            ]);
+
+        $response->assertRedirect(route('admin.registro-manual.index', $this->evento->id));
+        $reporte = $response->getSession()->get('registroManualReporte');
+        $this->assertCount(1, $reporte['creados']);
+        $this->assertSame(2, $reporte['creados'][0]['fila']);
+        $this->assertSame([], $reporte['errores']);
+
+        $this->assertDatabaseHas('participantes', ['nombre' => 'AMÉRICAS']);
+    }
+
+    /** Un form_type sin categoría (es_staff) no exige el <select> de categoría. */
+    public function test_store_sin_categoria_para_form_type_que_no_la_requiere(): void
+    {
+        $formTypeSinCategoria = FormType::factory()->create([
+            'event_id' => $this->evento->id, 'has_team' => false, 'es_staff' => true,
+        ]);
+        $csv = UploadedFile::fake()->createWithContent('plantilla.csv', $this->csvContent());
+
+        $response = $this->withSession($this->superSession)
+            ->post("/admin/eventos/{$this->evento->id}/registro-manual", [
+                'form_types_id' => $formTypeSinCategoria->id,
+                'csv' => $csv,
+            ]);
+
+        $response->assertRedirect(route('admin.registro-manual.index', $this->evento->id));
+        $this->assertDatabaseHas('participantes', [
+            'numero_documento' => '12345678', 'categoria' => $formTypeSinCategoria->name,
+        ]);
+    }
 }
