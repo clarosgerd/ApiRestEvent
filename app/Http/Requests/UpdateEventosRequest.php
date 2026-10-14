@@ -77,6 +77,9 @@ class UpdateEventosRequest extends FormRequest
             // Gafetes/certificados parametrizables por evento (13/09/2026) —
             // pedido real de COLABIOCLI 2026, ver EventoService::update().
             'certificadoSoloNombre'   => 'sometimes|boolean',
+            // Interruptor por evento del certificado automático de
+            // asistencia a sesiones (07/10/2026) — ver EventoService::update().
+            'certificadoAsistenciaActivo' => 'sometimes|boolean',
             'gafeteConfig'            => 'sometimes|nullable|array',
             // tipo (23/09/2026) — 'completo' (default, nombre+QR+rol) vs
             // 'label' (solo QR, para impresora de etiquetas/pegatinas

@@ -161,6 +161,10 @@ class EventoResource extends JsonResource
             // estándar (7x5cm, 3 por fila); ver
             // EventoController::gafetesPdf()/certificadosPdf().
             'certificadoSoloNombre'      =>(bool) $this->certificado_solo_nombre,
+            // Interruptor por evento del certificado automático de
+            // asistencia a sesiones (07/10/2026) — ver
+            // EnviarCertificadosCongresoAction::handle().
+            'certificadoAsistenciaActivo' =>(bool) $this->certificado_asistencia_activo,
             'gafeteConfig'               =>$this->gafete_config,
             // SmartStand (25/09/2026) — no sensible (links de tiendas de apps).
             'expositoresConfig'          =>$this->expositores_config,

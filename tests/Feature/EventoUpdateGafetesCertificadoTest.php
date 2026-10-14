@@ -89,4 +89,34 @@ class EventoUpdateGafetesCertificadoTest extends TestCase
 
         $response->assertStatus(422);
     }
+
+    /**
+     * Interruptor por evento del certificado automático de asistencia a
+     * sesiones (07/10/2026) — default true al crear (ver migración), se
+     * puede apagar/prender desde el mismo update que certificadoSoloNombre.
+     */
+    public function test_update_persiste_certificado_asistencia_activo(): void
+    {
+        $this->actingAsAdmin();
+        $evento = $this->crearEvento();
+        // El objeto recién creado por el factory no trae en memoria los
+        // valores que puso el DEFAULT de la columna (nunca se re-consulta
+        // tras el INSERT) — hay que refrescar para ver el default real.
+        $this->assertTrue((bool) $evento->refresh()->certificado_asistencia_activo);
+
+        $response = $this->putJson("/api/v1/event/{$evento->id}", [
+            'certificadoAsistenciaActivo' => false,
+        ]);
+
+        $response->assertStatus(200);
+        $this->assertFalse((bool) $evento->refresh()->certificado_asistencia_activo);
+    }
+
+    /** Un evento nuevo, sin mandar el campo al crear, queda en true (default de la migración). */
+    public function test_certificado_asistencia_activo_default_true_al_crear(): void
+    {
+        $evento = $this->crearEvento();
+
+        $this->assertTrue((bool) $evento->refresh()->certificado_asistencia_activo);
+    }
 }

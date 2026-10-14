@@ -26,7 +26,12 @@ class CertificadosCongresoEnviar extends Command
 
     public function handle(EnviarCertificadosCongresoAction $action): int
     {
+        // certificado_asistencia_activo (07/10/2026) — se filtra acá
+        // además del guard real dentro de la Action, para que el conteo de
+        // "Eventos congreso cerrados revisados" del log de abajo no incluya
+        // los apagados (más claro) y no se itere de más.
         $eventos = Evento::where('estado_evento_id', 'closed')
+            ->where('certificado_asistencia_activo', true)
             ->whereHas('tipoEvento', fn ($q) => $q->where('nombre', 'Congreso / No aplica'))
             ->get();
 

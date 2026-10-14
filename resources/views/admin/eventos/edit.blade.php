@@ -404,6 +404,103 @@
                         </span>
                     </label>
                 </div>
+                {{-- Gafetes/certificados parametrizables por evento (13/09/2026) —
+                     pedido real de COLABIOCLI 2026 (tamaño de gafete distinto +
+                     certificado solo con nombre), manteniendo CIACRUZ y el resto
+                     de eventos existentes intactos (defaults false/null). Ver
+                     EventoController::gafetesPdf()/certificadosPdf() en
+                     ApiRestEvent. --}}
+                <div class="col-span-2">
+                    <label class="flex items-center gap-2 text-sm font-semibold">
+                        <input type="checkbox" name="certificadoSoloNombre" value="1"
+                               {{ !empty($evento['certificadoSoloNombre']) ? 'checked' : '' }}>
+                        Certificado solo con nombre
+                        <span class="font-normal text-slate-500">
+                            (el certificado de asistencia imprime solo nombre y apellido, sin el
+                            título/alias ni el párrafo "por su asistencia como...")
+                        </span>
+                    </label>
+                </div>
+                {{-- Interruptor por evento del certificado automático de
+                     asistencia a sesiones (07/10/2026) — pedido real del
+                     organizador: antes solo se podía apagar comentando la
+                     tarea programada entera en routes/console.php (todos
+                     los congresos a la vez). Default true (checked):
+                     ningún evento existente cambia de comportamiento salvo
+                     que alguien lo destilde. Ver
+                     EnviarCertificadosCongresoAction::handle() en
+                     ApiRestEvent — no afecta "Certificados (PDF)" (descarga
+                     manual, mecanismo aparte). --}}
+                <div class="col-span-2">
+                    <label class="flex items-center gap-2 text-sm font-semibold">
+                        <input type="checkbox" name="certificadoAsistenciaActivo" value="1"
+                               {{ ($evento['certificadoAsistenciaActivo'] ?? true) ? 'checked' : '' }}>
+                        Enviar certificado automático de asistencia a sesiones
+                        <span class="font-normal text-slate-500">
+                            (al cerrar este congreso, manda por correo el certificado a cada participante que
+                            asistió a alguna sesión — desmarcá para que este evento no lo envíe. No afecta la
+                            descarga manual de "Certificados (PDF)")
+                        </span>
+                    </label>
+                </div>
+
+                <div class="col-span-2">
+                    <label class="block text-sm font-semibold mb-1">
+                        Tamaño de gafete
+                        <span class="font-normal text-slate-500">(vacío = tamaño estándar, 7×5cm, 3 por fila)</span>
+                    </label>
+                    <div class="grid grid-cols-2 md:grid-cols-6 gap-2">
+                        <div>
+                            <label class="block text-xs text-slate-500 mb-1">Tipo</label>
+                            <select name="gafeteTipo" class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm">
+                                @php
+                                    $gafeteTipo = old('gafeteTipo', $evento['gafeteConfig']['tipo'] ?? 'completo');
+                                @endphp
+                                <option value="completo" {{ $gafeteTipo === 'completo' ? 'selected' : '' }}>Completo</option>
+                                <option value="label" {{ $gafeteTipo === 'label' ? 'selected' : '' }}>Solo QR (pegatina)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs text-slate-500 mb-1">Ancho (cm)</label>
+                            <input type="number" name="gafeteWidthCm" step="0.1" min="2" max="15"
+                                   value="{{ old('gafeteWidthCm', $evento['gafeteConfig']['width_cm'] ?? '') }}"
+                                   class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-slate-500 mb-1">Alto (cm)</label>
+                            <input type="number" name="gafeteHeightCm" step="0.1" min="2" max="15"
+                                   value="{{ old('gafeteHeightCm', $evento['gafeteConfig']['height_cm'] ?? '') }}"
+                                   class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-slate-500 mb-1">Por fila</label>
+                            <input type="number" name="gafetePerRow" step="1" min="1" max="6"
+                                   value="{{ old('gafetePerRow', $evento['gafeteConfig']['per_row'] ?? '') }}"
+                                   class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-slate-500 mb-1">Papel</label>
+                            <select name="gafetePaper" class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm">
+                                @php
+                                    $gafetePaper = old('gafetePaper', $evento['gafeteConfig']['paper'] ?? 'a4');
+                                @endphp
+                                <option value="a4" {{ $gafetePaper === 'a4' ? 'selected' : '' }}>A4</option>
+                                <option value="letter" {{ $gafetePaper === 'letter' ? 'selected' : '' }}>Carta</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs text-slate-500 mb-1">Orientación</label>
+                            <select name="gafeteOrientation" class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm">
+                                @php
+                                    $gafeteOrientation = old('gafeteOrientation', $evento['gafeteConfig']['orientation'] ?? 'landscape');
+                                @endphp
+                                <option value="landscape" {{ $gafeteOrientation === 'landscape' ? 'selected' : '' }}>Horizontal</option>
+                                <option value="portrait" {{ $gafeteOrientation === 'portrait' ? 'selected' : '' }}>Vertical</option>
+                            </select>
+                        </div>
+                    </div>
+                    <p class="text-xs text-slate-500 mt-1">"Solo QR" ignora Por fila/Papel/Orientación — imprime una pegatina por página, del tamaño exacto configurado.</p>
+                </div>
                 <div class="col-span-2">
                     <label class="block text-sm font-semibold mb-1">Deslinde de responsabilidad</label>
                     <textarea name="deslinde" rows="2"

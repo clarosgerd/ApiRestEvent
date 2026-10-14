@@ -131,6 +131,18 @@ class EventoController extends Controller
             'aceptaUsd' => $request->boolean('aceptaUsd'),
             'talleresConCosto' => $request->boolean('talleresConCosto'),
             'usdPrecioFijo' => $request->boolean('usdPrecioFijo'),
+            // Gafetes/certificados parametrizables por evento (13/09/2026) —
+            // sin checkbox/inputs en create.blade.php a propósito, mismo
+            // motivo que usdPrecioFijo (se configuran después, en la
+            // pestaña de edición del evento ya creado). Default false/null.
+            'certificadoSoloNombre' => $request->boolean('certificadoSoloNombre'),
+            // Interruptor por evento del certificado automático de
+            // asistencia a sesiones (07/10/2026) — default TRUE acá (no
+            // false como el resto de este bloque): el envío automático
+            // debe seguir funcionando igual que siempre salvo que alguien
+            // lo apague a mano, recién en la pestaña de edición.
+            'certificadoAsistenciaActivo' => true,
+            'gafeteConfig' => null,
         ];
 
         // Mismo motivo que en los catálogos: el <select> de organizador
@@ -239,6 +251,28 @@ class EventoController extends Controller
             // motivo que aceptaUsd: se manda siempre para que destildear
             // también persista.
             'mantenerDatosPersona' => $request->boolean('mantenerDatosPersona'),
+            // Gafetes/certificados parametrizables por evento (13/09/2026) —
+            // certificadoSoloNombre se manda siempre para que destildear
+            // también persista. gafeteConfig se manda null cuando el
+            // organizador vacía el ancho (el resto de los campos son
+            // opcionales solo con el ancho presente) — vuelve al tamaño
+            // estándar en vez de guardar un JSON incompleto.
+            'certificadoSoloNombre' => $request->boolean('certificadoSoloNombre'),
+            // Interruptor por evento del certificado automático de
+            // asistencia a sesiones (07/10/2026) — checkbox real: se manda
+            // siempre (igual que certificadoSoloNombre) para que
+            // destildearlo también persista.
+            'certificadoAsistenciaActivo' => $request->boolean('certificadoAsistenciaActivo'),
+            'gafeteConfig' => $request->filled('gafeteWidthCm') ? [
+                // tipo (23/09/2026) — 'completo' (default) o 'label' (solo
+                // QR, impresora de etiquetas).
+                'tipo'        => $request->input('gafeteTipo', 'completo'),
+                'width_cm'    => (float) $request->input('gafeteWidthCm'),
+                'height_cm'   => (float) $request->input('gafeteHeightCm'),
+                'per_row'     => (int) $request->input('gafetePerRow', 3),
+                'paper'       => $request->input('gafetePaper', 'a4'),
+                'orientation' => $request->input('gafeteOrientation', 'landscape'),
+            ] : null,
         ];
 
         if ($request->input('organizador_id') === '') {
