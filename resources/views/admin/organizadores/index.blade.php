@@ -22,6 +22,7 @@
                 <th class="px-4 py-2">Email</th>
                 <th class="px-4 py-2">Teléfono</th>
                 <th class="px-4 py-2">Activo</th>
+                <th class="px-4 py-2">WhatsApp</th>
                 <th class="px-4 py-2">Eventos</th>
                 <th class="px-4 py-2"></th>
             </tr>
@@ -62,6 +63,20 @@
                         <input type="hidden" name="activo" value="0" form="org-form-{{ $org['id'] }}">
                         <input type="checkbox" name="activo" value="1" {{ $org['activo'] ? 'checked' : '' }}
                                form="org-form-{{ $org['id'] }}">
+                    </td>
+                    {{-- WhatsApp Business API oficial por organizador
+                         (08/10/2026) — opt-in estricto, nace en 'ninguno' y
+                         solo un super_admin lo cambia acá después de que el
+                         organizador lo acepte en el contrato. "Oficial"
+                         necesita además una cuenta cargada en
+                         WhatsApp Business (ver link de arriba de la pantalla). --}}
+                    <td class="px-4 py-2">
+                        <select name="whatsapp_canal" form="org-form-{{ $org['id'] }}"
+                                class="border border-slate-300 rounded px-2 py-1 text-xs">
+                            @foreach (['ninguno' => 'Ninguno', 'openwa' => 'OpenWA', 'externo' => 'Externo', 'oficial' => 'Oficial'] as $valor => $etiqueta)
+                                <option value="{{ $valor }}" @selected(($org['whatsapp_canal'] ?? 'ninguno') === $valor)>{{ $etiqueta }}</option>
+                            @endforeach
+                        </select>
                     </td>
                     <td class="px-4 py-2 text-slate-500">{{ $org['eventos_count'] ?? 0 }}</td>
                     <td class="px-4 py-2 text-right whitespace-nowrap space-x-2">

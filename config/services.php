@@ -40,6 +40,15 @@ return [
     'session_id' => env('OPENWA_SESSION_ID'),
     ],
 
+    // WhatsApp Business API oficial por organizador (08/10/2026) — a
+    // diferencia de openwa (sesión global, una sola cuenta para todo el
+    // sistema), las credenciales reales son por organizador (ver
+    // WhatsappCuenta) — acá solo vive la URL base de la API de Meta, igual
+    // para cualquier cuenta.
+    'whatsapp_cloud' => [
+        'base_url' => env('WHATSAPP_CLOUD_BASE_URL', 'https://graph.facebook.com/v21.0'),
+    ],
+
     // Solo consumo (de solo lectura) — no creamos ni administramos nada en
     // ChronoTrack, solo leemos resultados de eventos que el organizador ya
     // registró ahí. Ver App\Services\ChronoTrackClient y

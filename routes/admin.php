@@ -40,6 +40,7 @@ use App\Http\Controllers\Admin\RouteController as AdminRouteController;
 use App\Http\Controllers\Admin\SesionCongresoController;
 use App\Http\Controllers\Admin\SexoController;
 use App\Http\Controllers\Admin\SipBancoController;
+use App\Http\Controllers\Admin\WhatsappCuentaController;
 use App\Http\Controllers\Admin\SocioController;
 use App\Http\Controllers\Admin\SouvenirController;
 use App\Http\Controllers\Admin\SubtipoEventoController;
@@ -290,6 +291,16 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::get('/sip-bancos/{sipBanco}/edit', [SipBancoController::class, 'edit'])->name('sip-bancos.edit');
             Route::put('/sip-bancos/{sipBanco}', [SipBancoController::class, 'update'])->name('sip-bancos.update');
             Route::delete('/sip-bancos/{sipBanco}', [SipBancoController::class, 'destroy'])->name('sip-bancos.destroy');
+
+            // WhatsApp Business API oficial por organizador (08/10/2026) —
+            // credenciales de Meta Cloud API, mismo criterio de
+            // sensibilidad que Bancos SIP.
+            Route::get('/whatsapp-cuentas', [WhatsappCuentaController::class, 'index'])->name('whatsapp-cuentas.index');
+            Route::get('/whatsapp-cuentas/create', [WhatsappCuentaController::class, 'create'])->name('whatsapp-cuentas.create');
+            Route::post('/whatsapp-cuentas', [WhatsappCuentaController::class, 'store'])->name('whatsapp-cuentas.store');
+            Route::get('/whatsapp-cuentas/{whatsappCuenta}/edit', [WhatsappCuentaController::class, 'edit'])->name('whatsapp-cuentas.edit');
+            Route::put('/whatsapp-cuentas/{whatsappCuenta}', [WhatsappCuentaController::class, 'update'])->name('whatsapp-cuentas.update');
+            Route::delete('/whatsapp-cuentas/{whatsappCuenta}', [WhatsappCuentaController::class, 'destroy'])->name('whatsapp-cuentas.destroy');
 
             Route::prefix('catalogos')->name('catalogos.')->group(function () {
                 Route::get('/paises', [PaisController::class, 'index'])->name('paises.index');

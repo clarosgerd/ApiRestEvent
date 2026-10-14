@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class UpdateOrganizadorRequest extends FormRequest
 {
@@ -27,6 +28,9 @@ class UpdateOrganizadorRequest extends FormRequest
             'comision_especial' => 'sometimes|nullable|numeric|min:0|max:100',
             'convenio_notas'    => 'sometimes|nullable|string',
             'activo'            => 'sometimes|nullable|boolean',
+            // WhatsApp Business API oficial por organizador (08/10/2026) —
+            // opt-in explícito, ver NotificacionService::dispatchWhatsappOficial().
+            'whatsapp_canal'    => ['sometimes', 'nullable', 'string', Rule::in(['ninguno', 'openwa', 'externo', 'oficial'])],
         ];
     }
 }

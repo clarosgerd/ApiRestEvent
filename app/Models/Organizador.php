@@ -58,6 +58,15 @@ class Organizador extends Model
     }
 
     /**
+     * WhatsApp Business API oficial (08/10/2026) — cuenta propia activa de
+     * este organizador, si tiene una. Ver WhatsappCuenta/NotificacionService.
+     */
+    public function whatsappCuenta()
+    {
+        return $this->hasOne(WhatsappCuenta::class, 'organizador_id')->where('activo', true);
+    }
+
+    /**
      * Métodos de pago propios de este organizador (su convenio/gateway o
      * instrucciones manuales) — no los del sistema.
      */
