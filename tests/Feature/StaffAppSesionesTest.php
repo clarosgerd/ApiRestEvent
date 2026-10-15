@@ -171,9 +171,9 @@ class StaffAppSesionesTest extends TestCase
      */
     public function test_requiere_inscripcion_acredita_si_tiene_la_sesion_seleccionada(): void
     {
-        $this->sesion->update(['requiere_inscripcion' => true]);
         $participante = $this->participantePagado();
         $taller = \App\Models\Taller::factory()->create(['evento_id' => $this->evento->id]);
+        $this->sesion->update(['requiere_inscripcion' => true, 'taller_id' => $taller->id]);
         \App\Models\ParticipanteTallerSesion::create([
             'participante_id' => $participante->id,
             'sesion_congreso_id' => $this->sesion->id,
@@ -189,7 +189,8 @@ class StaffAppSesionesTest extends TestCase
 
     public function test_requiere_inscripcion_rechaza_si_no_tiene_la_sesion_seleccionada(): void
     {
-        $this->sesion->update(['requiere_inscripcion' => true]);
+        $taller = \App\Models\Taller::factory()->create(['evento_id' => $this->evento->id]);
+        $this->sesion->update(['requiere_inscripcion' => true, 'taller_id' => $taller->id]);
         $participante = $this->participantePagado();
 
         $response = $this->postJson("/api/v1/persona/eventos/{$this->evento->id}/sesiones/{$this->sesion->id}/checkin-bulk", [

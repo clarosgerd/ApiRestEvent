@@ -193,7 +193,11 @@ class AsistenciaSesionTest extends TestCase
      */
     private function inscribirParticipanteEnSesion(Participante $participante): void
     {
+        // La sesión tiene que pertenecer a un taller para que
+        // `requiere_inscripcion` tenga sentido — ver el guard nuevo en
+        // ValidarCheckinSesionCongresoAction.
         $taller = Taller::factory()->create(['evento_id' => $this->evento->id]);
+        $this->sesion->update(['taller_id' => $taller->id]);
         ParticipanteTallerSesion::create([
             'participante_id' => $participante->id,
             'sesion_congreso_id' => $this->sesion->id,
@@ -217,7 +221,8 @@ class AsistenciaSesionTest extends TestCase
 
     public function test_requiere_inscripcion_rechaza_si_el_participante_no_tiene_la_sesion_seleccionada(): void
     {
-        $this->sesion->update(['requiere_inscripcion' => true]);
+        $taller = Taller::factory()->create(['evento_id' => $this->evento->id]);
+        $this->sesion->update(['requiere_inscripcion' => true, 'taller_id' => $taller->id]);
         $participante = $this->crearParticipantePagado();
         $admin = $this->actingAsAdmin();
         $admin->update(['rol' => 'super_admin']);
@@ -256,6 +261,25 @@ class AsistenciaSesionTest extends TestCase
         // Default — ninguna sesión existente cambia de comportamiento.
         $this->assertFalse((bool) $this->sesion->requiere_inscripcion);
         $participante = $this->crearParticipantePagado(); // sin ninguna selección de taller
+        $admin = $this->actingAsAdmin();
+        $admin->update(['rol' => 'super_admin']);
+
+        $this->patchJson("/api/v1/event/{$this->evento->id}/sesiones/{$this->sesion->id}/participantes/{$participante->id}/checkin")
+            ->assertStatus(201);
+    }
+
+    /**
+     * Bug real encontrado al revisar el fix de arriba (15/10/2026): una
+     * sesión "suelta" de un congreso SIN talleres (taller_id null) nunca
+     * puede tener una fila en `participante_taller_sesion` — si
+     * `requiere_inscripcion` quedara activo ahí, NADIE podría acreditarse
+     * nunca. El flag solo debe aplicar cuando la sesión pertenece a un
+     * taller.
+     */
+    public function test_requiere_inscripcion_en_sesion_sin_taller_queda_libre_para_no_bloquear_a_todos(): void
+    {
+        $this->sesion->update(['requiere_inscripcion' => true, 'taller_id' => null]);
+        $participante = $this->crearParticipantePagado(); // sin ninguna selección de taller, ni puede tenerla
         $admin = $this->actingAsAdmin();
         $admin->update(['rol' => 'super_admin']);
 
