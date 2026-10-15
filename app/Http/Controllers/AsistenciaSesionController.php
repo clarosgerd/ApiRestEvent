@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Actions\ValidarCheckinSesionCongresoAction;
 use App\Http\Controllers\Concerns\AuthorizesEventoScope;
 use App\Models\AsistenciaSesion;
 use App\Models\Category;
@@ -73,12 +74,12 @@ class AsistenciaSesionController extends Controller
      * Check-in individual — reescanear a alguien ya acreditado en esta
      * sesión NO es un error (mismo criterio que ParticipanteController::checkin).
      */
-    public function checkin(Evento $event, SesionCongreso $sesion, Participante $participante): JsonResponse
+    public function checkin(Evento $event, SesionCongreso $sesion, Participante $participante, ValidarCheckinSesionCongresoAction $action): JsonResponse
     {
         $this->assertCanWriteEvento($event->id);
         $this->assertSesionPerteneceAEvento($event, $sesion);
 
-        $error = $this->validarParticipanteParaSesion($event, $sesion, $participante);
+        $error = $action->validarParticipante($event, $sesion, $participante);
         if ($error) {
             return response()->json(['success' => false, 'error' => $error['motivo']], $error['status']);
         }
@@ -95,7 +96,7 @@ class AsistenciaSesionController extends Controller
             ]);
         }
 
-        if ($this->cupoLleno($sesion)) {
+        if ($action->cupoLleno($sesion)) {
             return response()->json([
                 'success' => false,
                 'error' => "Esta sesión llegó a su cupo máximo ({$sesion->cupo}).",
@@ -123,7 +124,7 @@ class AsistenciaSesionController extends Controller
      * por separado (ya acreditado / pago no confirmado / cupo lleno /
      * acreditado ahora), y se reporta el resultado de cada uno.
      */
-    public function checkinBulk(Request $request, Evento $event, SesionCongreso $sesion): JsonResponse
+    public function checkinBulk(Request $request, Evento $event, SesionCongreso $sesion, ValidarCheckinSesionCongresoAction $action): JsonResponse
     {
         $this->assertCanWriteEvento($event->id);
         $this->assertSesionPerteneceAEvento($event, $sesion);
@@ -137,7 +138,7 @@ class AsistenciaSesionController extends Controller
         $yaAcreditados = [];
         $rechazados = [];
 
-        DB::transaction(function () use ($data, $event, $sesion, &$acreditados, &$yaAcreditados, &$rechazados) {
+        DB::transaction(function () use ($data, $event, $sesion, $action, &$acreditados, &$yaAcreditados, &$rechazados) {
             foreach ($data['participante_ids'] as $participanteId) {
                 $participante = Participante::with('registration')->find($participanteId);
 
@@ -146,7 +147,7 @@ class AsistenciaSesionController extends Controller
                     continue;
                 }
 
-                $error = $this->validarParticipanteParaSesion($event, $sesion, $participante);
+                $error = $action->validarParticipante($event, $sesion, $participante);
                 if ($error) {
                     $rechazados[] = ['participanteId' => $participanteId, 'motivo' => $error['motivo']];
                     continue;
@@ -161,7 +162,7 @@ class AsistenciaSesionController extends Controller
                     continue;
                 }
 
-                if ($this->cupoLleno($sesion)) {
+                if ($action->cupoLleno($sesion)) {
                     $rechazados[] = ['participanteId' => $participanteId, 'motivo' => 'Cupo lleno.'];
                     continue;
                 }
@@ -245,34 +246,5 @@ class AsistenciaSesionController extends Controller
     private function assertSesionPerteneceAEvento(Evento $event, SesionCongreso $sesion): void
     {
         abort_if($sesion->evento_id !== $event->id, 404);
-    }
-
-    private function cupoLleno(SesionCongreso $sesion): bool
-    {
-        if ($sesion->cupo === null) {
-            return false;
-        }
-
-        return AsistenciaSesion::where('sesion_congreso_id', $sesion->id)->count() >= $sesion->cupo;
-    }
-
-    /**
-     * Valida que el participante pertenezca al mismo evento de la sesión
-     * y que su inscripción esté pagada — devuelve null si está todo bien,
-     * o ['motivo' => string, 'status' => int] si hay que rechazarlo.
-     */
-    private function validarParticipanteParaSesion(Evento $event, SesionCongreso $sesion, Participante $participante): ?array
-    {
-        $participante->loadMissing('registration');
-
-        if (!$participante->registration || (int) $participante->registration->evento_id !== $event->id) {
-            return ['motivo' => 'Este participante no pertenece a este evento.', 'status' => 404];
-        }
-
-        if ($participante->registration->pago_status !== 'paid') {
-            return ['motivo' => 'No se puede acreditar: el pago no está confirmado.', 'status' => 422];
-        }
-
-        return null;
     }
 }

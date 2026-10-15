@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Actions\CheckinParticipanteAction;
+use App\Actions\ValidarCheckinSesionCongresoAction;
 use App\Models\AsistenciaSesion;
 use App\Models\Evento;
 use App\Models\SesionCongreso;
@@ -184,7 +185,7 @@ class StaffAppController extends Controller
      * participante del evento, pago confirmado, sin duplicar, cupo. Cada ítem se
      * evalúa por separado. El autor queda como Persona (staff_persona_id).
      */
-    public function sesionCheckinBulk(Request $request, Evento $event, SesionCongreso $sesion): JsonResponse
+    public function sesionCheckinBulk(Request $request, Evento $event, SesionCongreso $sesion, ValidarCheckinSesionCongresoAction $action): JsonResponse
     {
         if ($error = $this->assertEsStaffDelEvento($request, $event)) {
             return $error;
@@ -204,7 +205,7 @@ class StaffAppController extends Controller
         $yaAcreditados = [];
         $rechazados = [];
 
-        DB::transaction(function () use ($data, $event, $sesion, $persona, &$acreditados, &$yaAcreditados, &$rechazados) {
+        DB::transaction(function () use ($data, $event, $sesion, $persona, $action, &$acreditados, &$yaAcreditados, &$rechazados) {
             foreach ($data['participante_ids'] as $participanteId) {
                 $participante = Participante::with('registration')
                     ->whereHas('registration', fn ($q) => $q->where('evento_id', $event->id))
@@ -215,8 +216,9 @@ class StaffAppController extends Controller
                     continue;
                 }
 
-                if ($participante->registration->pago_status !== 'paid') {
-                    $rechazados[] = ['participanteId' => $participanteId, 'motivo' => 'No se puede acreditar: el pago no está confirmado.'];
+                $error = $action->validarParticipante($event, $sesion, $participante);
+                if ($error) {
+                    $rechazados[] = ['participanteId' => $participanteId, 'motivo' => $error['motivo']];
                     continue;
                 }
 
@@ -228,8 +230,7 @@ class StaffAppController extends Controller
                     continue;
                 }
 
-                if ($sesion->cupo !== null
-                    && AsistenciaSesion::where('sesion_congreso_id', $sesion->id)->count() >= $sesion->cupo) {
+                if ($action->cupoLleno($sesion)) {
                     $rechazados[] = ['participanteId' => $participanteId, 'motivo' => 'Esta sesión llegó a su cupo máximo.'];
                     continue;
                 }
