@@ -670,6 +670,17 @@
     // ────────────────────────────────────────────────────────────
     function toggleAliasTituloMode(ft) {
         const isCongreso = !!(ft && ft.tipo === 'congreso');
+        // Campos ocultables por form_type (13/10/2026) gana siempre, incluso
+        // en congresos — bug real encontrado (15/10/2026): con 'alias' en
+        // camposOcultos, applyCamposOcultos() ya ocultó #f_aliasGroup (el
+        // contenedor de este select), pero esta función igual seguía
+        // marcando `select.required = true` para cualquier tipo congreso,
+        // sin mirar camposOcultos — un campo required oculto bloquea el
+        // submit en el navegador sin ningún mensaje visible (no es
+        // "ignorado" como decía el comentario viejo de acá — mismo motivo
+        // por el que renderContactoEmergencia() ya lo saca a mano). Nunca
+        // puede quedar required un campo que el organizador marcó oculto.
+        const oculto = campoOculto(ft, 'alias');
         const label = document.getElementById('f_aliasLabel');
         const input = document.getElementById('f_alias');
         const select = document.getElementById('f_aliasTitulo');
@@ -680,13 +691,10 @@
         select.style.display = isCongreso ? '' : 'none';
 
         // Título obligatorio en congresos (03/09/2026, mismo pedido que en
-        // elascenso/event/index.php::validateForm()) — este form no tiene
-        // un validador JS propio, se apoya en el `required` nativo del
-        // HTML5 (ver f_nombre/f_apellido), así que alcanza con togglear el
-        // atributo en el <select> visible. El navegador ignora `required`
-        // en elementos display:none, así que `input` (oculto acá) no
-        // necesita tocarse.
-        select.required = isCongreso;
+        // elascenso/event/index.php::validateForm()), salvo que el
+        // organizador haya marcado 'alias' como campo oculto para este
+        // form_type (13/10/2026) — ver comentario arriba.
+        select.required = isCongreso && !oculto;
 
         if (isCongreso) {
             syncAliasTituloUI();
