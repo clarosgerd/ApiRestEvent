@@ -69,18 +69,18 @@ class AsistenciaSesionController extends Controller
         return $api->lookup($event, $sesion, $referencia);
     }
 
-    public function checkin(Evento $event, SesionCongreso $sesion, Participante $participante, ApiAsistenciaSesionController $api): JsonResponse
+    public function checkin(Evento $event, SesionCongreso $sesion, Participante $participante, ApiAsistenciaSesionController $api, \App\Actions\ValidarCheckinSesionCongresoAction $action): JsonResponse
     {
         $this->assertCanViewEvento($event->id);
 
-        return $api->checkin($event, $sesion, $participante);
+        return $api->checkin($event, $sesion, $participante, $action);
     }
 
-    public function checkinBulk(Request $request, Evento $event, SesionCongreso $sesion, ApiAsistenciaSesionController $api): JsonResponse
+    public function checkinBulk(Request $request, Evento $event, SesionCongreso $sesion, ApiAsistenciaSesionController $api, \App\Actions\ValidarCheckinSesionCongresoAction $action): JsonResponse
     {
         $this->assertCanViewEvento($event->id);
 
-        return $api->checkinBulk($request, $event, $sesion);
+        return $api->checkinBulk($request, $event, $sesion, $action);
     }
 
     public function reporte(Evento $event, ApiEventoController $apiEvento, ApiAsistenciaSesionController $api): View

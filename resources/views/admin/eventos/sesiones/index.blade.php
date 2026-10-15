@@ -264,7 +264,7 @@
         </div>
         <label class="flex items-center gap-2 text-sm">
             <input type="checkbox" name="requiere_inscripcion" value="1" @checked(old('requiere_inscripcion', $sesion['requiere_inscripcion']))>
-            Requiere inscripción separada <span class="text-slate-400">(config para una fase futura, todavía sin efecto)</span>
+            Requiere inscripción separada <span class="text-slate-400">(si está activo, el check-in de esta sesión exige que el participante la haya seleccionado/comprado al inscribirse)</span>
         </label>
         <label class="flex items-center gap-2 text-sm">
             <input type="checkbox" name="activa" value="1" @checked(old('activa', $sesion['activa']))>
@@ -355,7 +355,7 @@
         </div>
         <label class="flex items-center gap-2 text-sm">
             <input type="checkbox" name="requiere_inscripcion" value="1">
-            Requiere inscripción separada <span class="text-slate-400">(config para una fase futura, todavía sin efecto)</span>
+            Requiere inscripción separada <span class="text-slate-400">(si está activo, el check-in de esta sesión exige que el participante la haya seleccionado/comprado al inscribirse)</span>
         </label>
         <button type="submit" class="bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold px-3 py-2 rounded-md">
             Crear sesión

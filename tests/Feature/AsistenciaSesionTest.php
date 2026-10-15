@@ -9,9 +9,11 @@ use App\Models\FormType;
 use App\Models\Organizador;
 use App\Models\Pais;
 use App\Models\Participante;
+use App\Models\ParticipanteTallerSesion;
 use App\Models\Registration;
 use App\Models\SesionCongreso;
 use App\Models\SubtipoEvento;
+use App\Models\Taller;
 use App\Models\TipoEvento;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -178,6 +180,87 @@ class AsistenciaSesionTest extends TestCase
 
         $response->assertJson(['success' => true, 'acreditados' => [], 'yaAcreditados' => [$participante->id]]);
         $this->assertDatabaseCount('asistencia_sesion', 1);
+    }
+
+    /**
+     * Control de acceso por sesión (15/10/2026, pedido real del usuario) —
+     * `requiere_inscripcion` es opt-in (default false, cero cambio para
+     * sesiones existentes): con el flag prendido, el check-in exige que
+     * el participante tenga una fila en `participante_taller_sesion` para
+     * ESTA sesión (es decir, que la haya seleccionado/comprado al
+     * inscribirse) — antes cualquier participante pagado del evento podía
+     * ocupar el cupo de check-in de un taller que nunca compró.
+     */
+    private function inscribirParticipanteEnSesion(Participante $participante): void
+    {
+        $taller = Taller::factory()->create(['evento_id' => $this->evento->id]);
+        ParticipanteTallerSesion::create([
+            'participante_id' => $participante->id,
+            'sesion_congreso_id' => $this->sesion->id,
+            'taller_id' => $taller->id,
+            'unit_price' => 50,
+            'total' => 50,
+        ]);
+    }
+
+    public function test_requiere_inscripcion_acredita_si_el_participante_tiene_la_sesion_seleccionada(): void
+    {
+        $this->sesion->update(['requiere_inscripcion' => true]);
+        $participante = $this->crearParticipantePagado();
+        $this->inscribirParticipanteEnSesion($participante);
+        $admin = $this->actingAsAdmin();
+        $admin->update(['rol' => 'super_admin']);
+
+        $this->patchJson("/api/v1/event/{$this->evento->id}/sesiones/{$this->sesion->id}/participantes/{$participante->id}/checkin")
+            ->assertStatus(201);
+    }
+
+    public function test_requiere_inscripcion_rechaza_si_el_participante_no_tiene_la_sesion_seleccionada(): void
+    {
+        $this->sesion->update(['requiere_inscripcion' => true]);
+        $participante = $this->crearParticipantePagado();
+        $admin = $this->actingAsAdmin();
+        $admin->update(['rol' => 'super_admin']);
+
+        $this->patchJson("/api/v1/event/{$this->evento->id}/sesiones/{$this->sesion->id}/participantes/{$participante->id}/checkin")
+            ->assertStatus(403)
+            ->assertJson(['success' => false, 'error' => 'Este participante no está inscrito a esta sesión.']);
+
+        $this->assertDatabaseCount('asistencia_sesion', 0);
+    }
+
+    public function test_requiere_inscripcion_bulk_rechaza_sin_romper_el_resto_del_lote(): void
+    {
+        $this->sesion->update(['requiere_inscripcion' => true]);
+        $conSesion = $this->crearParticipantePagado();
+        $this->inscribirParticipanteEnSesion($conSesion);
+        $sinSesion = $this->crearParticipantePagado();
+
+        $admin = $this->actingAsAdmin();
+        $admin->update(['rol' => 'super_admin']);
+
+        $response = $this->postJson("/api/v1/event/{$this->evento->id}/sesiones/{$this->sesion->id}/checkin-bulk", [
+            'participante_ids' => [$conSesion->id, $sinSesion->id],
+        ]);
+
+        $response->assertStatus(200)->assertJson(['success' => true]);
+        $data = $response->json();
+        $this->assertContains($conSesion->id, $data['acreditados']);
+        $this->assertCount(1, $data['rechazados']);
+        $this->assertSame($sinSesion->id, $data['rechazados'][0]['participanteId']);
+        $this->assertSame('Este participante no está inscrito a esta sesión.', $data['rechazados'][0]['motivo']);
+    }
+
+    public function test_requiere_inscripcion_false_sigue_libre_como_siempre(): void
+    {
+        // Default — ninguna sesión existente cambia de comportamiento.
+        $this->assertFalse((bool) $this->sesion->requiere_inscripcion);
+        $participante = $this->crearParticipantePagado(); // sin ninguna selección de taller
+        $admin = $this->actingAsAdmin();
+        $admin->update(['rol' => 'super_admin']);
+
+        $this->patchJson("/api/v1/event/{$this->evento->id}/sesiones/{$this->sesion->id}/participantes/{$participante->id}/checkin")
+            ->assertStatus(201);
     }
 
     public function test_lookup_devuelve_estado_de_asistencia_por_sesion(): void

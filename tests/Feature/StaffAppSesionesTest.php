@@ -163,6 +163,44 @@ class StaffAppSesionesTest extends TestCase
         $this->assertSame('Esta sesión llegó a su cupo máximo.', $response->json('rechazados.0.motivo'));
     }
 
+    /**
+     * Control de acceso por sesión (15/10/2026, pedido real del usuario) —
+     * `requiere_inscripcion` es opt-in (default false, cero cambio para
+     * sesiones existentes). Mismo criterio que AsistenciaSesionTest (el
+     * endpoint admin), misma Action compartida.
+     */
+    public function test_requiere_inscripcion_acredita_si_tiene_la_sesion_seleccionada(): void
+    {
+        $this->sesion->update(['requiere_inscripcion' => true]);
+        $participante = $this->participantePagado();
+        $taller = \App\Models\Taller::factory()->create(['evento_id' => $this->evento->id]);
+        \App\Models\ParticipanteTallerSesion::create([
+            'participante_id' => $participante->id,
+            'sesion_congreso_id' => $this->sesion->id,
+            'taller_id' => $taller->id,
+            'unit_price' => 50,
+            'total' => 50,
+        ]);
+
+        $this->postJson("/api/v1/persona/eventos/{$this->evento->id}/sesiones/{$this->sesion->id}/checkin-bulk", [
+            'participante_ids' => [$participante->id],
+        ])->assertOk()->assertJson(['acreditados' => [$participante->id], 'rechazados' => []]);
+    }
+
+    public function test_requiere_inscripcion_rechaza_si_no_tiene_la_sesion_seleccionada(): void
+    {
+        $this->sesion->update(['requiere_inscripcion' => true]);
+        $participante = $this->participantePagado();
+
+        $response = $this->postJson("/api/v1/persona/eventos/{$this->evento->id}/sesiones/{$this->sesion->id}/checkin-bulk", [
+            'participante_ids' => [$participante->id],
+        ])->assertOk();
+
+        $this->assertSame([], $response->json('acreditados'));
+        $this->assertSame('Este participante no está inscrito a esta sesión.', $response->json('rechazados.0.motivo'));
+        $this->assertSame(0, AsistenciaSesion::count());
+    }
+
     public function test_sesion_de_otro_evento_responde_404(): void
     {
         $otro = Evento::factory()->create([
