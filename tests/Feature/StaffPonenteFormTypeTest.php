@@ -154,6 +154,71 @@ class StaffPonenteFormTypeTest extends TestCase
         Mail::assertNotSent(StaffAccesoMail::class);
     }
 
+    /**
+     * categoria = nombre del form_type (13/10/2026, pedido del usuario) —
+     * autoritativo server-side: no importa qué mande el cliente (Caja
+     * mandaba el string '0', el formulario público ya mandaba el nombre
+     * correcto) — CrearInscripcionAction::createParticipant() siempre
+     * sobreescribe cuando requiere_categoria=false.
+     */
+    public function test_staff_y_ponente_persisten_el_nombre_del_form_type_como_categoria_sin_importar_lo_que_mande_el_cliente(): void
+    {
+        foreach (['es_staff', 'es_ponente'] as $i => $flag) {
+            $ft = $this->formType([$flag => true, 'name' => ucfirst($flag).' Congreso']);
+
+            // Simula lo que mandaba Caja antes del fix: el string '0'.
+            $this->inscribir($ft, ['categoria' => '0', 'numeroDocumento' => "40000{$i}", 'correo' => "{$flag}@test.net"])->assertCreated();
+
+            $participante = \App\Models\Participante::where('correo', "{$flag}@test.net")->firstOrFail();
+            $this->assertSame($ft->name, $participante->categoria, "$flag: categoria debe ser el nombre del form_type");
+        }
+    }
+
+    public function test_staff_y_ponente_persisten_el_nombre_del_form_type_aunque_el_cliente_mande_un_id_de_categoria_real(): void
+    {
+        $ft = $this->formType(['es_staff' => true, 'name' => 'Staff del evento']);
+        $categoriaAjena = Category::factory()->create(['event_id' => $this->event->id, 'price' => 100]);
+
+        // Un cliente que por error mande un id de categoría real igual
+        // queda pisado — la fuente de verdad es requiere_categoria, no lo
+        // que venga en el payload.
+        $this->inscribir($ft, ['categoria' => (string) $categoriaAjena->id])->assertCreated();
+
+        $participante = \App\Models\Participante::firstOrFail();
+        $this->assertSame('Staff del evento', $participante->categoria);
+    }
+
+    /**
+     * Mismo criterio del lado de RegistrationService::createParticipantFromData()
+     * (colaborador compartido por ActualizarInscripcionAction y
+     * ActualizarInscripcionPagadaAction) — probado directo contra el
+     * servicio en vez de vía HTTP porque una inscripción de ponente nace
+     * 'paid' en $0 (auto-confirmación), así que nunca queda 'pending' para
+     * editar por el endpoint normal de edición.
+     */
+    public function test_registration_service_tambien_persiste_el_nombre_del_form_type_al_crear_participante_desde_data(): void
+    {
+        $ft = $this->formType(['es_ponente' => true, 'name' => 'Ponente Internacional']);
+        $registration = Registration::create([
+            'referencia' => 'REF-'.Str::random(8), 'fecha' => now(),
+            'evento_id' => $this->event->id, 'form_types_id' => $ft->id, 'evento_nombre' => $this->event->nombre,
+            'tipo_pago' => 'gratis', 'pago_status' => 'pending',
+        ]);
+
+        app(\App\Services\RegistrationService::class)->createParticipantFromData($registration, [
+            'nombre' => 'Ana', 'apellido' => 'Garcia', 'alias' => '', 'genero' => 'Femenino', 'tipoDocumento' => 'CI',
+            'numeroDocumento' => '20000001', 'polera' => 'M', 'precioPolera' => 0,
+            'nacimiento' => ['dia' => 10, 'mes' => 5, 'anio' => 1995], 'edad' => 31,
+            'correo' => 'ana@test.net', 'direccion' => 'x', 'ciudad' => 'x', 'telefono' => '123',
+            // Simula lo que mandaba Caja al editar: el string '0'.
+            'categoria' => '0', 'precioCategoria' => 0,
+            'donacion' => 0, 'promoDescuento' => 0, 'promoCodigo' => '', 'subtotal' => 0,
+        ]);
+
+        $participante = \App\Models\Participante::where('registration_id', $registration->id)->firstOrFail();
+        $this->assertSame('Ponente Internacional', $participante->categoria);
+    }
+
     public function test_staff_y_ponente_con_total_mayor_a_cero_se_rechazan(): void
     {
         foreach (['es_staff', 'es_ponente'] as $flag) {

@@ -397,6 +397,32 @@ class ReporteInscritosTest extends TestCase
         $this->assertSame('Pagado', $detalle->firstWhere('pagoPendiente', false)['estadoPago']);
     }
 
+    /**
+     * categoria = nombre del form_type para staff/ponente (13/10/2026) —
+     * `agruparPorCategoria()` mostraba "Sin especificar" para cualquier
+     * `participante.categoria` que no matcheara un id real de `categories`,
+     * aunque el valor fuera perfectamente legible (el nombre del
+     * form_type). Ahora muestra el valor crudo en vez de ese texto
+     * genérico — el caso realmente vacío sigue mostrando "Sin especificar".
+     */
+    public function test_porcategoria_muestra_el_nombre_del_form_type_para_staff_ponente_en_vez_de_sin_especificar(): void
+    {
+        $staff = FormType::factory()->create(['event_id' => $this->evento->id, 'name' => 'Staff del evento', 'requiere_categoria' => false]);
+        $categoria = Category::factory()->create(['event_id' => $this->evento->id, 'price' => 100]);
+
+        $this->crearInscripcion($staff, $categoria, ['categoria' => 'Staff del evento', 'precio_categoria' => 0, 'subtotal' => 0]);
+
+        $admin = $this->actingAsAdmin();
+        $admin->update(['rol' => 'admin', 'evento_id' => $this->evento->id]);
+
+        $response = $this->getJson("/api/v1/event/{$this->evento->id}/dashboard-inscripciones")
+            ->assertStatus(200);
+
+        $categorias = collect($response->json('reporteInscritos.porCategoria.filas'))->keyBy('nombre');
+        $this->assertTrue($categorias->has('Staff del evento'));
+        $this->assertFalse($categorias->has('Sin especificar'));
+    }
+
     public function test_admin_de_otro_evento_no_ve_el_reporte(): void
     {
         $otroEvento = Evento::factory()->create([
