@@ -27,6 +27,20 @@ use App\Models\SesionCongreso;
  * TODAS las sesiones existentes hasta que un organizador lo prenda a
  * mano), el comportamiento es exactamente el de siempre — cero cambio
  * para quien no use el flag.
+ *
+ * `sesion.taller_id` nulo (15/10/2026, encontrado al revisar el fix de
+ * arriba) — una sesión "suelta" de un congreso SIN talleres (107 en la BD
+ * actual) nunca puede tener una fila en `participante_taller_sesion`:
+ * `CrearInscripcionAction`/`RegistrationService` solo crean esa fila
+ * cuando la sesión pertenece a un taller (`$sesion->taller_id` no nulo) —
+ * no existe ningún mecanismo de "selección" para una sesión suelta. Si
+ * `requiere_inscripcion` quedara activo en una de estas, NADIE podría
+ * acreditarse nunca — un lockout total sin salida. Por eso el flag solo
+ * se evalúa cuando la sesión tiene taller; en una sesión suelta queda
+ * siempre libre, sin importar el valor del flag. Mismo criterio aplica
+ * si el taller de una sesión se borra después (`nullOnDelete` en
+ * `sesiones_congreso.taller_id`): la sesión pasa a "suelta" y el check-in
+ * se abre solo, en vez de quedar bloqueada para siempre.
  */
 class ValidarCheckinSesionCongresoAction
 {
@@ -46,7 +60,7 @@ class ValidarCheckinSesionCongresoAction
             return ['motivo' => 'No se puede acreditar: el pago no está confirmado.', 'status' => 422];
         }
 
-        if ($sesion->requiere_inscripcion) {
+        if ($sesion->requiere_inscripcion && $sesion->taller_id !== null) {
             $inscrito = ParticipanteTallerSesion::where('participante_id', $participante->id)
                 ->where('sesion_congreso_id', $sesion->id)
                 ->exists();
