@@ -185,6 +185,25 @@ class ParticipanteExportData
                 ->pluck('observaciones')
                 ->filter()
                 ->implode(' | '),
+            // Talleres/sesiones asignados al participante (15/10/2026,
+            // pedido del usuario) — hasta ahora solo se exponía el monto
+            // agregado (`importeTaller`), nunca el detalle de QUÉ taller o
+            // sesión eligió. Hay congresos reales con talleres/sesiones
+            // asignados por participante (no todos tienen acreditación
+            // libre) — el staff necesita verlo para orientar a la persona,
+            // aunque `sesionCheckinBulk()` siga sin restringir el check-in
+            // a estas sesiones (acreditación libre: cualquier participante
+            // pagado puede marcarse en cualquier sesión, eso no cambia).
+            'talleres' => $p->talleresSesiones->map(fn ($ts) => [
+                'sesionId'     => $ts->sesion_congreso_id,
+                'tallerId'     => $ts->taller_id,
+                'tallerNombre' => $ts->taller?->nombre,
+                'titulo'       => $ts->sesionCongreso?->titulo,
+                'sala'         => $ts->sesionCongreso?->sala,
+                'fecha'        => optional($ts->sesionCongreso?->fecha)->format('Y-m-d'),
+                'horaInicio'   => substr((string) $ts->sesionCongreso?->hora_inicio, 0, 5),
+                'horaFin'      => substr((string) $ts->sesionCongreso?->hora_fin, 0, 5),
+            ])->values()->all(),
         ];
     }
 
