@@ -54,6 +54,7 @@ class StoreInscripcionCajaRequest extends FormRequest
             'participante.correo'                     => ['required', 'email'],
             'participante.direccion'                  => ['nullable', 'string'],
             'participante.ciudad'                     => ['nullable', 'string'],
+            'participante.pais'                        => ['nullable', 'string'],
             'participante.telefono'                   => ['nullable', 'string'],
             'participante.categoria'                  => ['required'],
             'participante.equipoId'                   => ['nullable', 'integer'],

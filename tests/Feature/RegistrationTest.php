@@ -178,6 +178,18 @@ class RegistrationTest extends TestCase
             ->assertJsonStructure(['success', 'message', 'data']);
     }
 
+    /** Pais (16/10/2026, pedido del usuario) — mismo comportamiento que Ciudad: opcional, se persiste tal cual. */
+    public function test_create_registration_persiste_el_pais_del_participante(): void
+    {
+        $this->postJson('/api/v1/registrations', $this->validPayload(['pais' => 'Bolivia']))
+            ->assertCreated();
+
+        $this->assertDatabaseHas('participantes', ['pais' => 'Bolivia']);
+
+        $participante = Participante::where('pais', 'Bolivia')->first();
+        $this->assertSame('Bolivia', (new \App\Http\Resources\ParticipanteResource($participante))->toArray(request())['pais']);
+    }
+
     /**
      * Auto-confirmar inscripciones en $0 (04/09/2026) — pedido: formulario
      * de ponente/staff sin costo. Antes de esto, TODA inscripción nacía

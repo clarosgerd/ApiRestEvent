@@ -245,6 +245,7 @@ class CrearInscripcionAction
             'correo' => $dto->email,
             'direccion' => $dto->address,
             'ciudad' => $dto->city,
+            'pais' => $dto->country,
             'telefono' => $dto->phone,
             'categoria' => $categoria,
             'equipo_id' => $dto->equipoId,

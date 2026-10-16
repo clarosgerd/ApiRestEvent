@@ -34,6 +34,7 @@ class UpdateRegistrationRequest extends FormRequest
             'participantes.*.correo'                     => ['required', 'email'],
             'participantes.*.direccion'                  => ['nullable', 'string'],
             'participantes.*.ciudad'                     => ['nullable', 'string'],
+            'participantes.*.pais'                        => ['nullable', 'string'],
             'participantes.*.telefono'                   => ['nullable', 'string'],
             'participantes.*.categoria'                  => ['required'],
             'participantes.*.precioCategoria'            => ['required', 'numeric'],

@@ -35,6 +35,7 @@ class Participante extends Model
         'correo',
         'direccion',
         'ciudad',
+        'pais',
         'telefono',
         'categoria',
         'equipo_id',

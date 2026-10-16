@@ -17,6 +17,7 @@ class ParticipantDTO
         public string $email,
         public string $address,
         public string $city,
+        public string $country,
         public string $phone,
         public ContactoEmergenciaParticipanteDTO $emergencyContact,
 
@@ -79,6 +80,7 @@ class ParticipantDTO
             // afuera).
             address: $data['direccion'] ?? '',
             city: $data['ciudad'] ?? '',
+            country: $data['pais'] ?? '',
             phone: $data['telefono'] ?? '',
             emergencyContact: ContactoEmergenciaParticipanteDTO::fromArray($data['contacto_emergencia'] ?? []), 
             souvenirs: array_map(

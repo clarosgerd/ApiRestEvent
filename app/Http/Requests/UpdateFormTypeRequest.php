@@ -64,7 +64,8 @@ class UpdateFormTypeRequest extends FormRequest
             // formulario (01/09/2026) — ver PLAN-OCULTAR-CAMPOS-FORM-TYPE-01092026.md.
             'campos_ocultos'             => 'sometimes|nullable|array',
             // nacimiento/genero (26/09/2026): ver StoreFormTypeRequest.
-            'campos_ocultos.*'           => 'string|in:direccion,ciudad,telefono,alias,nacimiento,genero,apellido',
+            // pais (16/10/2026): mismo criterio que ciudad.
+            'campos_ocultos.*'           => 'string|in:direccion,ciudad,pais,telefono,alias,nacimiento,genero,apellido',
             // Edición restringida a solo souvenirs/talleres (04/09/2026).
             'edicion_solo_extras'        => 'sometimes|nullable|boolean',
             // Solo un participante por inscripción (26/09/2026).

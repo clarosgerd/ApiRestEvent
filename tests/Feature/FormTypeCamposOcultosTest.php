@@ -257,4 +257,26 @@ class FormTypeCamposOcultosTest extends TestCase
             'campos_ocultos' => ['correo'], // correo no está permitido, es identidad de la persona
         ])->assertUnprocessable();
     }
+
+    /** Pais (16/10/2026, pedido del usuario) — mismo comportamiento que Ciudad. */
+    public function test_form_type_acepta_ocultar_pais(): void
+    {
+        $this->actingAsAdmin();
+        $event = Evento::factory()->create();
+
+        $response = $this->postJson('/api/v1/form-type', [
+            'event_id' => $event->id,
+            'name' => 'Individual',
+            'icon' => '🏃',
+            'description' => 'x',
+            'cupo_total' => 10,
+            'precio_base' => 50,
+            'costo_edicion' => 0,
+            'tiempo_expiracion_min' => 30,
+            'color' => '#00bad2',
+            'campos_ocultos' => ['pais'],
+        ]);
+
+        $response->assertCreated()->assertJsonPath('formType.camposOcultos', ['pais']);
+    }
 }

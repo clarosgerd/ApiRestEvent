@@ -238,6 +238,7 @@ class RegistrationService
             'correo'           => $data['correo'],
             'direccion'        => $data['direccion'] ?? '',
             'ciudad'           => $data['ciudad'] ?? '',
+            'pais'             => $data['pais'] ?? '',
             'telefono'         => $data['telefono'] ?? '',
             'categoria'        => $categoria,
             'equipo_id'        => $data['equipoId'] ?? null,

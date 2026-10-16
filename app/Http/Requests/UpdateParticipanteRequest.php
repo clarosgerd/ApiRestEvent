@@ -48,6 +48,7 @@ class UpdateParticipanteRequest extends FormRequest
             'telefono'         => ['sometimes', 'string', 'max:30'],
             'direccion'        => ['sometimes', 'string', 'max:255'],
             'ciudad'           => ['sometimes', 'string', 'max:255'],
+            'pais'             => ['sometimes', 'string', 'max:255'],
             'genero'           => ['sometimes', 'in:Masculino,Femenino,Otro'],
             'fecha_nacimiento' => ['sometimes', 'date'],
             'polera'           => ['sometimes', 'nullable', 'string', 'max:50'],

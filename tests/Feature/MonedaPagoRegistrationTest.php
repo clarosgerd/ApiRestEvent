@@ -95,6 +95,7 @@ class MonedaPagoRegistrationTest extends TestCase
             email: 'ana'.uniqid().'@test.net',
             address: 'x',
             city: 'x',
+            country: 'x',
             phone: '123',
             emergencyContact: new ContactoEmergenciaParticipanteDTO('Contacto', '7000000', 'Familiar'),
             souvenirs: [],

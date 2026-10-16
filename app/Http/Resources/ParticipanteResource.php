@@ -40,6 +40,7 @@ class ParticipanteResource extends JsonResource
             'correo' => $this->correo,
             'direccion' => $this->direccion,
             'ciudad' => $this->ciudad,
+            'pais' => $this->pais,
             'telefono' => $this->telefono,
 
             'contacto_emergencia' => new ContactoEmergenciaParticipanteResource(

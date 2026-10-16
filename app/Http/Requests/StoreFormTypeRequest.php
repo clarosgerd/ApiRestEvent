@@ -66,7 +66,8 @@ class StoreFormTypeRequest extends FormRequest
             // nacimiento/genero (26/09/2026): para tipos como "empresa
             // expositora" que no necesitan esos datos; se guardan neutros
             // (ver RegistrationService::syncPersonas()).
-            'campos_ocultos.*'           => 'string|in:direccion,ciudad,telefono,alias,nacimiento,genero,apellido',
+            // pais (16/10/2026): mismo criterio que ciudad.
+            'campos_ocultos.*'           => 'string|in:direccion,ciudad,pais,telefono,alias,nacimiento,genero,apellido',
             // Edición restringida a solo souvenirs/talleres (04/09/2026).
             'edicion_solo_extras'        => 'nullable|boolean',
             // Solo un participante por inscripción (26/09/2026).

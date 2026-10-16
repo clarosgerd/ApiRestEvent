@@ -134,6 +134,8 @@ class StoreRegistrationRequest extends FormRequest
            // ninguna migración de BD para esto.
            '*.participantes.*.direccion' => ['nullable'],
            '*.participantes.*.ciudad' => ['nullable'],
+           // Pais (16/10/2026) — mismo criterio que direccion/ciudad/telefono.
+           '*.participantes.*.pais' => ['nullable'],
            '*.participantes.*.telefono' => ['nullable'],
            '*.participantes.*.donacion' => ['required'],
            '*.participantes.*.subtotal' => ['required'],
