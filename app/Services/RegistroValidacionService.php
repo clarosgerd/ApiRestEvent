@@ -366,36 +366,64 @@ class RegistroValidacionService
             // Alias/Dirección/Ciudad pasaron a opcionales (31/08/2026,
             // sincronizado 14/09/2026) — no hacen a la identidad de la
             // persona. Ver PLAN-GENERO-CATALOGO-CAMPOS-OPCIONALES-31082026.md.
-            $required = ['nombre', 'apellido', 'genero', 'correo', 'categoria', 'precioCategoria'];
+            // 'precioCategoria' queda fuera del chequeo genérico (16/10/2026,
+            // bug real encontrado en la auditoría del monolito, ya corregido
+            // en elascenso/event desde antes): `empty($p['precioCategoria'])`
+            // trata 0 como "vacío" y rechazaría una categoría de precio
+            // legítimamente $0 — se valida su presencia con isset().
+            $required = ['nombre', 'apellido', 'genero', 'correo', 'categoria'];
             foreach ($required as $campo) {
                 if (empty($p[$campo])) {
                     return ['error' => "Campo '{$campo}' requerido en participante ".($idx + 1).'.'];
                 }
             }
+            if (! isset($p['precioCategoria'])) {
+                return ['error' => "Campo 'precioCategoria' requerido en participante ".($idx + 1).'.'];
+            }
 
-            // Categoría sin cambios respecto a la edición anterior
-            // (16/10/2026) — port del fix del 31/08/2026 de
-            // elascenso/event: no revalidar contra el precio de hoy, exigir
-            // que siga siendo el mismo que ya tenía. Ver docblock de
-            // categoriasAnterioresDesdeRegistro().
-            $anterior = is_array($categoriasAnteriores) ? ($categoriasAnteriores[$idx] ?? null) : null;
-            $categoriaSinCambios = $anterior !== null
-                && (string) $anterior['categoria'] === (string) $p['categoria'];
+            // requiereCategoria (16/10/2026, bug real encontrado en la
+            // auditoría del monolito) — port del fix del 12/08/2026 de
+            // elascenso/event: sin este condicional, un form_type sin
+            // categoría (staff/ponente/expositor, donde `categoria` = el
+            // nombre del form_type, ver
+            // [[project_categoria_staff_ponente_caja_campos_ocultos]])
+            // SIEMPRE fallaba el match contra evento.categories y
+            // bloqueaba cualquier edición de esas inscripciones vía el
+            // autoservicio del monolito.
+            $requiereCategoria = $formType['requiereCategoria'] ?? true;
 
-            if ($categoriaSinCambios && $exigirPrecioAnteriorSiSinCambios) {
-                if ((float) $anterior['precioCategoria'] !== (float) $p['precioCategoria']) {
-                    return ['error' => 'El precio de la categoría no coincide con el que ya tenías. Recargá la página e intentá de nuevo.'];
-                }
-            } else {
-                $catValida = false;
-                foreach (($evento['categories'] ?? []) as $cat) {
-                    if ((string) $cat['id'] === (string) $p['categoria'] && (float) $cat['price'] === (float) $p['precioCategoria']) {
-                        $catValida = true;
-                        break;
+            if ($requiereCategoria) {
+                // Categoría sin cambios respecto a la edición anterior
+                // (16/10/2026) — port del fix del 31/08/2026 de
+                // elascenso/event: no revalidar contra el precio de hoy,
+                // exigir que siga siendo el mismo que ya tenía. Ver
+                // docblock de categoriasAnterioresDesdeRegistro().
+                $anterior = is_array($categoriasAnteriores) ? ($categoriasAnteriores[$idx] ?? null) : null;
+                $categoriaSinCambios = $anterior !== null
+                    && (string) $anterior['categoria'] === (string) $p['categoria'];
+
+                if ($categoriaSinCambios && $exigirPrecioAnteriorSiSinCambios) {
+                    if ((float) $anterior['precioCategoria'] !== (float) $p['precioCategoria']) {
+                        return ['error' => 'El precio de la categoría no coincide con el que ya tenías. Recargá la página e intentá de nuevo.'];
+                    }
+                } else {
+                    $catValida = false;
+                    foreach (($evento['categories'] ?? []) as $cat) {
+                        if ((string) $cat['id'] === (string) $p['categoria'] && (float) $cat['price'] === (float) $p['precioCategoria']) {
+                            $catValida = true;
+                            break;
+                        }
+                    }
+                    if (! $catValida) {
+                        return ['error' => "Categoría '{$p['categoria']}' no válida para este evento."];
                     }
                 }
-                if (! $catValida) {
-                    return ['error' => "Categoría '{$p['categoria']}' no válida para este evento."];
+            } else {
+                // Sin categoría: el precio esperado es form_types.precio_base
+                // directo (mismo criterio que elascenso/event).
+                $precioBaseEsperado = (float) ($formType['precio_base'] ?? 0);
+                if (abs($precioBaseEsperado - (float) $p['precioCategoria']) > 0.01) {
+                    return ['error' => 'El precio de inscripción no coincide con el vigente. Recargá la página e intentá de nuevo.'];
                 }
             }
 
