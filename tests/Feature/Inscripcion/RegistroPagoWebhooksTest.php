@@ -7,6 +7,7 @@ use App\Models\Evento;
 use App\Models\FormasPago;
 use App\Models\FormType;
 use App\Models\Persona;
+use App\Models\PromoCode;
 use App\Models\Registration;
 use App\Services\QrProviderService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -238,6 +239,71 @@ class RegistroPagoWebhooksTest extends TestCase
             'participantes' => [$this->participantePayload($categoria, ['souvenirs' => []])],
             'confirmacion' => true,
         ])->assertOk()->assertJsonPath('success', true)->assertJsonStructure(['costo_adicion']);
+    }
+
+    /**
+     * Código promocional propio (16/10/2026, bug real reportado por el
+     * usuario) — port del fix de elascenso/event, ver
+     * [[project_promocode_grandfather_edicion_propia]]. Editar una
+     * inscripción pagada agregando talleres/datos no debe rechazarse con
+     * "ya fue utilizado" por el PROPIO código con el que esa misma
+     * inscripción ya se registró.
+     */
+    public function test_marcar_pagada_con_el_mismo_codigo_promo_propio_no_lo_rechaza_como_ya_usado(): void
+    {
+        [$evento, $formType, $categoria] = $this->crearEventoConFormaDePago();
+        [, $token] = $this->actingComoPersona();
+        PromoCode::factory()->percentage(0.10)->create([
+            'event_id' => $evento->id, 'promo_code' => 'DESCUENTO10',
+        ]);
+
+        $store = $this->postJson('/registro', [
+            'evento_id' => $evento->id, 'form_type_id' => $formType->id, 'tipoPago' => 'pendiente',
+            'auth_token' => $token,
+            'participantes' => [$this->participantePayload($categoria, ['promoCodigo' => 'DESCUENTO10'])],
+        ])->assertOk();
+        $referencia = $store->json('referencia');
+
+        // El código, con max_uses=1 (default de la factory), ya quedó
+        // agotado tras el alta — el chequeo roto lo veía como "usado" sin
+        // saber que el uso es de ESTA MISMA inscripción.
+        $this->assertDatabaseHas('promo_codes', ['promo_code' => 'DESCUENTO10', 'usado' => true]);
+
+        Registration::where('referencia', $referencia)->update(['pago_status' => 'paid']);
+
+        $this->patchJson('/registro/'.$referencia.'/pagada', [
+            'evento_id' => $evento->id, 'form_type_id' => $formType->id,
+            'participantes' => [$this->participantePayload($categoria, ['promoCodigo' => 'DESCUENTO10', 'souvenirs' => []])],
+            'confirmacion' => true,
+        ])->assertOk()->assertJsonPath('success', true);
+    }
+
+    /** Un código DISTINTO, agotado por otra inscripción, sigue rechazándose — el fix no desactiva el chequeo. */
+    public function test_marcar_pagada_con_un_codigo_promo_ajeno_agotado_sigue_rechazado(): void
+    {
+        [$evento, $formType, $categoria] = $this->crearEventoConFormaDePago();
+        [, $token] = $this->actingComoPersona();
+        PromoCode::factory()->percentage(0.10)->create([
+            'event_id' => $evento->id, 'promo_code' => 'DESCUENTO10',
+        ]);
+        PromoCode::factory()->create([
+            'event_id' => $evento->id, 'promo_code' => 'OTROAGOTADO',
+            'usado' => true, 'times_used' => 1,
+        ]);
+
+        $store = $this->postJson('/registro', [
+            'evento_id' => $evento->id, 'form_type_id' => $formType->id, 'tipoPago' => 'pendiente',
+            'auth_token' => $token,
+            'participantes' => [$this->participantePayload($categoria, ['promoCodigo' => 'DESCUENTO10'])],
+        ])->assertOk();
+        $referencia = $store->json('referencia');
+        Registration::where('referencia', $referencia)->update(['pago_status' => 'paid']);
+
+        $this->patchJson('/registro/'.$referencia.'/pagada', [
+            'evento_id' => $evento->id, 'form_type_id' => $formType->id,
+            'participantes' => [$this->participantePayload($categoria, ['promoCodigo' => 'OTROAGOTADO', 'souvenirs' => []])],
+            'confirmacion' => true,
+        ])->assertStatus(422)->assertJsonPath('error', 'Este código de promoción ya fue utilizado.');
     }
 
     // ── PagoProxyController::estado() ───────────────────────

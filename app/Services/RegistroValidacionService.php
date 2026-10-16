@@ -32,6 +32,40 @@ class RegistroValidacionService
         return Registration::where('referencia', $referencia)->first()?->toArray();
     }
 
+    /**
+     * Categoría/precio/código promo que cada participante YA tenía antes de
+     * esta edición (16/10/2026) — port de
+     * `elascenso/event\api\_registro_validacion.php::categoriasAnterioresDesdeRegistro()`,
+     * nunca portado a este servicio pese a que el fix original (categoría,
+     * 31/08/2026) es anterior a esta Fase 2b (22/08/2026)... en rigor el fix
+     * es POSTERIOR al port, por eso faltaba — ver
+     * [[project_promocode_grandfather_edicion_propia]]. Array indexado por
+     * POSICIÓN (mismo criterio de correlación que ya usa
+     * `ActualizarInscripcionPagadaAction`), o `null` si la inscripción no
+     * existe o no tiene participantes. Devuelve las columnas crudas del
+     * modelo (`categoria`, `precio_categoria`, `promo_codigo`), no el JSON
+     * camelCase de `ParticipanteResource` — `validarYCalcularParticipantes()`
+     * abajo las usa con esos mismos nombres.
+     */
+    public function categoriasAnterioresDesdeRegistro(string $referencia): ?array
+    {
+        $registration = Registration::with('participants')->where('referencia', $referencia)->first();
+        if (! $registration || $registration->participants->isEmpty()) {
+            return null;
+        }
+
+        $anteriores = [];
+        foreach ($registration->participants as $idx => $p) {
+            $anteriores[$idx] = [
+                'categoria' => $p->categoria,
+                'precioCategoria' => $p->precio_categoria !== null ? (float) $p->precio_categoria : null,
+                'promoCodigo' => $p->promo_codigo,
+            ];
+        }
+
+        return $anteriores;
+    }
+
     public function fetchExternalEvento(string $eventoId): ?array
     {
         $evento = \App\Models\Evento::find($eventoId);
@@ -297,7 +331,7 @@ class RegistroValidacionService
      *
      * @return array{participantes: array, totales: array}|array{error: string}
      */
-    public function validarYCalcularParticipantes(array $evento, ?array $formType, array $participantes): array
+    public function validarYCalcularParticipantes(array $evento, ?array $formType, array $participantes, ?array $categoriasAnteriores = null, bool $exigirPrecioAnteriorSiSinCambios = true): array
     {
         $permiteGrupal = ! empty($formType['permite_inscripcion_grupal'] ?? null);
         $maxGrupo = (int) ($formType['max_integrantes_grupo'] ?? 0);
@@ -339,15 +373,30 @@ class RegistroValidacionService
                 }
             }
 
-            $catValida = false;
-            foreach (($evento['categories'] ?? []) as $cat) {
-                if ((string) $cat['id'] === (string) $p['categoria'] && (float) $cat['price'] === (float) $p['precioCategoria']) {
-                    $catValida = true;
-                    break;
+            // Categoría sin cambios respecto a la edición anterior
+            // (16/10/2026) — port del fix del 31/08/2026 de
+            // elascenso/event: no revalidar contra el precio de hoy, exigir
+            // que siga siendo el mismo que ya tenía. Ver docblock de
+            // categoriasAnterioresDesdeRegistro().
+            $anterior = is_array($categoriasAnteriores) ? ($categoriasAnteriores[$idx] ?? null) : null;
+            $categoriaSinCambios = $anterior !== null
+                && (string) $anterior['categoria'] === (string) $p['categoria'];
+
+            if ($categoriaSinCambios && $exigirPrecioAnteriorSiSinCambios) {
+                if ((float) $anterior['precioCategoria'] !== (float) $p['precioCategoria']) {
+                    return ['error' => 'El precio de la categoría no coincide con el que ya tenías. Recargá la página e intentá de nuevo.'];
                 }
-            }
-            if (! $catValida) {
-                return ['error' => "Categoría '{$p['categoria']}' no válida para este evento."];
+            } else {
+                $catValida = false;
+                foreach (($evento['categories'] ?? []) as $cat) {
+                    if ((string) $cat['id'] === (string) $p['categoria'] && (float) $cat['price'] === (float) $p['precioCategoria']) {
+                        $catValida = true;
+                        break;
+                    }
+                }
+                if (! $catValida) {
+                    return ['error' => "Categoría '{$p['categoria']}' no válida para este evento."];
+                }
             }
 
             $conPolera = ! empty($p['polera']) && $p['polera'] !== 'No shirt';
@@ -432,7 +481,19 @@ class RegistroValidacionService
                         break;
                     }
                 }
-                if ($promo && ! empty($promo['usado'])) {
+                // Código sin cambios respecto a la edición anterior
+                // (16/10/2026, bug real reportado por el usuario) — port
+                // del mismo criterio aplicado hoy a elascenso/event, ver
+                // [[project_promocode_grandfather_edicion_propia]]: el
+                // código propio de esta inscripción no se trata como "ya
+                // utilizado" aunque el flag global lo esté; uno distinto
+                // (ajeno, agotado por otra inscripción) sigue rechazándose.
+                $anteriorPromo = is_array($categoriasAnteriores) ? ($categoriasAnteriores[$idx] ?? null) : null;
+                $esMismoCodigoQueYaTenia = $anteriorPromo !== null
+                    && ! empty($anteriorPromo['promoCodigo'])
+                    && strcasecmp(trim((string) $anteriorPromo['promoCodigo']), $promoCodigo) === 0;
+
+                if ($promo && ! empty($promo['usado']) && ! $esMismoCodigoQueYaTenia) {
                     return ['error' => 'Este código de promoción ya fue utilizado.'];
                 }
                 if ($promo) {

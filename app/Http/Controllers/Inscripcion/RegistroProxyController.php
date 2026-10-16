@@ -290,7 +290,14 @@ class RegistroProxyController extends Controller
             return response()->json(['error' => $ftResult['error']], 422);
         }
 
-        $calc = $this->validacion->validarYCalcularParticipantes($evento, $ftResult['formType'], $participantes);
+        // categoriasAnteriores (16/10/2026) — pendiente, no revalidar contra
+        // el precio/promo vigente de HOY lo que esta misma inscripción ya
+        // tenía. Ver RegistroValidacionService::categoriasAnterioresDesdeRegistro().
+        // false (igual que registro_actualizar.php): nada se pagó todavía,
+        // ActualizarInscripcionAction revalida el precio de categoría contra
+        // el vigente de HOY sin grandfather, siempre.
+        $categoriasAnteriores = $this->validacion->categoriasAnterioresDesdeRegistro($reference);
+        $calc = $this->validacion->validarYCalcularParticipantes($evento, $ftResult['formType'], $participantes, $categoriasAnteriores, false);
         if (isset($calc['error'])) {
             return response()->json(['error' => $calc['error']], 422);
         }
@@ -342,7 +349,12 @@ class RegistroProxyController extends Controller
             return response()->json(['error' => $ftResult['error']], 422);
         }
 
-        $calc = $this->validacion->validarYCalcularParticipantes($evento, $ftResult['formType'], $participantes);
+        // categoriasAnteriores (16/10/2026) — pagada: default
+        // `$exigirPrecioAnteriorSiSinCambios=true` (no recobrar la
+        // diferencia si un período subió el precio desde que se pagó, ver
+        // EdicionPagadaCategoriaData en ApiRestEvent).
+        $categoriasAnteriores = $this->validacion->categoriasAnterioresDesdeRegistro($reference);
+        $calc = $this->validacion->validarYCalcularParticipantes($evento, $ftResult['formType'], $participantes, $categoriasAnteriores);
         if (isset($calc['error'])) {
             return response()->json(['error' => $calc['error']], 422);
         }
