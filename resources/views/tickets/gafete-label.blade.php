@@ -43,8 +43,8 @@
       text-align: center;
       font-weight: bold;
       font-size: 20pt;
-      line-height: 1.15;
-      padding: 14px 2px 0;
+      line-height: 1.0;
+      padding: 10px 2px 0;
     }
     .pegatina .celda-qr {
       text-align: center;
@@ -57,6 +57,13 @@
       color: #666;
       padding: 0 2px 2px;
     }
+    .pegatina .celda-descripcion {
+      text-align: center;
+      vertical-align: middle;
+      font-size: 9pt;
+      font-weight: bold;
+      padding: 0 4px;
+    }
   </style>
 </head>
 <body>
@@ -67,8 +74,13 @@
       // pegatinas horizontales — ver comentario arriba). 0.9cm reservados
       // para las filas de nombre/referencia. 07/10/2026: sin columna de
       // categoría al lado, el QR vuelve a tomar casi todo el ancho.
+      // 18/10/2026: si el item SÍ trae descripción de categoría, se reserva
+      // una columna al lado del QR (ver celda-descripcion) — el resto de
+      // items del mismo evento que no tengan descripción siguen con el QR
+      // a ancho completo, sin cambio de tamaño.
+      $tieneDescripcion = !empty($item['categoria_descripcion']);
       $qrPorAlto = max(0.8, $dims['height_cm'] - 0.9);
-      $qrPorAncho = $dims['width_cm'] * 0.9;
+      $qrPorAncho = $dims['width_cm'] * ($tieneDescripcion ? 0.55 : 0.9);
       // QR al 70% del tamaño calculado: deja margen de aire alrededor.
       $qrCm = min($qrPorAlto, $qrPorAncho) * 0.7;
       // Nombres de más de 14 caracteres ocupan dos líneas a 20pt y desbordan la pegatina
@@ -78,15 +90,18 @@
     <div class="pegatina">
       <table>
         <tr class="fila-nombre">
-          <td style="font-size: {{ $nombrePt }}pt;">{{ $item['nombre'] }}</td>
+          <td @if ($tieneDescripcion) colspan="2" @endif style="font-size: {{ $nombrePt }}pt;">{{ $item['nombre'] }}</td>
         </tr>
         <tr>
           <td class="celda-qr">
             <img src="data:image/png;base64,{{ $item['qr'] }}" style="width: {{ $qrCm }}cm; height: {{ $qrCm }}cm;">
           </td>
+          @if ($tieneDescripcion)
+            <td class="celda-descripcion">{{ $item['categoria_descripcion'] }}</td>
+          @endif
         </tr>
         <tr class="fila-referencia">
-          <td>{{ $item['referencia'] }}</td>
+          <td @if ($tieneDescripcion) colspan="2" @endif>{{ $item['referencia'] }}</td>
         </tr>
       </table>
     </div>

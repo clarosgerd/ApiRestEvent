@@ -568,7 +568,7 @@ return response()->json([
     public function gafetesPdf(Evento $event)
     {
         $event->loadMissing('categories');
-        $categoryNames = $event->categories->pluck('name', 'id');
+        $categories = $event->categories->keyBy('id');
 
         $registrations = Registration::where('evento_id', $event->id)
             ->whereNotIn('pago_status', ['cancelled', 'failed'])
@@ -578,7 +578,7 @@ return response()->json([
         $items = [];
         foreach ($registrations as $registration) {
             foreach ($registration->participants as $participante) {
-                $items[] = $this->construirItemGafete($participante, $registration, $categoryNames);
+                $items[] = $this->construirItemGafete($participante, $registration, $categories);
             }
         }
 
@@ -603,9 +603,9 @@ return response()->json([
         abort_if($participante->registration->evento_id !== $event->id, 404);
 
         $event->loadMissing('categories');
-        $categoryNames = $event->categories->pluck('name', 'id');
+        $categories = $event->categories->keyBy('id');
 
-        $item = $this->construirItemGafete($participante, $participante->registration, $categoryNames);
+        $item = $this->construirItemGafete($participante, $participante->registration, $categories);
         $dims = $this->gafeteDims($event->gafete_config);
 
         return $this->renderGafetesPdf($event, [$item], $dims, 'gafete-' . Str::slug($participante->nombre . ' ' . $participante->apellido) . '.pdf');
@@ -623,8 +623,10 @@ return response()->json([
      * propio en el form_type, cae al navy por defecto. Ignorado en modo
      * "label" (la pegatina es solo QR, ver renderGafetesPdf()).
      */
-    private function construirItemGafete(Participante $participante, Registration $registration, $categoryNames): array
+    private function construirItemGafete(Participante $participante, Registration $registration, $categories): array
     {
+        $categoria = $categories->get((int) $participante->categoria);
+
         return [
             'nombre'     => trim($participante->nombre . ' ' . $participante->apellido),
             // 'rol' (tipo de inscripción, ej. "Individual"/"Staff") y
@@ -637,6 +639,11 @@ return response()->json([
             // Pegatina (06/10/2026): en vez de la categoría se muestra el rol del
             // participante: Expositor, Staff, Ponente o Participante.
             'categoria'  => $this->rolGafete($registration->formType),
+            // Descripción de categoría al lado del QR (18/10/2026, pedido
+            // real del usuario) — si la categoría no tiene descripción (o
+            // el participante no tiene categoría real, ej. staff/ponente),
+            // no se imprime nada (ver gafete-label.blade.php/gafetes.blade.php).
+            'categoria_descripcion' => $categoria?->description ?: null,
             'referencia' => $registration->referencia,
             'qr'         => ReferenceQrService::toBase64Png($registration->referencia),
             'color'      => $this->safeHex($registration->formType->color ?? null),

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Http\Controllers\EventoController;
 use App\Models\Category;
 use App\Models\Ciudad;
 use App\Models\Evento;
@@ -13,6 +14,7 @@ use App\Models\Registration;
 use App\Models\SubtipoEvento;
 use App\Models\TipoEvento;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use ReflectionMethod;
 use Tests\TestCase;
 
 /**
@@ -206,5 +208,99 @@ class GafetesPdfTest extends TestCase
         $response = $this->get("/api/v1/event/{$evento->id}/participantes/{$participante->id}/gafete-pdf");
 
         $response->assertNotFound();
+    }
+
+    /**
+     * Descripción de categoría al lado del QR (18/10/2026, pedido real del
+     * usuario) — ver EventoController::construirItemGafete(). Se invoca por
+     * reflexión porque el método es privado (extraído para reusar entre el
+     * bulk y el de-demanda, ver comentario del método).
+     */
+    private function construirItemGafete(Participante $participante, Registration $registration, $categories): array
+    {
+        $controller = app(EventoController::class);
+        $method = new ReflectionMethod($controller, 'construirItemGafete');
+        $method->setAccessible(true);
+
+        return $method->invoke($controller, $participante, $registration, $categories);
+    }
+
+    private function crearParticipanteConCategoria(Evento $evento, ?string $descripcion): array
+    {
+        $formType = FormType::factory()->create(['event_id' => $evento->id]);
+        $categoria = Category::factory()->create(['event_id' => $evento->id, 'description' => $descripcion]);
+
+        $registration = Registration::create([
+            'referencia' => 'REF' . rand(100000, 999999),
+            'fecha' => now(),
+            'evento_id' => $evento->id,
+            'form_types_id' => $formType->id,
+            'evento_nombre' => $evento->nombre,
+            'tipo_pago' => 'sip',
+            'pago_status' => 'paid',
+        ])->load('formType');
+
+        $participante = Participante::create([
+            'registration_id' => $registration->id,
+            'nombre' => 'Nombre' . rand(1000, 9999), 'apellido' => 'Apellido',
+            'genero' => 'Femenino', 'tipo_documento' => 'DNI',
+            'numero_documento' => (string) rand(1000000, 9999999),
+            'fecha_nacimiento' => '1990-01-01', 'edad' => 30,
+            'correo' => 'test' . rand(1000, 9999) . '@test.net', 'direccion' => 'x', 'ciudad' => 'x', 'telefono' => '123',
+            'categoria' => $categoria->id, 'precio_categoria' => 0, 'subtotal' => 0,
+        ]);
+
+        return [$participante, $registration, collect([$categoria->id => $categoria])];
+    }
+
+    public function test_categoria_con_descripcion_aparece_en_el_item_del_gafete(): void
+    {
+        $evento = $this->crearEvento();
+        [$participante, $registration, $categories] = $this->crearParticipanteConCategoria($evento, 'Carrera 5K');
+
+        $item = $this->construirItemGafete($participante, $registration, $categories);
+
+        $this->assertSame('Carrera 5K', $item['categoria_descripcion']);
+    }
+
+    public function test_categoria_sin_descripcion_no_trae_nada(): void
+    {
+        $evento = $this->crearEvento();
+        [$participante, $registration, $categories] = $this->crearParticipanteConCategoria($evento, null);
+
+        $item = $this->construirItemGafete($participante, $registration, $categories);
+
+        $this->assertNull($item['categoria_descripcion']);
+    }
+
+    /** Regresión end-to-end: una categoría con descripción no rompe el PDF de pegatina. */
+    public function test_gafete_label_con_categoria_con_descripcion_no_rompe(): void
+    {
+        $evento = $this->crearEvento(['gafete_config' => ['tipo' => 'label', 'width_cm' => 5, 'height_cm' => 3]]);
+        $formType = FormType::factory()->create(['event_id' => $evento->id]);
+        $categoria = Category::factory()->create(['event_id' => $evento->id, 'description' => 'Carrera 5K']);
+        $registration = Registration::create([
+            'referencia' => 'REF' . rand(100000, 999999),
+            'fecha' => now(),
+            'evento_id' => $evento->id,
+            'form_types_id' => $formType->id,
+            'evento_nombre' => $evento->nombre,
+            'tipo_pago' => 'sip',
+            'pago_status' => 'paid',
+        ]);
+        Participante::create([
+            'registration_id' => $registration->id,
+            'nombre' => 'Nombre' . rand(1000, 9999), 'apellido' => 'Apellido',
+            'genero' => 'Femenino', 'tipo_documento' => 'DNI',
+            'numero_documento' => (string) rand(1000000, 9999999),
+            'fecha_nacimiento' => '1990-01-01', 'edad' => 30,
+            'correo' => 'test' . rand(1000, 9999) . '@test.net', 'direccion' => 'x', 'ciudad' => 'x', 'telefono' => '123',
+            'categoria' => $categoria->id, 'precio_categoria' => 0, 'subtotal' => 0,
+        ]);
+
+        $response = $this->get("/api/v1/event/{$evento->id}/gafetes-pdf");
+
+        $response->assertOk();
+        $response->assertHeader('Content-Type', 'application/pdf');
     }
 }

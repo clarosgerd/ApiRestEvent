@@ -57,6 +57,9 @@
                 @if (!empty($item['categoria']) && $item['categoria'] !== ($item['rol'] ?? null))
                   <div class="role" style="color: {{ $itemColor }};">{{ $item['categoria'] }}</div>
                 @endif
+                @if (!empty($item['categoria_descripcion']))
+                  <div class="role" style="color: {{ $itemColor }};">{{ $item['categoria_descripcion'] }}</div>
+                @endif
               </div>
             </div>
           </div>
