@@ -100,6 +100,25 @@ class CheckinTest extends TestCase
     }
 
     /**
+     * Para prellenar el popup "Editar datos" de Acreditación (19/10/2026) —
+     * mismos campos que ya ofrece delivery en su popup equivalente;
+     * categoria deliberadamente no se agrega acá para edición (ver
+     * ParticipanteController::update()/UpdateParticipanteRequest).
+     */
+    public function test_lookup_incluye_genero_y_fecha_nacimiento_para_editar_datos(): void
+    {
+        $this->crearParticipante(['genero' => 'Femenino', 'fecha_nacimiento' => '1995-03-20']);
+        $admin = $this->actingAsAdmin();
+        $admin->update(['rol' => 'super_admin']);
+
+        $response = $this->getJson("/api/v1/event/{$this->evento->id}/checkin/{$this->registration->referencia}");
+
+        $response->assertStatus(200);
+        $this->assertSame('Femenino', $response->json('participantes.0.genero'));
+        $this->assertSame('1995-03-20', $response->json('participantes.0.fechaNacimiento'));
+    }
+
+    /**
      * Talleres y pagos en acreditación (26/08/2026) — el staff necesita ver
      * qué talleres tiene cada participante y qué pagos hizo (incluyendo un
      * cobro adicional por SIP), ver

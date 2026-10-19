@@ -522,6 +522,11 @@ public function estadoTransaccion(
                 'nombre'       => $p->nombre,
                 'apellido'     => $p->apellido,
                 'categoria'    => $categoriasPorId->get($p->categoria)->name ?? $p->categoria,
+                // Para prellenar el popup "Editar datos" de Acreditación
+                // (19/10/2026) — igual que delivery, categoría NO viaja acá
+                // para edición (sigue intocable desde PATCH /participantes/{id}).
+                'genero'          => $p->genero,
+                'fechaNacimiento' => optional($p->fecha_nacimiento)->toDateString(),
                 'numeroCorredor' => $p->numero_corredor,
                 'chip'         => $p->chip,
                 'checkedInAt'  => optional($p->checked_in_at)->toIso8601String(),
