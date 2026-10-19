@@ -626,6 +626,21 @@ return response()->json([
     private function construirItemGafete(Participante $participante, Registration $registration, $categories): array
     {
         $categoria = $categories->get((int) $participante->categoria);
+        $descripcion = $categoria?->description ?: null;
+
+        // Staff/ponente (19/10/2026, pedido real del usuario) nunca tienen
+        // categoría real (es_staff/es_ponente fuerza requiere_categoria=false
+        // en FormType::booted()), así que $descripcion arriba siempre da
+        // null para ellos — se usa la descripción del form_type en su lugar.
+        // Str::limit: form_types.description es texto libre/largo ("para la
+        // descripción larga", sin tope), a diferencia de la de categoría que
+        // en la práctica es corta — sin acotar, un texto largo puede repetir
+        // el desborde de página de la pegatina (bug real del 24/09/2026).
+        if (! $descripcion && ($registration->formType?->es_staff || $registration->formType?->es_ponente)) {
+            $descripcion = $registration->formType->description
+                ? Str::limit($registration->formType->description, 40)
+                : null;
+        }
 
         return [
             'nombre'     => trim($participante->nombre . ' ' . $participante->apellido),
@@ -639,11 +654,14 @@ return response()->json([
             // Pegatina (06/10/2026): en vez de la categoría se muestra el rol del
             // participante: Expositor, Staff, Ponente o Participante.
             'categoria'  => $this->rolGafete($registration->formType),
-            // Descripción de categoría al lado del QR (18/10/2026, pedido
-            // real del usuario) — si la categoría no tiene descripción (o
-            // el participante no tiene categoría real, ej. staff/ponente),
-            // no se imprime nada (ver gafete-label.blade.php/gafetes.blade.php).
-            'categoria_descripcion' => $categoria?->description ?: null,
+            // Descripción al lado del QR (18-19/10/2026, pedido real del
+            // usuario) — si no hay nada que mostrar, no se imprime nada
+            // (ver gafete-label.blade.php/gafetes.blade.php).
+            'categoria_descripcion' => $descripcion,
+            // País del participante (19/10/2026, pedido real del usuario) —
+            // misma convención: si está vacío (default '' de la columna),
+            // no se imprime nada en el gafete.
+            'pais'       => $participante->pais ?: null,
             'referencia' => $registration->referencia,
             'qr'         => ReferenceQrService::toBase64Png($registration->referencia),
             'color'      => $this->safeHex($registration->formType->color ?? null),

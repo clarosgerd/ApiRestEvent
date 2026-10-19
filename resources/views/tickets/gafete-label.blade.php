@@ -24,7 +24,13 @@
        Expositor) del gafete — pedido explícito del organizador de que
        solo se imprima nombre, QR y referencia. El QR vuelve a ocupar
        todo el ancho de la pegatina (antes reservaba una columna aparte
-       para ese texto). */
+       para ese texto).
+       19/10/2026: descripción de categoría y país agregados AL LADO del
+       QR (no debajo de la referencia, eso se probó y se descartó el mismo
+       día — ver mockup del usuario) — una columna lateral con hasta 2
+       líneas apiladas (descripción arriba, país abajo), solo si el item
+       tiene al menos una de las dos; el QR vuelve a ocupar todo el ancho
+       cuando no hay ninguna. */
     @page { margin: 0; }
     body { margin: 0; padding: 0; font-family: Arial, sans-serif; }
     .pegatina {
@@ -57,30 +63,33 @@
       color: #666;
       padding: 0 2px 2px;
     }
-    .pegatina .celda-descripcion {
+    .pegatina .celda-lateral {
       text-align: center;
       vertical-align: middle;
+      padding: 0 4px;
+    }
+    .pegatina .celda-lateral div {
       font-size: 9pt;
       font-weight: bold;
-      padding: 0 4px;
+      color: #333;
+      line-height: 1.3;
     }
   </style>
 </head>
 <body>
   @foreach ($items as $item)
     @php
+      // Líneas de la columna lateral (al lado del QR): descripción de
+      // categoría arriba, país abajo — cada una solo si no está vacía.
+      $lineasLaterales = array_filter([$item['categoria_descripcion'] ?? null, $item['pais'] ?? null]);
+      $tieneLaterales = count($lineasLaterales) > 0;
       // QR cuadrado: se limita por AMBAS dimensiones de la pegatina (antes
       // solo se limitaba por el ancho, causando el desborde vertical en
       // pegatinas horizontales — ver comentario arriba). 0.9cm reservados
-      // para las filas de nombre/referencia. 07/10/2026: sin columna de
-      // categoría al lado, el QR vuelve a tomar casi todo el ancho.
-      // 18/10/2026: si el item SÍ trae descripción de categoría, se reserva
-      // una columna al lado del QR (ver celda-descripcion) — el resto de
-      // items del mismo evento que no tengan descripción siguen con el QR
-      // a ancho completo, sin cambio de tamaño.
-      $tieneDescripcion = !empty($item['categoria_descripcion']);
+      // para las filas de nombre/referencia. Si hay columna lateral, el QR
+      // cede ancho (no alto) para hacerle lugar.
       $qrPorAlto = max(0.8, $dims['height_cm'] - 0.9);
-      $qrPorAncho = $dims['width_cm'] * ($tieneDescripcion ? 0.55 : 0.9);
+      $qrPorAncho = $dims['width_cm'] * ($tieneLaterales ? 0.55 : 0.9);
       // QR al 70% del tamaño calculado: deja margen de aire alrededor.
       $qrCm = min($qrPorAlto, $qrPorAncho) * 0.7;
       // Nombres de más de 14 caracteres ocupan dos líneas a 20pt y desbordan la pegatina
@@ -90,18 +99,22 @@
     <div class="pegatina">
       <table>
         <tr class="fila-nombre">
-          <td @if ($tieneDescripcion) colspan="2" @endif style="font-size: {{ $nombrePt }}pt;">{{ $item['nombre'] }}</td>
+          <td @if ($tieneLaterales) colspan="2" @endif style="font-size: {{ $nombrePt }}pt;">{{ $item['nombre'] }}</td>
         </tr>
         <tr>
-          <td class="celda-qr">
+          <td class="celda-qr" style="width: {{ $qrCm }}cm;">
             <img src="data:image/png;base64,{{ $item['qr'] }}" style="width: {{ $qrCm }}cm; height: {{ $qrCm }}cm;">
           </td>
-          @if ($tieneDescripcion)
-            <td class="celda-descripcion">{{ $item['categoria_descripcion'] }}</td>
+          @if ($tieneLaterales)
+            <td class="celda-lateral">
+              @foreach ($lineasLaterales as $linea)
+                <div>{{ $linea }}</div>
+              @endforeach
+            </td>
           @endif
         </tr>
         <tr class="fila-referencia">
-          <td @if ($tieneDescripcion) colspan="2" @endif>{{ $item['referencia'] }}</td>
+          <td @if ($tieneLaterales) colspan="2" @endif>{{ $item['referencia'] }}</td>
         </tr>
       </table>
     </div>
