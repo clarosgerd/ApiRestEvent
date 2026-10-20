@@ -214,15 +214,25 @@ class GafetesPdfTest extends TestCase
      * Descripción de categoría al lado del QR (18/10/2026, pedido real del
      * usuario) — ver EventoController::construirItemGafete(). Se invoca por
      * reflexión porque el método es privado (extraído para reusar entre el
-     * bulk y el de-demanda, ver comentario del método).
+     * bulk y el de-demanda, ver comentario del método). $dims default =
+     * "todo prendido salvo título" (19/10/2026), igual que gafeteDims(null)
+     * — los tests existentes que no pasan $dims siguen viendo el
+     * comportamiento de siempre.
      */
-    private function construirItemGafete(Participante $participante, Registration $registration, $categories): array
+    private function construirItemGafete(Participante $participante, Registration $registration, $categories, ?array $dims = null): array
     {
+        $dims ??= [
+            'mostrar_titulo' => false,
+            'mostrar_descripcion_categoria' => true,
+            'mostrar_descripcion_staff_ponente' => true,
+            'mostrar_referencia' => true,
+        ];
+
         $controller = app(EventoController::class);
         $method = new ReflectionMethod($controller, 'construirItemGafete');
         $method->setAccessible(true);
 
-        return $method->invoke($controller, $participante, $registration, $categories);
+        return $method->invoke($controller, $participante, $registration, $categories, $dims);
     }
 
     private function crearParticipanteConCategoria(Evento $evento, ?string $descripcion): array
@@ -452,5 +462,149 @@ class GafetesPdfTest extends TestCase
         $response->assertOk();
         $paginas = preg_match_all('/\/Type\s*\/Page[^s]/', $response->getContent());
         $this->assertSame(1, $paginas, 'La pegatina con descripción + país debe seguir teniendo 1 sola página.');
+    }
+
+    /**
+     * Regresión real reportada en UAT (19/10/2026, con screenshot): un
+     * nombre corto con espacio ("PEDRO ECHAGUE", 13 caracteres) pasa el
+     * umbral de 14 y usa 20pt, pero igual envuelve a 2 líneas en una
+     * pegatina angosta — el umbral por cantidad de caracteres no contempla
+     * el ancho real de la pegatina. La 2da línea excedía el alto reservado
+     * y dompdf mandaba el resto a una página 2 casi en blanco (solo con la
+     * referencia). Fix: white-space:nowrap en fila-nombre, fuerza siempre
+     * una sola línea.
+     */
+    public function test_gafete_label_con_nombre_corto_con_espacio_en_pegatina_angosta_da_una_sola_pagina(): void
+    {
+        $evento = $this->crearEvento(['gafete_config' => ['tipo' => 'label', 'width_cm' => 4, 'height_cm' => 3]]);
+        $formType = FormType::factory()->create(['event_id' => $evento->id]);
+        $categoria = Category::factory()->create(['event_id' => $evento->id, 'description' => 'Conferencista']);
+        $registration = Registration::create([
+            'referencia' => 'REF' . rand(100000, 999999),
+            'fecha' => now(),
+            'evento_id' => $evento->id,
+            'form_types_id' => $formType->id,
+            'evento_nombre' => $evento->nombre,
+            'tipo_pago' => 'sip',
+            'pago_status' => 'paid',
+        ]);
+        $participante = Participante::create([
+            'registration_id' => $registration->id,
+            'nombre' => 'Pedro', 'apellido' => 'Echague',
+            'genero' => 'Femenino', 'tipo_documento' => 'DNI',
+            'numero_documento' => (string) rand(1000000, 9999999),
+            'fecha_nacimiento' => '1990-01-01', 'edad' => 30,
+            'correo' => 'test' . rand(1000, 9999) . '@test.net', 'direccion' => 'x', 'ciudad' => 'x', 'telefono' => '123',
+            'categoria' => $categoria->id, 'precio_categoria' => 0, 'subtotal' => 0,
+        ]);
+        $participante->update(['pais' => 'Uruguay']);
+
+        $response = $this->get("/api/v1/event/{$evento->id}/participantes/{$participante->id}/gafete-pdf");
+
+        $response->assertOk();
+        $paginas = preg_match_all('/\/Type\s*\/Page[^s]/', $response->getContent());
+        $this->assertSame(1, $paginas, 'Un nombre corto con espacio en una pegatina angosta debe seguir dando 1 sola página.');
+    }
+
+    // ── Campos del gafete parametrizables por evento (19/10/2026) ──────────
+
+    public function test_mostrar_titulo_antepone_el_alias_al_nombre(): void
+    {
+        $evento = $this->crearEvento();
+        [$participante, $registration, $categories] = $this->crearParticipanteConCategoria($evento, null);
+        $participante->update(['alias' => 'Dr.']);
+
+        $item = $this->construirItemGafete($participante->fresh(), $registration, $categories, [
+            'mostrar_titulo' => true,
+            'mostrar_descripcion_categoria' => true,
+            'mostrar_descripcion_staff_ponente' => true,
+            'mostrar_referencia' => true,
+        ]);
+
+        $this->assertSame('Dr. ' . $participante->nombre . ' ' . $participante->apellido, $item['nombre']);
+    }
+
+    public function test_mostrar_titulo_false_no_antepone_nada(): void
+    {
+        $evento = $this->crearEvento();
+        [$participante, $registration, $categories] = $this->crearParticipanteConCategoria($evento, null);
+        $participante->update(['alias' => 'Dr.']);
+
+        // Default de construirItemGafete() en este test (sin $dims) = título apagado.
+        $item = $this->construirItemGafete($participante->fresh(), $registration, $categories);
+
+        $this->assertSame($participante->nombre . ' ' . $participante->apellido, $item['nombre']);
+    }
+
+    public function test_mostrar_descripcion_categoria_false_oculta_la_descripcion_real(): void
+    {
+        $evento = $this->crearEvento();
+        [$participante, $registration, $categories] = $this->crearParticipanteConCategoria($evento, 'Carrera 5K');
+
+        $item = $this->construirItemGafete($participante, $registration, $categories, [
+            'mostrar_titulo' => false,
+            'mostrar_descripcion_categoria' => false,
+            'mostrar_descripcion_staff_ponente' => true,
+            'mostrar_referencia' => true,
+        ]);
+
+        $this->assertNull($item['categoria_descripcion']);
+    }
+
+    public function test_mostrar_descripcion_staff_ponente_false_oculta_el_fallback(): void
+    {
+        $evento = $this->crearEvento();
+        [$participante, $registration, $categories] = $this->crearParticipanteStaffOPonente(
+            $evento,
+            ['es_staff' => true, 'description' => 'Equipo de logística del evento']
+        );
+
+        $item = $this->construirItemGafete($participante, $registration, $categories, [
+            'mostrar_titulo' => false,
+            'mostrar_descripcion_categoria' => true,
+            'mostrar_descripcion_staff_ponente' => false,
+            'mostrar_referencia' => true,
+        ]);
+
+        $this->assertNull($item['categoria_descripcion']);
+    }
+
+    public function test_mostrar_referencia_false_oculta_el_texto_pero_el_qr_sigue_con_la_referencia_real(): void
+    {
+        $evento = $this->crearEvento();
+        [$participante, $registration, $categories] = $this->crearParticipanteConCategoria($evento, null);
+
+        $itemConReferencia = $this->construirItemGafete($participante, $registration, $categories, [
+            'mostrar_titulo' => false,
+            'mostrar_descripcion_categoria' => true,
+            'mostrar_descripcion_staff_ponente' => true,
+            'mostrar_referencia' => true,
+        ]);
+        $itemSinReferencia = $this->construirItemGafete($participante, $registration, $categories, [
+            'mostrar_titulo' => false,
+            'mostrar_descripcion_categoria' => true,
+            'mostrar_descripcion_staff_ponente' => true,
+            'mostrar_referencia' => false,
+        ]);
+
+        $this->assertSame($registration->referencia, $itemConReferencia['referencia']);
+        $this->assertNull($itemSinReferencia['referencia']);
+        // El QR codifica la referencia real siempre, apagar el texto no debe afectarlo.
+        $this->assertSame($itemConReferencia['qr'], $itemSinReferencia['qr']);
+    }
+
+    /** Defaults de gafeteDims(null): título apagado, el resto de piezas existentes prendidas (regresión). */
+    public function test_dims_null_mantiene_el_comportamiento_de_siempre_salvo_titulo(): void
+    {
+        $evento = $this->crearEvento();
+        [$participante, $registration, $categories] = $this->crearParticipanteConCategoria($evento, 'Carrera 5K');
+        $participante->update(['alias' => 'Dr.', 'pais' => 'Bolivia']);
+
+        $item = $this->construirItemGafete($participante->fresh(), $registration, $categories);
+
+        $this->assertSame($participante->nombre . ' ' . $participante->apellido, $item['nombre']);
+        $this->assertSame('Carrera 5K', $item['categoria_descripcion']);
+        $this->assertSame('Bolivia', $item['pais']);
+        $this->assertSame($registration->referencia, $item['referencia']);
     }
 }

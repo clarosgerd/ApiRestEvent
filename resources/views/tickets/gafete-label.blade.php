@@ -30,7 +30,21 @@
        día — ver mockup del usuario) — una columna lateral con hasta 2
        líneas apiladas (descripción arriba, país abajo), solo si el item
        tiene al menos una de las dos; el QR vuelve a ocupar todo el ancho
-       cuando no hay ninguna. */
+       cuando no hay ninguna.
+       19/10/2026 (fix real, reportado en UAT con screenshot): un nombre
+       corto con espacio ("PEDRO ECHAGUE", 13 caracteres) pasaba el umbral
+       de 14 y usaba 20pt, pero igual envolvía a 2 líneas en una pegatina
+       angosta — el umbral por cantidad de caracteres no contempla el ancho
+       real de la pegatina. Esa 2da línea excedía el 0.9cm reservado para
+       nombre+referencia (ver $qrPorAlto abajo) y dompdf mandaba el resto a
+       una página 2 casi en blanco. white-space:nowrap en fila-nombre
+       fuerza SIEMPRE una sola línea (con recorte si no entra) — la causa
+       raíz, no el síntoma.
+       19/10/2026: título/alias (Dr., Dra., etc.) antepuesto al nombre y
+       referencia, apagables por evento — ver EventoController::gafeteDims()/
+       construirItemGafete(), $dims['mostrar_titulo']/['mostrar_referencia'].
+       El QR siempre codifica la referencia real aunque el texto esté
+       apagado. */
     @page { margin: 0; }
     body { margin: 0; padding: 0; font-family: Arial, sans-serif; }
     .pegatina {
@@ -51,6 +65,9 @@
       font-size: 20pt;
       line-height: 1.0;
       padding: 10px 2px 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
     .pegatina .celda-qr {
       text-align: center;
@@ -113,9 +130,11 @@
             </td>
           @endif
         </tr>
-        <tr class="fila-referencia">
-          <td @if ($tieneLaterales) colspan="2" @endif>{{ $item['referencia'] }}</td>
-        </tr>
+        @if (!empty($item['referencia']))
+          <tr class="fila-referencia">
+            <td @if ($tieneLaterales) colspan="2" @endif>{{ $item['referencia'] }}</td>
+          </tr>
+        @endif
       </table>
     </div>
   @endforeach

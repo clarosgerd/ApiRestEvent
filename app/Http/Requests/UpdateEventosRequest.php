@@ -91,6 +91,12 @@ class UpdateEventosRequest extends FormRequest
             'gafeteConfig.per_row'    => 'sometimes|integer|min:1|max:6',
             'gafeteConfig.paper'      => 'sometimes|in:a4,letter',
             'gafeteConfig.orientation' => 'sometimes|in:portrait,landscape',
+            // Campos del gafete parametrizables por evento (19/10/2026) —
+            // ver EventoController::gafeteDims()/construirItemGafete().
+            'gafeteConfig.mostrar_titulo'                    => 'sometimes|boolean',
+            'gafeteConfig.mostrar_descripcion_categoria'     => 'sometimes|boolean',
+            'gafeteConfig.mostrar_descripcion_staff_ponente' => 'sometimes|boolean',
+            'gafeteConfig.mostrar_referencia'                => 'sometimes|boolean',
             // SmartStand (25/09/2026) — configuración de expositores del evento.
             'expositoresConfig'                  => 'sometimes|nullable|array',
             'expositoresConfig.app_url_ios'      => 'sometimes|nullable|url|max:500',

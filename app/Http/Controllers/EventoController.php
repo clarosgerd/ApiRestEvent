@@ -570,6 +570,14 @@ return response()->json([
         $event->loadMissing('categories');
         $categories = $event->categories->keyBy('id');
 
+        // Tamaño/layout/campos parametrizables por evento (13/09 y
+        // 19/10/2026) — $event->gafete_config null usa exactamente los
+        // defaults de siempre, así que CIACRUZ y el resto de eventos
+        // existentes no cambian. Se resuelve ANTES del loop porque
+        // construirItemGafete() ahora también lo necesita (qué campos
+        // mostrar/ocultar), no solo renderGafetesPdf().
+        $dims = $this->gafeteDims($event->gafete_config);
+
         $registrations = Registration::where('evento_id', $event->id)
             ->whereNotIn('pago_status', ['cancelled', 'failed'])
             ->with(['participants', 'formType'])
@@ -578,15 +586,9 @@ return response()->json([
         $items = [];
         foreach ($registrations as $registration) {
             foreach ($registration->participants as $participante) {
-                $items[] = $this->construirItemGafete($participante, $registration, $categories);
+                $items[] = $this->construirItemGafete($participante, $registration, $categories, $dims);
             }
         }
-
-        // Tamaño/layout parametrizable por evento (13/09/2026, pedido real
-        // de COLABIOCLI 2026) — $event->gafete_config null usa exactamente
-        // los defaults de siempre, así que CIACRUZ y el resto de eventos
-        // existentes no cambian.
-        $dims = $this->gafeteDims($event->gafete_config);
 
         return $this->renderGafetesPdf($event, $items, $dims, 'gafetes-' . Str::slug($event->nombre) . '.pdf');
     }
@@ -605,8 +607,8 @@ return response()->json([
         $event->loadMissing('categories');
         $categories = $event->categories->keyBy('id');
 
-        $item = $this->construirItemGafete($participante, $participante->registration, $categories);
         $dims = $this->gafeteDims($event->gafete_config);
+        $item = $this->construirItemGafete($participante, $participante->registration, $categories, $dims);
 
         return $this->renderGafetesPdf($event, [$item], $dims, 'gafete-' . Str::slug($participante->nombre . ' ' . $participante->apellido) . '.pdf');
     }
@@ -623,27 +625,39 @@ return response()->json([
      * propio en el form_type, cae al navy por defecto. Ignorado en modo
      * "label" (la pegatina es solo QR, ver renderGafetesPdf()).
      */
-    private function construirItemGafete(Participante $participante, Registration $registration, $categories): array
+    private function construirItemGafete(Participante $participante, Registration $registration, $categories, array $dims): array
     {
+        $nombre = trim($participante->nombre . ' ' . $participante->apellido);
+
+        // Título/alias (19/10/2026, pedido real del usuario) — "Dr./Dra."
+        // etc., mismo campo que ya se usa como "Título" en congresos del
+        // lado de elascenso/event. Apagado por default (gafeteDims()):
+        // pieza nueva, nunca se imprimió antes en el gafete.
+        if ($dims['mostrar_titulo'] && ! empty($participante->alias)) {
+            $nombre = trim($participante->alias . ' ' . $nombre);
+        }
+
         $categoria = $categories->get((int) $participante->categoria);
-        $descripcion = $categoria?->description ?: null;
+        $descripcion = $dims['mostrar_descripcion_categoria'] ? ($categoria?->description ?: null) : null;
 
         // Staff/ponente (19/10/2026, pedido real del usuario) nunca tienen
         // categoría real (es_staff/es_ponente fuerza requiere_categoria=false
         // en FormType::booted()), así que $descripcion arriba siempre da
-        // null para ellos — se usa la descripción del form_type en su lugar.
+        // null para ellos — se usa la descripción del form_type en su lugar,
+        // con su propio toggle independiente del de categoría.
         // Str::limit: form_types.description es texto libre/largo ("para la
         // descripción larga", sin tope), a diferencia de la de categoría que
         // en la práctica es corta — sin acotar, un texto largo puede repetir
         // el desborde de página de la pegatina (bug real del 24/09/2026).
-        if (! $descripcion && ($registration->formType?->es_staff || $registration->formType?->es_ponente)) {
+        if (! $descripcion && $dims['mostrar_descripcion_staff_ponente']
+            && ($registration->formType?->es_staff || $registration->formType?->es_ponente)) {
             $descripcion = $registration->formType->description
                 ? Str::limit($registration->formType->description, 40)
                 : null;
         }
 
         return [
-            'nombre'     => trim($participante->nombre . ' ' . $participante->apellido),
+            'nombre'     => $nombre,
             // 'rol' (tipo de inscripción, ej. "Individual"/"Staff") y
             // 'categoria' (categoría real del participante, ej.
             // "5K"/"Ponente") — participante->categoria guarda el ID, no
@@ -660,9 +674,13 @@ return response()->json([
             'categoria_descripcion' => $descripcion,
             // País del participante (19/10/2026, pedido real del usuario) —
             // misma convención: si está vacío (default '' de la columna),
-            // no se imprime nada en el gafete.
+            // no se imprime nada en el gafete. No tiene toggle propio (no
+            // pedido), siempre se imprime si hay dato.
             'pais'       => $participante->pais ?: null,
-            'referencia' => $registration->referencia,
+            // Referencia parametrizable (19/10/2026) — apagar el TEXTO no
+            // debe romper el QR, que siempre codifica la referencia real
+            // (ver 'qr' abajo).
+            'referencia' => $dims['mostrar_referencia'] ? $registration->referencia : null,
             'qr'         => ReferenceQrService::toBase64Png($registration->referencia),
             'color'      => $this->safeHex($registration->formType->color ?? null),
         ];
@@ -735,6 +753,16 @@ return response()->json([
             'per_row'     => max(1, min(6, (int) ($config['per_row'] ?? 3))),
             'paper'       => in_array($paper, ['a4', 'letter'], true) ? $paper : 'a4',
             'orientation' => ($config['orientation'] ?? 'landscape') === 'portrait' ? 'portrait' : 'landscape',
+            // Campos del gafete parametrizables por evento (19/10/2026,
+            // pedido real del usuario). Los 3 que ya se imprimían en
+            // producción (descripción categoría/staff-ponente/referencia)
+            // default true — ningún evento existente cambia de output sin
+            // que el organizador lo apague. mostrar_titulo es una pieza
+            // nueva que nunca se imprimió antes, default false.
+            'mostrar_titulo'                    => (bool) ($config['mostrar_titulo'] ?? false),
+            'mostrar_descripcion_categoria'     => (bool) ($config['mostrar_descripcion_categoria'] ?? true),
+            'mostrar_descripcion_staff_ponente' => (bool) ($config['mostrar_descripcion_staff_ponente'] ?? true),
+            'mostrar_referencia'                => (bool) ($config['mostrar_referencia'] ?? true),
         ];
     }
 

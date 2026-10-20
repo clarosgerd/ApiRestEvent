@@ -119,4 +119,44 @@ class EventoUpdateGafetesCertificadoTest extends TestCase
 
         $this->assertTrue((bool) $evento->refresh()->certificado_asistencia_activo);
     }
+
+    /**
+     * Campos del gafete parametrizables por evento (19/10/2026) — mismo
+     * mecanismo que el resto de gafeteConfig, 4 sub-claves booleanas más.
+     */
+    public function test_update_persiste_los_4_toggles_de_campos_del_gafete(): void
+    {
+        $this->actingAsAdmin();
+        $evento = $this->crearEvento();
+
+        $response = $this->putJson("/api/v1/event/{$evento->id}", [
+            'gafeteConfig' => [
+                'mostrar_titulo' => true,
+                'mostrar_descripcion_categoria' => false,
+                'mostrar_descripcion_staff_ponente' => false,
+                'mostrar_referencia' => false,
+            ],
+        ]);
+
+        $response->assertStatus(200);
+
+        $evento->refresh();
+        $this->assertTrue((bool) $evento->gafete_config['mostrar_titulo']);
+        $this->assertFalse((bool) $evento->gafete_config['mostrar_descripcion_categoria']);
+        $this->assertFalse((bool) $evento->gafete_config['mostrar_descripcion_staff_ponente']);
+        $this->assertFalse((bool) $evento->gafete_config['mostrar_referencia']);
+    }
+
+    /** gafeteConfig.mostrar_titulo con un valor no booleano es rechazado por la validación. */
+    public function test_update_rechaza_toggle_de_gafete_no_booleano(): void
+    {
+        $this->actingAsAdmin();
+        $evento = $this->crearEvento();
+
+        $response = $this->putJson("/api/v1/event/{$evento->id}", [
+            'gafeteConfig' => ['mostrar_titulo' => 'si'],
+        ]);
+
+        $response->assertStatus(422);
+    }
 }
