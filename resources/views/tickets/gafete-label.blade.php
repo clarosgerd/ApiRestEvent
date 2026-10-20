@@ -37,9 +37,20 @@
        angosta — el umbral por cantidad de caracteres no contempla el ancho
        real de la pegatina. Esa 2da línea excedía el 0.9cm reservado para
        nombre+referencia (ver $qrPorAlto abajo) y dompdf mandaba el resto a
-       una página 2 casi en blanco. white-space:nowrap en fila-nombre
-       fuerza SIEMPRE una sola línea (con recorte si no entra) — la causa
-       raíz, no el síntoma.
+       una página 2 casi en blanco. Primer intento de fix: white-space:nowrap
+       (forzar 1 sola línea). MAL — con un nombre largo de 4 palabras
+       ("FREDDY PAUL SORUCO JUSTINIANO", reportado en UAT con screenshot al
+       día siguiente) dompdf no soporta text-overflow:ellipsis sobre texto
+       centrado y en vez de "…" recorta por el MEDIO, dejando invisibles el
+       principio Y el final del nombre — peor que el bug original.
+       20/10/2026 (fix real, reemplaza al anterior): se saca nowrap/overflow/
+       text-overflow — el nombre puede volver a envolver a 2 líneas (nombre
+       COMPLETO visible, nunca recortado), pero el alto reservado para
+       nombre+referencia ahora SIEMPRE asume el peor caso (2 líneas),
+       calculado a partir del tamaño de fuente real elegido para ese nombre
+       — no solo cuando supera un umbral de caracteres — así nunca vuelve a
+       desbordar a una página 2 sin importar si el nombre termina
+       renderizando en 1 o 2 líneas.
        19/10/2026: título/alias (Dr., Dra., etc.) antepuesto al nombre y
        referencia, apagables por evento — ver EventoController::gafeteDims()/
        construirItemGafete(), $dims['mostrar_titulo']/['mostrar_referencia'].
@@ -65,9 +76,11 @@
       font-size: 20pt;
       line-height: 1.0;
       padding: 10px 2px 0;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      /* Envuelve a 2 líneas si hace falta (nombre SIEMPRE completo, nunca
+         recortado) — ver $alturaNombreCm abajo, que reserva el alto
+         asumiendo esto. word-break: red de seguridad para una palabra
+         suelta más larga que la pegatina (caso raro). */
+      word-break: break-word;
     }
     .pegatina .celda-qr {
       text-align: center;
@@ -100,18 +113,27 @@
       // categoría arriba, país abajo — cada una solo si no está vacía.
       $lineasLaterales = array_filter([$item['categoria_descripcion'] ?? null, $item['pais'] ?? null]);
       $tieneLaterales = count($lineasLaterales) > 0;
+      // Fuente del nombre: 3 escalones por longitud (nombre + título si
+      // está prendido) — cuanto más largo, más chico, para necesitar menos
+      // seguido una 2da línea. No garantiza 1 sola línea (dompdf decide el
+      // wrap real según el ancho), por eso el alto reservado abajo siempre
+      // asume 2 líneas de todos modos.
+      $len = mb_strlen($item['nombre']);
+      $nombrePt = $len > 22 ? 13 : ($len > 14 ? 16 : 20);
       // QR cuadrado: se limita por AMBAS dimensiones de la pegatina (antes
       // solo se limitaba por el ancho, causando el desborde vertical en
-      // pegatinas horizontales — ver comentario arriba). 0.9cm reservados
-      // para las filas de nombre/referencia. Si hay columna lateral, el QR
-      // cede ancho (no alto) para hacerle lugar.
-      $qrPorAlto = max(0.8, $dims['height_cm'] - 0.9);
+      // pegatinas horizontales — ver comentario arriba). El alto reservado
+      // para nombre+referencia se calcula siempre para el PEOR caso del
+      // nombre (2 líneas, al tamaño de fuente real elegido arriba) — un
+      // nombre que termina en 1 sola línea simplemente deja un poco de aire
+      // de más, pero nunca desborda la página (bug real del 19-20/10/2026).
+      // 1pt ≈ 0.0353cm de alto de línea.
+      $alturaNombreCm = ($nombrePt * 0.0353 * 2) + 0.3;
+      $alturaReferenciaCm = !empty($item['referencia']) ? 0.35 : 0;
+      $qrPorAlto = max(0.8, $dims['height_cm'] - $alturaNombreCm - $alturaReferenciaCm);
       $qrPorAncho = $dims['width_cm'] * ($tieneLaterales ? 0.55 : 0.9);
       // QR al 70% del tamaño calculado: deja margen de aire alrededor.
       $qrCm = min($qrPorAlto, $qrPorAncho) * 0.7;
-      // Nombres de más de 14 caracteres ocupan dos líneas a 20pt y desbordan la pegatina
-      // (la referencia caía a otra página). Por encima de 14 caracteres se usa 15pt.
-      $nombrePt = mb_strlen($item['nombre']) > 14 ? 15 : 20;
     @endphp
     <div class="pegatina">
       <table>

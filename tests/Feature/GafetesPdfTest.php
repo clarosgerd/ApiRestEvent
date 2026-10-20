@@ -226,6 +226,7 @@ class GafetesPdfTest extends TestCase
             'mostrar_descripcion_categoria' => true,
             'mostrar_descripcion_staff_ponente' => true,
             'mostrar_referencia' => true,
+            'mostrar_pais' => true,
         ];
 
         $controller = app(EventoController::class);
@@ -519,6 +520,7 @@ class GafetesPdfTest extends TestCase
             'mostrar_descripcion_categoria' => true,
             'mostrar_descripcion_staff_ponente' => true,
             'mostrar_referencia' => true,
+            'mostrar_pais' => true,
         ]);
 
         $this->assertSame('Dr. ' . $participante->nombre . ' ' . $participante->apellido, $item['nombre']);
@@ -546,6 +548,7 @@ class GafetesPdfTest extends TestCase
             'mostrar_descripcion_categoria' => false,
             'mostrar_descripcion_staff_ponente' => true,
             'mostrar_referencia' => true,
+            'mostrar_pais' => true,
         ]);
 
         $this->assertNull($item['categoria_descripcion']);
@@ -564,6 +567,7 @@ class GafetesPdfTest extends TestCase
             'mostrar_descripcion_categoria' => true,
             'mostrar_descripcion_staff_ponente' => false,
             'mostrar_referencia' => true,
+            'mostrar_pais' => true,
         ]);
 
         $this->assertNull($item['categoria_descripcion']);
@@ -579,18 +583,37 @@ class GafetesPdfTest extends TestCase
             'mostrar_descripcion_categoria' => true,
             'mostrar_descripcion_staff_ponente' => true,
             'mostrar_referencia' => true,
+            'mostrar_pais' => true,
         ]);
         $itemSinReferencia = $this->construirItemGafete($participante, $registration, $categories, [
             'mostrar_titulo' => false,
             'mostrar_descripcion_categoria' => true,
             'mostrar_descripcion_staff_ponente' => true,
             'mostrar_referencia' => false,
+            'mostrar_pais' => true,
         ]);
 
         $this->assertSame($registration->referencia, $itemConReferencia['referencia']);
         $this->assertNull($itemSinReferencia['referencia']);
         // El QR codifica la referencia real siempre, apagar el texto no debe afectarlo.
         $this->assertSame($itemConReferencia['qr'], $itemSinReferencia['qr']);
+    }
+
+    public function test_mostrar_pais_false_oculta_el_pais_aunque_el_participante_lo_tenga_cargado(): void
+    {
+        $evento = $this->crearEvento();
+        [$participante, $registration, $categories] = $this->crearParticipanteConCategoria($evento, null);
+        $participante->update(['pais' => 'Bolivia']);
+
+        $item = $this->construirItemGafete($participante->fresh(), $registration, $categories, [
+            'mostrar_titulo' => false,
+            'mostrar_descripcion_categoria' => true,
+            'mostrar_descripcion_staff_ponente' => true,
+            'mostrar_referencia' => true,
+            'mostrar_pais' => false,
+        ]);
+
+        $this->assertNull($item['pais']);
     }
 
     /** Defaults de gafeteDims(null): título apagado, el resto de piezas existentes prendidas (regresión). */
@@ -606,5 +629,46 @@ class GafetesPdfTest extends TestCase
         $this->assertSame('Carrera 5K', $item['categoria_descripcion']);
         $this->assertSame('Bolivia', $item['pais']);
         $this->assertSame($registration->referencia, $item['referencia']);
+    }
+
+    /**
+     * Regresión real reportada en UAT (20/10/2026, con screenshot) — el fix
+     * anterior del nombre corto (white-space:nowrap + text-overflow:ellipsis)
+     * rompía nombres LARGOS de 4 palabras: dompdf no soporta el ellipsis
+     * sobre texto centrado y recortaba por el medio ("FREDDY PAUL SORUCO
+     * JUSTINIANO" salía como "Y PAUL SORUCO JUSTI", invisible el principio
+     * y el final). El fix nuevo deja que el nombre envuelva a 2 líneas
+     * (nombre completo, nunca recortado) reservando siempre el alto para
+     * el peor caso — sigue dando 1 sola página.
+     */
+    public function test_gafete_label_con_nombre_largo_de_4_palabras_muestra_todo_y_da_una_sola_pagina(): void
+    {
+        $evento = $this->crearEvento(['gafete_config' => ['tipo' => 'label', 'width_cm' => 5, 'height_cm' => 3]]);
+        $formType = FormType::factory()->create(['event_id' => $evento->id]);
+        $categoria = Category::factory()->create(['event_id' => $evento->id, 'description' => 'Participante']);
+        $registration = Registration::create([
+            'referencia' => 'REF' . rand(100000, 999999),
+            'fecha' => now(),
+            'evento_id' => $evento->id,
+            'form_types_id' => $formType->id,
+            'evento_nombre' => $evento->nombre,
+            'tipo_pago' => 'sip',
+            'pago_status' => 'paid',
+        ]);
+        $participante = Participante::create([
+            'registration_id' => $registration->id,
+            'nombre' => 'Freddy Paul', 'apellido' => 'Soruco Justiniano',
+            'genero' => 'Masculino', 'tipo_documento' => 'DNI',
+            'numero_documento' => (string) rand(1000000, 9999999),
+            'fecha_nacimiento' => '1990-01-01', 'edad' => 30,
+            'correo' => 'test' . rand(1000, 9999) . '@test.net', 'direccion' => 'x', 'ciudad' => 'x', 'telefono' => '123',
+            'categoria' => $categoria->id, 'precio_categoria' => 0, 'subtotal' => 0,
+        ]);
+
+        $response = $this->get("/api/v1/event/{$evento->id}/participantes/{$participante->id}/gafete-pdf");
+
+        $response->assertOk();
+        $paginas = preg_match_all('/\/Type\s*\/Page[^s]/', $response->getContent());
+        $this->assertSame(1, $paginas, 'Un nombre largo de 4 palabras debe seguir dando 1 sola página (envuelve a 2 líneas, no se recorta).');
     }
 }

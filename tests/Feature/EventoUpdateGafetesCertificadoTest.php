@@ -121,10 +121,10 @@ class EventoUpdateGafetesCertificadoTest extends TestCase
     }
 
     /**
-     * Campos del gafete parametrizables por evento (19/10/2026) — mismo
-     * mecanismo que el resto de gafeteConfig, 4 sub-claves booleanas más.
+     * Campos del gafete parametrizables por evento (19-20/10/2026) — mismo
+     * mecanismo que el resto de gafeteConfig, 5 sub-claves booleanas más.
      */
-    public function test_update_persiste_los_4_toggles_de_campos_del_gafete(): void
+    public function test_update_persiste_los_5_toggles_de_campos_del_gafete(): void
     {
         $this->actingAsAdmin();
         $evento = $this->crearEvento();
@@ -135,6 +135,7 @@ class EventoUpdateGafetesCertificadoTest extends TestCase
                 'mostrar_descripcion_categoria' => false,
                 'mostrar_descripcion_staff_ponente' => false,
                 'mostrar_referencia' => false,
+                'mostrar_pais' => false,
             ],
         ]);
 
@@ -145,6 +146,7 @@ class EventoUpdateGafetesCertificadoTest extends TestCase
         $this->assertFalse((bool) $evento->gafete_config['mostrar_descripcion_categoria']);
         $this->assertFalse((bool) $evento->gafete_config['mostrar_descripcion_staff_ponente']);
         $this->assertFalse((bool) $evento->gafete_config['mostrar_referencia']);
+        $this->assertFalse((bool) $evento->gafete_config['mostrar_pais']);
     }
 
     /** gafeteConfig.mostrar_titulo con un valor no booleano es rechazado por la validación. */

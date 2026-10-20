@@ -672,11 +672,11 @@ return response()->json([
             // usuario) — si no hay nada que mostrar, no se imprime nada
             // (ver gafete-label.blade.php/gafetes.blade.php).
             'categoria_descripcion' => $descripcion,
-            // País del participante (19/10/2026, pedido real del usuario) —
-            // misma convención: si está vacío (default '' de la columna),
-            // no se imprime nada en el gafete. No tiene toggle propio (no
-            // pedido), siempre se imprime si hay dato.
-            'pais'       => $participante->pais ?: null,
+            // País del participante (19-20/10/2026, pedido real del
+            // usuario) — ahora también parametrizable; si está vacío
+            // (default '' de la columna) o el toggle está apagado, no se
+            // imprime nada en el gafete.
+            'pais'       => $dims['mostrar_pais'] ? ($participante->pais ?: null) : null,
             // Referencia parametrizable (19/10/2026) — apagar el TEXTO no
             // debe romper el QR, que siempre codifica la referencia real
             // (ver 'qr' abajo).
@@ -753,16 +753,17 @@ return response()->json([
             'per_row'     => max(1, min(6, (int) ($config['per_row'] ?? 3))),
             'paper'       => in_array($paper, ['a4', 'letter'], true) ? $paper : 'a4',
             'orientation' => ($config['orientation'] ?? 'landscape') === 'portrait' ? 'portrait' : 'landscape',
-            // Campos del gafete parametrizables por evento (19/10/2026,
-            // pedido real del usuario). Los 3 que ya se imprimían en
-            // producción (descripción categoría/staff-ponente/referencia)
-            // default true — ningún evento existente cambia de output sin
-            // que el organizador lo apague. mostrar_titulo es una pieza
-            // nueva que nunca se imprimió antes, default false.
+            // Campos del gafete parametrizables por evento (19-20/10/2026,
+            // pedido real del usuario). Los 4 que ya se imprimían en
+            // producción (país, descripción categoría/staff-ponente,
+            // referencia) default true — ningún evento existente cambia de
+            // output sin que el organizador lo apague. mostrar_titulo es
+            // una pieza nueva que nunca se imprimió antes, default false.
             'mostrar_titulo'                    => (bool) ($config['mostrar_titulo'] ?? false),
             'mostrar_descripcion_categoria'     => (bool) ($config['mostrar_descripcion_categoria'] ?? true),
             'mostrar_descripcion_staff_ponente' => (bool) ($config['mostrar_descripcion_staff_ponente'] ?? true),
             'mostrar_referencia'                => (bool) ($config['mostrar_referencia'] ?? true),
+            'mostrar_pais'                       => (bool) ($config['mostrar_pais'] ?? true),
         ];
     }
 
