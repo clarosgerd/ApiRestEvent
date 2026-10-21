@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Support\FechaReporteData;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -27,7 +28,8 @@ class SipBancoResource extends JsonResource
             'sipBaseApiUrl' => $this->sip_base_api_url,
             'callbackBasicUser' => $this->callback_basic_user,
             'activo' => (bool) $this->activo,
-            'createdAt' => optional($this->created_at)->toIso8601String(),
+            // Hora real de Bolivia (21/10/2026) — created_at es UTC de verdad.
+            'createdAt' => FechaReporteData::iso($this->created_at),
         ];
     }
 }

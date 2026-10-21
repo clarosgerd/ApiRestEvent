@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Support\FechaReporteData;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -25,7 +26,8 @@ class WhatsappCuentaResource extends JsonResource
             'templateName' => $this->template_name,
             'templateLang' => $this->template_lang,
             'activo' => (bool) $this->activo,
-            'createdAt' => optional($this->created_at)->toIso8601String(),
+            // Hora real de Bolivia (21/10/2026) — created_at es UTC de verdad.
+            'createdAt' => FechaReporteData::iso($this->created_at),
         ];
     }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Support\FechaReporteData;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -20,8 +21,11 @@ class ListaEsperaResource extends JsonResource
             'correo'        => $this->correo,
             'telefono'      => $this->telefono,
             'estado'        => $this->estado,
-            'promovido_at'  => $this->promovido_at?->toIso8601String(),
-            'created_at'    => $this->created_at?->toIso8601String(),
+            // Hora real de Bolivia (21/10/2026) — ambos son UTC de verdad
+            // (PromoverListaEsperaAction::handle() usa now()); sin
+            // convertir, se mostraban 4h adelantados.
+            'promovido_at'  => FechaReporteData::iso($this->promovido_at),
+            'created_at'    => FechaReporteData::iso($this->created_at),
         ];
     }
 }

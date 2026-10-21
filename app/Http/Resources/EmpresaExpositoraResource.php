@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Support\FechaReporteData;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -24,9 +25,12 @@ class EmpresaExpositoraResource extends JsonResource
             'tamanoStand'           => $this->whenLoaded('categoria', fn () => $this->categoria?->name),
             'activo'                => (bool) $this->activo,
             'credencialesEnviadas'  => $this->credenciales_enviadas_at !== null,
-            'credencialesEnviadasAt' => optional($this->credenciales_enviadas_at)->toIso8601String(),
+            // Hora real de Bolivia (21/10/2026) — ambos son UTC de verdad
+            // (ProvisionarCuentaExpositorAction::handle() usa now()); sin
+            // convertir, se mostraban 4h adelantados.
+            'credencialesEnviadasAt' => FechaReporteData::iso($this->credenciales_enviadas_at),
             'leadsCount'            => $this->when(isset($this->leads_count), fn () => (int) $this->leads_count),
-            'createdAt'             => optional($this->created_at)->toIso8601String(),
+            'createdAt'             => FechaReporteData::iso($this->created_at),
         ];
     }
 }

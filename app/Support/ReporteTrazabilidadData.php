@@ -167,8 +167,12 @@ class ReporteTrazabilidadData
             // se expone en su propio objeto a propósito, sin mezclarlo con
             // `pagoStatus` de arriba.
             'pagoStatus' => $pa->pago_status,
-            'creadoEn' => optional($pa->created_at)->toIso8601String(),
-            'pagadoEn' => optional($pa->paid_at)->toIso8601String(),
+            // Hora real de Bolivia (21/10/2026) — ambos son UTC de verdad
+            // (ConfirmarPagoAdicionalAction::handle() usa now()); sin
+            // convertir, se mostraban 4h adelantados. `fecha` más abajo NO
+            // pasa por esto — ver FechaReporteData.
+            'creadoEn' => FechaReporteData::iso($pa->created_at),
+            'pagadoEn' => FechaReporteData::iso($pa->paid_at),
         ])->values();
 
         return [

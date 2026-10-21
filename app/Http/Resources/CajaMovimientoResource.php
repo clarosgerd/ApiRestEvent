@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Support\FechaReporteData;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -29,7 +30,9 @@ class CajaMovimientoResource extends JsonResource
             // disponible para cualquier método de pago. Ver caja_movimientos.
             'observaciones'          => $this->observaciones,
             'registrationReferencia' => $this->whenLoaded('registration', fn () => $this->registration?->referencia),
-            'createdAt'              => optional($this->created_at)->toIso8601String(),
+            // Hora real de Bolivia (21/10/2026) — created_at es UTC de
+            // verdad; sin convertir, Caja veía la hora 4h adelantada.
+            'createdAt'              => FechaReporteData::iso($this->created_at),
             // Anular un cobro (02/10/2026) — true si este movimiento es
             // candidato a anularse: no es ya una anulación, tiene monto
             // real (descarta Cortesía, monto 0) y nadie lo anuló antes.
