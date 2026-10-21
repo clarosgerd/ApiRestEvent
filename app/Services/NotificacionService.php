@@ -12,8 +12,10 @@ use App\Mail\PagoConfirmadoMail;
 use App\Mail\RecordatorioKitMail;
 use App\Mail\RecordatorioPagoMail;
 use App\Mail\RecordatorioSaldoPendienteMail;
+use App\Mail\PagoSaldoConfirmadoMail;
 use App\Mail\StaffAccesoMail;
 use App\Models\PagoAdicionalInscripcion;
+use App\Models\PagoSaldoInscripcion;
 use App\Models\Registration;
 use App\Models\RegistrationNotification;
 use App\Models\WhatsappCuenta;
@@ -184,6 +186,48 @@ class NotificacionService
                 Mail::to($correo)->send(new PagoAdicionalConfirmadoMail($pago));
             } catch (\Throwable $e) {
                 Log::error("No se pudo enviar email (pago_adicional_confirmado) a {$correo} para {$pago->referencia}: {$e->getMessage()}");
+            }
+        }
+    }
+
+    /**
+     * Pago online del saldo pendiente — autoservicio (22/10/2026). Espejo
+     * exacto de notificarPagoAdicionalConfirmado() (mutex por
+     * notificado_at en la propia fila — pagos_saldo_inscripcion tampoco
+     * tiene un UNIQUE por tipo/canal como registration_notifications).
+     */
+    public function notificarPagoSaldoConfirmado(PagoSaldoInscripcion $pago): void
+    {
+        if ($pago->notificado_at !== null) {
+            return;
+        }
+
+        $registration = $pago->registration;
+        if (! $registration) {
+            return;
+        }
+
+        $registration->loadMissing(['participants', 'evento']);
+
+        $destinatarios = $registration->participants->pluck('correo')->filter()->unique();
+
+        if ($destinatarios->isEmpty()) {
+            return;
+        }
+
+        $reservado = PagoSaldoInscripcion::where('id', $pago->id)
+            ->whereNull('notificado_at')
+            ->update(['notificado_at' => now()]);
+
+        if (! $reservado) {
+            return;
+        }
+
+        foreach ($destinatarios as $correo) {
+            try {
+                Mail::to($correo)->send(new PagoSaldoConfirmadoMail($pago));
+            } catch (\Throwable $e) {
+                Log::error("No se pudo enviar email (pago_saldo_confirmado) a {$correo} para {$pago->referencia}: {$e->getMessage()}");
             }
         }
     }

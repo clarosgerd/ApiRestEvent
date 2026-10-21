@@ -22,6 +22,7 @@ use App\Models\Persona;
 use App\Models\Registration;
 use App\Services\RegistrationService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
@@ -318,10 +319,30 @@ class CajaController extends Controller
             return $this->errorSinTurno();
         }
 
-        if ((float) $registration->saldo_pendiente <= 0) {
+        $montoACobrar = (float) $registration->saldo_pendiente;
+        if ($montoACobrar <= 0) {
             return response()->json([
                 'success' => false,
                 'error'   => 'Esta inscripción no tiene saldo pendiente.',
+            ], 422);
+        }
+
+        // Mutex contra el pago online del saldo (22/10/2026, ver
+        // ConfirmarPagoSaldoAction) — con un segundo canal cobrando el
+        // mismo saldo, un simple ->update() ya no es seguro: el UPDATE
+        // condicional es el mutex real. Si afecta 0 filas, el saldo ya lo
+        // cobró el otro canal entre el chequeo de arriba y acá — no se
+        // crea el CajaMovimiento de un cobro que no corresponde.
+        $aplicado = DB::transaction(function () use ($registration) {
+            return Registration::where('id', $registration->id)
+                ->where('saldo_pendiente', '>', 0)
+                ->update(['saldo_pendiente' => 0]);
+        });
+
+        if (!$aplicado) {
+            return response()->json([
+                'success' => false,
+                'error'   => 'Esta inscripción ya no tiene saldo pendiente.',
             ], 422);
         }
 
@@ -331,12 +352,10 @@ class CajaController extends Controller
             'registration_id'  => $registration->id,
             'admin_user_id'    => $admin->id,
             'tipo'             => 'cobro_saldo',
-            'monto'            => (float) $registration->saldo_pendiente,
+            'monto'            => $montoACobrar,
             'metodo_pago'      => $data['metodo_pago'] ?? 'EFECTIVO',
             'observaciones'    => $data['observaciones'] ?? null,
         ]);
-
-        $registration->update(['saldo_pendiente' => 0]);
 
         return response()->json([
             'success' => true,

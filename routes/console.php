@@ -53,6 +53,11 @@ Schedule::command('notificaciones:expirar-pendientes')->everyFiveMinutes()->appe
 // que liberar (ver ExpirarPagosAdicionalesAction), solo limpia el estado.
 Schedule::command('notificaciones:expirar-pagos-adicionales')->everyFiveMinutes()->appendOutputTo($schedulerLog);
 
+// Pago online del saldo pendiente — autoservicio (22/10/2026). Mismo
+// criterio de cadencia que el de arriba (ventana de 60 min, medida en
+// minutos, no en días).
+Schedule::command('notificaciones:expirar-pagos-saldo')->everyFiveMinutes()->appendOutputTo($schedulerLog);
+
 // ── Recordatorio de KIT para pagados (§4 fase 5) ────────────────────────
 Schedule::command('notificaciones:recordatorio-kit')->daily()->appendOutputTo($schedulerLog);
 

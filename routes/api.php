@@ -8,6 +8,7 @@ use App\Http\Controllers\ReporteTrazabilidadController;
 
 use App\Http\Controllers\RegistrationController;
 use App\Http\Controllers\PagoAdicionalController;
+use App\Http\Controllers\PagoSaldoController;
 use App\Http\Controllers\EventoController;
 use App\Http\Controllers\PromoCodeController;
 use App\Http\Controllers\ParticipanteController;
@@ -550,6 +551,17 @@ Route::group(['prefix' => 'v1','namespace' => 'App\Http\Controllers'], function 
     // inscripción.
     Route::post('/registrations/{reference}/pagos-adicionales', [PagoAdicionalController::class, 'store']);
     Route::patch('/pagos-adicionales/{referenciaAdicional}/qr', [PagoAdicionalController::class, 'guardarQrId']);
+
+    // Pago online del saldo pendiente — autoservicio (22/10/2026). Mismo
+    // criterio de auth que pagos-adicionales arriba: sin auth:sanctum, el
+    // proxy de elascenso/event llama server-to-server; el gate real de
+    // "es tu inscripción" ya ocurrió antes, en GET /registrations/mine.
+    Route::post('/registrations/{reference}/pagos-saldo', [PagoSaldoController::class, 'store']);
+    Route::patch('/pagos-saldo/{referenciaSaldo}/qr', [PagoSaldoController::class, 'guardarQrId']);
+    Route::patch('/pagos-saldo/{referenciaSaldo}/pay-order', [PagoSaldoController::class, 'guardarPayOrderNumber']);
+    Route::get('/pagos-saldo/by-pay-order/{payOrderNumber}', [PagoSaldoController::class, 'findByPayOrder']);
+    Route::get('/pagos-saldo/{referenciaSaldo}', [PagoSaldoController::class, 'show']);
+    Route::patch('/pagos-saldo/{referenciaSaldo}/confirmar', [PagoSaldoController::class, 'confirmar']);
     // Cobro adicional real por Multipago (10/09/2026) — pay-order (PATCH,
     // mismo molde que /qr de arriba) y by-pay-order (GET) deben ir ANTES
     // de la ruta comodín /pagos-adicionales/{referenciaAdicional} de abajo,
