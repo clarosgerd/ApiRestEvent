@@ -152,6 +152,26 @@ class RegistrationTest extends TestCase
             ->assertUnprocessable();
     }
 
+    /**
+     * Nunca se confía el reloj del navegador para esto (21/10/2026) —
+     * registrations.fecha se guardaba tal cual la mandaba el cliente, sin
+     * validar: el reloj del participante puede estar mal configurado o en
+     * otro huso horario sin que nadie se entere. El servidor la pisa
+     * siempre con su propio now(), mismo criterio que ya usan
+     * CajaController::inscripcion() e importarBulk().
+     */
+    public function test_create_registration_ignora_la_fecha_que_manda_el_cliente(): void
+    {
+        $payload = $this->validPayload();
+        $payload[0]['fecha'] = '2000-01-01 00:00:00';
+
+        $this->postJson('/api/v1/registrations', $payload)->assertCreated();
+
+        $registration = Registration::where('referencia', $payload[0]['referencia'])->firstOrFail();
+        $this->assertNotEquals('2000-01-01 00:00:00', $registration->fecha->toDateTimeString());
+        $this->assertTrue($registration->fecha->diffInMinutes(now()) < 1);
+    }
+
     public function test_genero_otro_desactivado_no_bloquea_a_un_form_type_que_oculta_el_genero(): void
     {
         \App\Models\Genero::where('nombre', 'Otro')->update(['activo' => false]);

@@ -122,10 +122,15 @@ class RegistrationController extends Controller
      */
     public function store(StoreRegistrationRequest $request, CrearInscripcionAction $action): JsonResponse
     {
-        $dto = RegistrationDTO::fromArray(
-            $request->validated()[0]
-        );
-       // dd( $request->validated()[0]);
+        $data = $request->validated()[0];
+        // Nunca se confía el reloj del navegador para esto (21/10/2026,
+        // bug real: el reloj del participante puede estar mal configurado
+        // o en otro huso horario sin que nadie se entere) — mismo criterio
+        // que ya usan CajaController::inscripcion() e importarBulk(): la
+        // fecha de la inscripción la pone el servidor, no el cliente. Ver
+        // App\Support\FechaReporteData para cómo se muestra después.
+        $data['fecha'] = now()->toDateTimeString();
+        $dto = RegistrationDTO::fromArray($data);
         try {
             $registration = $action->handle($dto);
         } catch (\DomainException $e) {
