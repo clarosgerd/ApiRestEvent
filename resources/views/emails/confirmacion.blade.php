@@ -84,10 +84,18 @@
        de verdad para reportes), así que sin este aviso el participante
        leería un monto que no es lo que acaba de pagar. --}}
   @if ($registration->moneda_pago !== 'USD' && (float) $registration->saldo_pendiente > 0)
+  @php($fechaLimiteSaldo = $registration->evento?->fechaLimiteSaldoReserva())
   <tr><td style="padding:16px 32px;background:#fef3c7;">
     <p style="color:#92400e;font-size:13px;margin:0;">
       <strong>⚠ Reservaste tu cupo con una seña.</strong>
-      Saldo pendiente a pagar en el evento: <strong>Bs{{ number_format((float) $registration->saldo_pendiente, 2) }}</strong>.
+      Saldo pendiente: <strong>Bs{{ number_format((float) $registration->saldo_pendiente, 2) }}</strong>.
+      {{-- Fecha límite de pago configurable por evento (22/10/2026) — ver
+           Evento::fechaLimiteSaldoReserva(). --}}
+      @if ($fechaLimiteSaldo)
+        Fecha límite de pago: <strong>{{ $fechaLimiteSaldo->locale('es')->translatedFormat('d \d\e F \d\e Y') }}</strong>.
+      @else
+        A pagar en el evento.
+      @endif
     </p>
   </td></tr>
   @endif

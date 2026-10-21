@@ -83,10 +83,18 @@
        claro que todavía falta cobrar un saldo — quien lo controla en el
        evento (Caja/acreditación) lee este PDF/ticket, no el correo. --}}
   @if ($registration->moneda_pago !== 'USD' && (float) $registration->saldo_pendiente > 0)
+  @php($fechaLimiteSaldo = $registration->evento?->fechaLimiteSaldoReserva())
   <tr><td style="padding:12px 24px;background:#fef3c7;text-align:center;">
     <span style="color:#92400e;font-size:12px;">
-      <strong>⚠ Reservado con seña</strong> — saldo pendiente a pagar en el evento:
-      <strong>Bs{{ number_format((float) $registration->saldo_pendiente, 2) }}</strong>
+      <strong>⚠ Reservado con seña</strong> — saldo pendiente:
+      <strong>Bs{{ number_format((float) $registration->saldo_pendiente, 2) }}</strong><br>
+      {{-- Fecha límite de pago configurable por evento (22/10/2026) — ver
+           Evento::fechaLimiteSaldoReserva(). --}}
+      @if ($fechaLimiteSaldo)
+        Fecha límite de pago: {{ $fechaLimiteSaldo->locale('es')->translatedFormat('d \d\e F \d\e Y') }}
+      @else
+        a pagar en el evento
+      @endif
     </span>
   </td></tr>
   @endif

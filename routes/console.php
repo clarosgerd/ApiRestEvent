@@ -56,6 +56,11 @@ Schedule::command('notificaciones:expirar-pagos-adicionales')->everyFiveMinutes(
 // ── Recordatorio de KIT para pagados (§4 fase 5) ────────────────────────
 Schedule::command('notificaciones:recordatorio-kit')->daily()->appendOutputTo($schedulerLog);
 
+// ── Reserva de cupo con seña: recordatorio de saldo pendiente (22/10/2026,
+// pedido real del usuario) — un día antes de Evento::fechaLimiteSaldoReserva().
+// Ver DEPLOY-CHECKLIST-RESERVA-CUPO-VIGENCIA-FECHA-LIMITE-22102026.md.
+Schedule::command('notificaciones:recordatorio-saldo-pendiente')->daily()->appendOutputTo($schedulerLog);
+
 // ── Reconciliación de correo de pago confirmado faltante (04/09/2026) ───
 // Diagnóstico real en UAT: 55 inscripciones `paid` sin el correo, evento
 // pagado vía Multipago cuyo proveedor actualiza `pago_status` con un

@@ -11,6 +11,7 @@ use App\Mail\PagoAdicionalConfirmadoMail;
 use App\Mail\PagoConfirmadoMail;
 use App\Mail\RecordatorioKitMail;
 use App\Mail\RecordatorioPagoMail;
+use App\Mail\RecordatorioSaldoPendienteMail;
 use App\Mail\StaffAccesoMail;
 use App\Models\PagoAdicionalInscripcion;
 use App\Models\Registration;
@@ -237,6 +238,30 @@ class NotificacionService
             $registration,
             'recordatorio_kit',
             fn () => "Recordatorio: recoge tu KIT (numeración, polera, souvenirs) para {$registration->evento_nombre} (ref: {$registration->referencia})."
+        );
+    }
+
+    /**
+     * Reserva de cupo con seña (22/10/2026, pedido real del usuario) — a
+     * diferencia de notificarRecordatorioPendiente() (inscripción
+     * `pending`, nunca pagada), acá la inscripción ya es `paid` — solo
+     * falta cobrar el saldo de la seña. Lo dispara
+     * RecordatorioSaldoPendiente (comando diario), un día antes de
+     * Evento::fechaLimiteSaldoReserva().
+     */
+    public function notificarRecordatorioSaldoPendiente(Registration $registration): void
+    {
+        $this->enviarEmailSiNoEnviado(
+            $registration,
+            'recordatorio_saldo_pendiente',
+            fn () => new RecordatorioSaldoPendienteMail($registration)
+        );
+
+        $this->notificarWhatsappSiNoEnviado(
+            $registration,
+            'recordatorio_saldo_pendiente',
+            fn () => "Recordatorio: te queda un saldo pendiente de Bs" . number_format((float) $registration->saldo_pendiente, 2)
+                . " por tu reserva de cupo en {$registration->evento_nombre} (ref: {$registration->referencia})."
         );
     }
 

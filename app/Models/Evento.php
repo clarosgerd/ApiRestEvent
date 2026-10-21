@@ -155,6 +155,23 @@ protected $casts = [
         return $this->where($field ?? 'url_slug', $value)->first();
     }
 
+    /**
+     * Reserva de cupo con seña (22/10/2026) — plazo real para pagar el
+     * saldo pendiente de una reserva: la fecha configurada por el
+     * organizador si existe, si no la fecha de inicio del evento (mismo
+     * criterio que elascenso/event/index.php::updateReservaBox()). Se usa
+     * para mostrar el plazo en el e-ticket/correo y para decidir cuándo
+     * mandar el recordatorio (RecordatorioSaldoPendiente).
+     */
+    public function fechaLimiteSaldoReserva(): ?\Carbon\CarbonInterface
+    {
+        if ($this->fecha_limite_pago_reserva) {
+            return $this->fecha_limite_pago_reserva;
+        }
+
+        return $this->fecha_inicio ? \Carbon\Carbon::parse($this->fecha_inicio) : null;
+    }
+
       public function coordinates()
    {
       return $this->hasMany('App\Models\Coordinate', 'event_id');
