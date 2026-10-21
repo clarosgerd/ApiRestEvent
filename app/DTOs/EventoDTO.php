@@ -38,6 +38,10 @@ class EventoDTO
         // Default false: se ofrecen ambas opciones (comportamiento actual,
         // ver PLAN-COBRO-SIP-ADICIONAL-26082026.md).
         public bool $forzarQrPagoAdicional = false,
+        // Reserva de cupo con seña (22/10/2026) — fecha límite para pagar
+        // el saldo pendiente. Default null: elascenso/event/index.php cae
+        // a la fecha de inicio del evento.
+        public ?string $fechaLimitePagoReserva = null,
         public ?int $organizadorId,
         public ?int $tipoEventoId,
         public ?int $subtipoEventoId,
@@ -99,6 +103,8 @@ class EventoDTO
             // "Pagar en el evento (efectivo)" al agregar un taller a una
             // inscripción pagada (02/09/2026).
             forzarQrPagoAdicional: (bool) ($data['forzarQrPagoAdicional'] ?? $data['forzar_qr_pago_adicional'] ?? false),
+            // Reserva de cupo con seña (22/10/2026).
+            fechaLimitePagoReserva: $data['fechaLimitePagoReserva'] ?? $data['fecha_limite_pago_reserva'] ?? null,
             organizadorId: isset($data['organizador_id']) ? (int) $data['organizador_id'] : null,
             // Default 1 ("Carrera de Ruta") si no viene: mismo comportamiento
             // histórico para no romper callers que todavía no lo mandan (la

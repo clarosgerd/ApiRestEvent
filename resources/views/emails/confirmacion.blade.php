@@ -78,6 +78,20 @@
     </p>
   </td></tr>
 
+  {{-- Reserva de cupo con seña (21/10/2026) — con saldo_pendiente > 0 esto
+       es el pago de la SEÑA, no de la inscripción completa; "Total
+       general" arriba sigue siendo grand_total (el precio completo, fuente
+       de verdad para reportes), así que sin este aviso el participante
+       leería un monto que no es lo que acaba de pagar. --}}
+  @if ($registration->moneda_pago !== 'USD' && (float) $registration->saldo_pendiente > 0)
+  <tr><td style="padding:16px 32px;background:#fef3c7;">
+    <p style="color:#92400e;font-size:13px;margin:0;">
+      <strong>⚠ Reservaste tu cupo con una seña.</strong>
+      Saldo pendiente a pagar en el evento: <strong>Bs{{ number_format((float) $registration->saldo_pendiente, 2) }}</strong>.
+    </p>
+  </td></tr>
+  @endif
+
   @if (!empty($linkPago))
   <tr><td style="padding:0 32px;"><hr style="border:none;border-top:2px dashed #d0dce8;margin:0;"></td></tr>
   <tr><td style="padding:20px 32px;text-align:center;">

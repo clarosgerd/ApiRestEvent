@@ -22,6 +22,9 @@ class CategoryPricePeriod extends Model
         // Precio USD fijo por período (20/08/2026) — nullable, ver
         // migración add_price_usd_to_category_price_periods_table.
         'price_usd',
+        // Reserva de cupo con seña (21/10/2026) — nullable, ver migración
+        // add_price_reserva_to_category_price_periods_table.
+        'price_reserva',
         'fecha_desde',
         'fecha_hasta',
     ];
@@ -29,6 +32,7 @@ class CategoryPricePeriod extends Model
     protected $casts = [
         'price'       => 'float',
         'price_usd'   => 'float',
+        'price_reserva' => 'float',
         'fecha_desde' => 'date',
         'fecha_hasta' => 'date',
     ];

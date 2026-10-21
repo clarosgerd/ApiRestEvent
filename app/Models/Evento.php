@@ -83,6 +83,11 @@ class Evento extends Model
         // false: se siguen ofreciendo ambas opciones (efectivo y QR) igual
         // que hoy.
         'forzar_qr_pago_adicional',
+        // Reserva de cupo con seña (22/10/2026) — fecha límite configurable
+        // para pagar el saldo pendiente de una reserva; null = sin
+        // configurar, el frontend cae a la fecha de inicio del evento. Ver
+        // migración add_fecha_limite_pago_reserva_to_eventos_table.
+        'fecha_limite_pago_reserva',
         // Purgar datos de Persona/Participante en inscripciones canceladas
         // (01/09/2026) — ver PLAN-PURGAR-DATOS-PERSONA-CANCELADA-01092026.md.
         // Default true: comportamiento actual (nunca se borra nada) sin
@@ -123,6 +128,7 @@ protected $casts = [
     'acepta_usd'        => 'boolean',
     'usd_precio_fijo'   => 'boolean',
     'forzar_qr_pago_adicional' => 'boolean',
+    'fecha_limite_pago_reserva' => 'date',
     'mantener_datos_persona' => 'boolean',
     'secciones_orden'   => 'array',
     'certificado_solo_nombre' => 'boolean',

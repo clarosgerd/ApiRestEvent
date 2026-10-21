@@ -53,6 +53,8 @@ class CrearEventoAction
                 // "Pagar en el evento (efectivo)" al agregar un taller a
                 // una inscripción pagada (02/09/2026).
                 'forzar_qr_pago_adicional' => $dto->forzarQrPagoAdicional,
+                // Reserva de cupo con seña (22/10/2026).
+                'fecha_limite_pago_reserva' => $dto->fechaLimitePagoReserva,
                 'video_url'           => $dto->videoUrl ?? '',
                 'imagen_portada_url'  => $dto->imagenPortadaUrl ?? '',
                 // Default navy: mismo color que ya usaban gafetes/certificados antes de

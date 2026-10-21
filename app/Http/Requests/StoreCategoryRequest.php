@@ -26,6 +26,10 @@ class StoreCategoryRequest extends FormRequest
         if ($this->input('price_usd') === '') {
             $this->merge(['price_usd' => null]);
         }
+        // Reserva de cupo con seña (21/10/2026) — mismo motivo que price_usd.
+        if ($this->input('price_reserva') === '') {
+            $this->merge(['price_reserva' => null]);
+        }
     }
 
     /**
@@ -41,6 +45,8 @@ class StoreCategoryRequest extends FormRequest
             'price'           => 'required|numeric|min:0',
             // Precio USD fijo (19/08/2026) — ver brain/PLAN-PRECIO-USD-FIJO-19082026.md.
             'price_usd'       => 'nullable|numeric|min:0',
+            // Reserva de cupo con seña (21/10/2026).
+            'price_reserva'   => 'nullable|numeric|min:0',
             'description'     => 'nullable|string',
             'color'           => 'nullable|string|max:7',
             'formulario_id'   => 'nullable|integer',

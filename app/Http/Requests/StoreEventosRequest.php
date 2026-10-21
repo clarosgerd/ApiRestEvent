@@ -61,6 +61,10 @@ class StoreEventosRequest extends FormRequest
             // inscripción pagada — configurable por evento (02/09/2026).
             // Default false: se ofrecen ambas opciones (comportamiento actual).
             'forzarQrPagoAdicional' => 'nullable|boolean',
+            // Reserva de cupo con seña (22/10/2026) — fecha límite para
+            // pagar el saldo pendiente; null = el frontend cae a la fecha
+            // de inicio del evento.
+            'fechaLimitePagoReserva' => 'nullable|date',
             // Orden de secciones en #screen-form-types (25/08/2026) — ver
             // EventoService::update(), mismas 9 claves fijas del frontend.
             'seccionesOrden'        => 'nullable|array',

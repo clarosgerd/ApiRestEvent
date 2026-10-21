@@ -41,12 +41,25 @@ class ValidarCategoriaAction
      *   `form_types.precio_base` directo.
      * Aplica siempre, con o sin períodos configurados — defensa en
      * profundidad real, no placebo.
+     *
+     * Reserva de cupo con seña (21/10/2026, pedido real del usuario) —
+     * cuando `$participantDTO->esReserva`, el precio esperado deja de ser
+     * `precio_vigente` y pasa a ser `precio_reserva_vigente`; si la
+     * categoría no tiene uno configurado, se rechaza (no admite reserva).
+     * El método devuelve cuánto queda pendiente de cobrar por este
+     * participante (0.0 si no es reserva) — el caller lo acumula en
+     * `registrations.saldo_pendiente`. Nunca se recalcula más adelante
+     * contra el catálogo del día (mismo criterio que
+     * SnapshotInscripcionPagadaData): el saldo que se fija acá es el que
+     * Caja va a cobrar, pase lo que pase con los precios después.
+     *
+     * @return float Saldo pendiente que aporta este participante.
      */
-    public static function run(RegistrationDTO $registrationDTO, ParticipantDTO $participantDTO): void
+    public static function run(RegistrationDTO $registrationDTO, ParticipantDTO $participantDTO): float
     {
         $formType = FormType::find($registrationDTO->formId);
         if (!$formType) {
-            return; // ya se validó que el form_type existe antes de llegar acá
+            return 0.0; // ya se validó que el form_type existe antes de llegar acá
         }
 
         if ($formType->requiere_categoria) {
@@ -69,9 +82,21 @@ class ValidarCategoriaAction
                 );
             }
 
-            $precioVigente = PrecioVigenteData::paraCategoria($category)['precio'];
+            $vigente = PrecioVigenteData::paraCategoria($category);
 
-            if (abs($precioVigente - $participantDTO->categoryPrice) > 0.01) {
+            if ($participantDTO->esReserva) {
+                if ($vigente['precio_reserva'] === null) {
+                    throw new \DomainException(
+                        "La categoría '{$category->name}' no admite reserva de cupo."
+                    );
+                }
+
+                if (abs($vigente['precio_reserva'] - $participantDTO->categoryPrice) > 0.01) {
+                    throw new \DomainException(
+                        'El precio de reserva no coincide con el vigente. Recargá la página e intentá de nuevo.'
+                    );
+                }
+            } elseif (abs($vigente['precio'] - $participantDTO->categoryPrice) > 0.01) {
                 throw new \DomainException(
                     'El precio de la categoría no coincide con el vigente. Recargá la página e intentá de nuevo.'
                 );
@@ -88,7 +113,9 @@ class ValidarCategoriaAction
                 );
             }
 
-            return;
+            return $participantDTO->esReserva
+                ? round($vigente['precio'] - $vigente['precio_reserva'], 2)
+                : 0.0;
         }
 
         if (abs((float) $formType->precio_base - $participantDTO->categoryPrice) > 0.01) {
@@ -96,5 +123,7 @@ class ValidarCategoriaAction
                 'El precio de inscripción no coincide con el vigente. Recargá la página e intentá de nuevo.'
             );
         }
+
+        return 0.0;
     }
 }

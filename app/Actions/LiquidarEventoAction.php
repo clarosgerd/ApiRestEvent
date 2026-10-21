@@ -31,18 +31,29 @@ class LiquidarEventoAction
      * mostrar el cálculo (o la falta de socios) para que el superadmin
      * vea qué falta arreglar antes de liquidar.
      *
-     * @return array{monto_base: float, cantidad_inscripciones: int, porcentaje_total: float, detalles: array<int, array{socio_id: int, socio_nombre: string, porcentaje: float, monto: float}>}
+     * @return array{monto_base: float, cantidad_inscripciones: int, excluidas_por_saldo_pendiente: int, porcentaje_total: float, detalles: array<int, array{socio_id: int, socio_nombre: string, porcentaje: float, monto: float}>}
      */
     public function calcular(Evento $evento): array
     {
+        // Reserva de cupo con seña (21/10/2026) — una inscripción `paid`
+        // con saldo_pendiente todavía no terminó de pagar: su fee no se
+        // reparte entre los socios hasta que Caja cobre el saldo (ver
+        // CajaController::cobrarSaldo()).
         $montoBase = round((float) Registration::query()
             ->join('registration_totals', 'registration_totals.registration_id', '=', 'registrations.id')
             ->where('registrations.evento_id', $evento->id)
             ->where('registrations.pago_status', 'paid')
+            ->where('registrations.saldo_pendiente', 0)
             ->sum('registration_totals.fee'), 2);
 
         $cantidadInscripciones = Registration::where('evento_id', $evento->id)
             ->where('pago_status', 'paid')
+            ->where('saldo_pendiente', 0)
+            ->count();
+
+        $excluidasPorSaldoPendiente = Registration::where('evento_id', $evento->id)
+            ->where('pago_status', 'paid')
+            ->where('saldo_pendiente', '>', 0)
             ->count();
 
         $socios = Socio::where('activo', true)->orderBy('id')->get();
@@ -74,6 +85,10 @@ class LiquidarEventoAction
         return [
             'monto_base' => $montoBase,
             'cantidad_inscripciones' => $cantidadInscripciones,
+            // Reserva de cupo con seña (21/10/2026) — para que el preview
+            // del panel explique por qué el monto no coincide con el
+            // dashboard si hay inscripciones con saldo pendiente.
+            'excluidas_por_saldo_pendiente' => $excluidasPorSaldoPendiente,
             'porcentaje_total' => $porcentajeTotal,
             'detalles' => $detalles,
         ];

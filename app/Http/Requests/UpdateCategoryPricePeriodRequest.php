@@ -22,6 +22,8 @@ class UpdateCategoryPricePeriodRequest extends FormRequest
             'nombre'      => 'required|string|max:255',
             'price'       => 'required|numeric|min:0',
             'price_usd'   => 'nullable|numeric|min:0',
+            // Reserva de cupo con seña (21/10/2026).
+            'price_reserva' => 'nullable|numeric|min:0',
             'fecha_desde' => 'required|date',
             'fecha_hasta' => 'required|date|after_or_equal:fecha_desde',
         ];

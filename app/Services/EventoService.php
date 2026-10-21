@@ -58,6 +58,9 @@ class EventoService
             // inscripción pagada — configurable por evento (02/09/2026) —
             // ver migración add_forzar_qr_pago_adicional_to_eventos_table.
             'forzarQrPagoAdicional' => 'forzar_qr_pago_adicional',
+            // Reserva de cupo con seña (22/10/2026) — ver migración
+            // add_fecha_limite_pago_reserva_to_eventos_table.
+            'fechaLimitePagoReserva' => 'fecha_limite_pago_reserva',
             // Purgar datos de Persona/Participante en inscripciones
             // canceladas (01/09/2026) — ver
             // PurgarDatosPersonaCanceladaAction.

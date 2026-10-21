@@ -27,6 +27,9 @@ class RegistrationResource extends JsonResource
             'evento_nombre' => $this->evento_nombre,
             'tipo_pago' => $this->tipo_pago,
             'pago_status' => $this->pago_status,
+            // Reserva de cupo con seña (21/10/2026) — 0 para cualquier
+            // inscripción pagada normalmente. Ver CajaController::cobrarSaldo().
+            'saldoPendiente' => $this->saldo_pendiente !== null ? (float) $this->saldo_pendiente : 0.0,
             'pay_order_number' => $this->pay_order_number,
             // Inscripción en BOB y USD (18/08/2026) — ver
             // brain/PLAN-INSCRIPCION-BOB-USD-IMPLEMENTACION.md. Snapshot

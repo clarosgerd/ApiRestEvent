@@ -26,6 +26,9 @@ class StoreCategoryPricePeriodRequest extends FormRequest
             // Precio USD fijo por período (20/08/2026) — opcional, ver
             // PrecioVigenteData::precioUsdDelPeriodo().
             'price_usd'   => 'nullable|numeric|min:0',
+            // Reserva de cupo con seña (21/10/2026) — opcional, ver
+            // PrecioVigenteData::precioReservaDelPeriodo().
+            'price_reserva' => 'nullable|numeric|min:0',
             'fecha_desde' => 'required|date',
             'fecha_hasta' => 'required|date|after_or_equal:fecha_desde',
         ];

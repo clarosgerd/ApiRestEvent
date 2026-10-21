@@ -66,6 +66,10 @@ class UpdateEventosRequest extends FormRequest
             // inscripción pagada — configurable por evento (02/09/2026) —
             // ver EventoService::update().
             'forzarQrPagoAdicional' => 'sometimes|boolean',
+            // Reserva de cupo con seña (22/10/2026) — nullable para poder
+            // vaciarla (volver a caer en la fecha de inicio del evento
+            // como plazo). Ver EventoService::update().
+            'fechaLimitePagoReserva' => 'sometimes|nullable|date',
             // Purgar datos de Persona/Participante en inscripciones
             // canceladas (01/09/2026) — ver
             // PurgarDatosPersonaCanceladaAction.

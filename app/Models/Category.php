@@ -23,6 +23,9 @@ class Category extends Model
       // cargado, el evento no puede vender esta categoría en USD fijo
       // (CurrencyResolverData::resolverPrecioFijo() rechaza si falta).
       'price_usd',
+      // Reserva de cupo con seña (21/10/2026) — nullable: null = esta
+      // categoría no ofrece reserva. Ver App\Support\PrecioVigenteData.
+      'price_reserva',
       'description',
       'edad_min',
       'edad_max',
@@ -40,6 +43,7 @@ class Category extends Model
     // nota de CategoryResource.
     protected $casts = [
         'price_usd' => 'float',
+        'price_reserva' => 'float',
     ];
 
 

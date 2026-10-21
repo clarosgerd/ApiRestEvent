@@ -29,11 +29,15 @@ class BalanceEventoData
         // evento con talleres subestimaba su recaudación real. `talleres`
         // se agregó a `registration_totals` el 18/08/2026 (congresos con
         // talleres) sin actualizar este SUM.
+        // Reserva de cupo con seña (21/10/2026) — una inscripción `paid`
+        // con saldo_pendiente todavía no cobró ese monto en realidad; se
+        // resta acá para no sobrestimar lo recaudado hasta que Caja lo
+        // cobre (ver CajaController::cobrarSaldo()).
         $ingresosInscripciones = round((float) Registration::query()
             ->join('registration_totals', 'registration_totals.registration_id', '=', 'registrations.id')
             ->where('registrations.evento_id', $evento->id)
             ->where('registrations.pago_status', 'paid')
-            ->selectRaw('SUM(inscripcion + donacion + souvenirs + talleres - descuento - descuento_registrante) as neto')
+            ->selectRaw('SUM(inscripcion + donacion + souvenirs + talleres - descuento - descuento_registrante - registrations.saldo_pendiente) as neto')
             ->value('neto'), 2);
 
         // Ingresos por ediciones de inscripciones pagadas (04/09/2026) —

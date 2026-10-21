@@ -116,9 +116,13 @@ class CrearInscripcionAction
                 $dto->paymentType = 'gratis';
             }
 
+            // Reserva de cupo con seña (21/10/2026) — se acumula acá el
+            // saldo que cada participante en reserva deja pendiente (0 si
+            // nadie reservó), ver ValidarCategoriaAction::run().
+            $saldoPendiente = 0.0;
             foreach ($dto->participants as $participant) {
                 $this->validateParticipantRegistration($dto, $participant);
-                ValidarCategoriaAction::run($dto, $participant);
+                $saldoPendiente += ValidarCategoriaAction::run($dto, $participant);
                 $this->validateEquipo($dto, $participant);
                 $this->validateDelivery($dto, $participant);
                 // Congresos con talleres (18/08/2026) — pertenencia,
@@ -144,6 +148,9 @@ class CrearInscripcionAction
                 'form_types_id' => $dto->formId,
                 'tipo_pago' => $dto->paymentType,
                 'pago_status' => $dto->paymentStatus,
+                // Reserva de cupo con seña (21/10/2026) — 0 si nadie
+                // reservó (comportamiento actual intacto).
+                'saldo_pendiente' => round($saldoPendiente, 2),
                 'pay_order_number' => $dto->payOrderNumber,
                 // Inscripción en BOB y USD (18/08/2026) — snapshot
                 // persistido por CurrencyResolverData (BOB => null/USD =>

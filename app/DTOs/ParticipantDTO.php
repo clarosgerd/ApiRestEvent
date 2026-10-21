@@ -49,7 +49,11 @@ class ParticipantDTO
         // Mapa de ubicación (12/08/2026) — opcional, complementa `address`
         // (texto libre). Null si el participante no tocó el mapa.
         public ?float $deliveryLat = null,
-        public ?float $deliveryLng = null
+        public ?float $deliveryLng = null,
+        // Reserva de cupo con seña (21/10/2026, pedido real del usuario)
+        // — true = este participante paga solo la reserva ahora, el resto
+        // se cobra después en Caja. Ver App\Support\Categoria\ValidarCategoriaAction.
+        public bool $esReserva = false
 
     ){}
 
@@ -102,6 +106,7 @@ class ParticipantDTO
 
             category: (string) $data['categoria'],
             categoryPrice: (float) $data['precioCategoria'],
+            esReserva: (bool) ($data['esReserva'] ?? false),
             donation: (float) $data['donacion'],
             promoDiscount: (float) $data['promoDescuento'],
             promoCode: $data['promoCodigo'] ?? '',

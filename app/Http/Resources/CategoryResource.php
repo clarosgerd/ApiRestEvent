@@ -58,6 +58,10 @@ class CategoryResource extends JsonResource
             // organizador no cargó precio en USD para esta categoría (no
             // vendible en USD fijo hasta que lo cargue).
             'priceUsd'                    => $this->price_usd,
+            // Reserva de cupo con seña (21/10/2026) — null si el
+            // organizador no cargó precio de reserva (categoría no ofrece
+            // reserva). Mismo patrón que priceUsd/precio_usd_vigente.
+            'priceReserva'                => $this->price_reserva,
             'description'                 => $this->description,
             'color'                       => $this->color,
             // Aviso de numeración vs. género/edad real (16/09/2026) — cierra
@@ -79,7 +83,15 @@ class CategoryResource extends JsonResource
             // directo (ese es el valor plano de la categoría, sin
             // resolver por período).
             'precio_usd_vigente'          => $vigente['precio_usd'],
+            'precio_reserva_vigente'      => $vigente['precio_reserva'],
             'periodo_vigente_nombre'      => $vigente['periodo_nombre'],
+            // Reserva de cupo con seña (21/10/2026) — pedido del usuario:
+            // mostrar hasta cuándo dura el período (y por lo tanto el
+            // precio de reserva vigente) cuando el participante elige
+            // reservar, mismo estilo que el afiche ("DEL 22 AL 25 DE
+            // OCTUBRE"). Ya se calculaba en PrecioVigenteData, solo
+            // faltaba exponer fecha_desde acá.
+            'periodo_vigente_fecha_desde' => $vigente['periodo_fecha_desde'],
             'periodo_vigente_fecha_hasta' => $vigente['periodo_fecha_hasta'],
             'periodos'                    => $vigente['periodos'],
         ];

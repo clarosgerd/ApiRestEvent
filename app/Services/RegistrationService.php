@@ -153,9 +153,21 @@ class RegistrationService
             return $this->loadRelations($registration);
         }
 
-        $registration->update([
-            'pago_status' => $status
-        ]);
+        $updates = ['pago_status' => $status];
+
+        // Reserva de cupo con seña (21/10/2026) — rastro del cobro online
+        // de la reserva, una sola vez, acá (el único lugar que confirma un
+        // pago online). saldo_pendiente NO se toca: sigue siendo lo que
+        // falta cobrar hasta que Caja lo cobre con cobrarSaldo().
+        if ($status === 'paid' && (float) $registration->saldo_pendiente > 0) {
+            $updates['monto_reserva_cobrado'] = round(
+                (float) ($registration->totals?->grand_total ?? 0) - (float) $registration->saldo_pendiente,
+                2
+            );
+            $updates['reserva_pagada_at'] = now();
+        }
+
+        $registration->update($updates);
 
         if ($status === 'paid') {
             $this->notificaciones->notificarPagoConfirmado($registration);

@@ -278,7 +278,13 @@ class CajaController extends Controller
 
         // El cobro en Caja define cómo se pagó: el tipo de pago de la inscripción
         // queda con el método elegido, no con el que tenía al crearse (pendiente).
-        $registration->update(['tipo_pago' => $data['metodo_pago'] ?? 'EFECTIVO']);
+        // Reserva de cupo con seña (21/10/2026) — cobrarPendiente() siempre
+        // cobra el grand_total COMPLETO (nunca ofrece reserva presencial,
+        // ver DEPLOY-CHECKLIST), así que si esta inscripción venía de un
+        // intento de reserva online que nunca se confirmó (sigue 'pending'
+        // con saldo_pendiente>0), Caja la está cobrando entera ahora mismo
+        // — no debe quedar un saldo fantasma.
+        $registration->update(['tipo_pago' => $data['metodo_pago'] ?? 'EFECTIVO', 'saldo_pendiente' => 0]);
 
         $registration = $this->registrationService->updatePaymentStatus($reference, 'paid');
 
@@ -286,6 +292,56 @@ class CajaController extends Controller
             'success' => true,
             'message' => 'Cobro registrado correctamente.',
             'data'    => new RegistrationCollectionResource($registration),
+        ]);
+    }
+
+    /**
+     * Reserva de cupo con seña (21/10/2026, pedido real del usuario) —
+     * cobra el saldo que quedó pendiente de una inscripción que ya está
+     * `paid` porque pagó solo la reserva al inscribirse online. Hermana de
+     * cobrarPendiente() (esa es para una inscripción que nunca pagó nada;
+     * acá ya pagó la seña, pago_status ya es 'paid', no se toca).
+     */
+    public function cobrarSaldo(Request $request, string $reference): JsonResponse
+    {
+        $data = $request->validate([
+            'metodo_pago' => ['nullable', 'string', Rule::in(['EFECTIVO', 'QR', 'DEPOSITO', 'ORGANIZADOR', 'CORTESIA'])],
+            'observaciones' => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        $registration = Registration::with('totals')->where('referencia', $reference)->firstOrFail();
+        $event = Evento::findOrFail($registration->evento_id);
+
+        $admin = $this->assertCanOperarCaja((int) $event->id);
+        $turno = $this->turnoAbierto($event, $admin);
+        if (!$turno) {
+            return $this->errorSinTurno();
+        }
+
+        if ((float) $registration->saldo_pendiente <= 0) {
+            return response()->json([
+                'success' => false,
+                'error'   => 'Esta inscripción no tiene saldo pendiente.',
+            ], 422);
+        }
+
+        CajaMovimiento::create([
+            'caja_turno_id'    => $turno->id,
+            'evento_id'        => $event->id,
+            'registration_id'  => $registration->id,
+            'admin_user_id'    => $admin->id,
+            'tipo'             => 'cobro_saldo',
+            'monto'            => (float) $registration->saldo_pendiente,
+            'metodo_pago'      => $data['metodo_pago'] ?? 'EFECTIVO',
+            'observaciones'    => $data['observaciones'] ?? null,
+        ]);
+
+        $registration->update(['saldo_pendiente' => 0]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Saldo cobrado correctamente.',
+            'data'    => new RegistrationCollectionResource($registration->fresh('totals')),
         ]);
     }
 
@@ -364,6 +420,18 @@ class CajaController extends Controller
         $turno = $this->turnoAbierto($event, $admin);
         if (!$turno) {
             return $this->errorSinTurno();
+        }
+
+        // Reserva de cupo con seña (21/10/2026) — bloqueado mientras falte
+        // cobrar el saldo: cambiar de categoría/agregar talleres acá no
+        // recalcula saldo_pendiente, así que editar primero dejaría ese
+        // monto sin relación con ningún precio real. Cobrar el saldo con
+        // cobrarSaldo() primero.
+        if ((float) $registration->saldo_pendiente > 0) {
+            return response()->json([
+                'success' => false,
+                'error'   => 'Esta inscripción tiene un saldo pendiente — cobralo antes de editarla.',
+            ], 422);
         }
 
         try {

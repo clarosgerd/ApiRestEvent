@@ -152,6 +152,13 @@ class EventoResource extends JsonResource
             // efectivo en esa pantalla y deja QR como única opción. Ver
             // migración add_forzar_qr_pago_adicional_to_eventos_table.
             'forzarQrPagoAdicional'      =>(bool) $this->forzar_qr_pago_adicional,
+            // Reserva de cupo con seña (22/10/2026, pedido real del
+            // usuario) — fecha límite para pagar el saldo pendiente de una
+            // reserva. null si el organizador no la configuró:
+            // elascenso/event/index.php cae a la fecha de inicio del
+            // evento (`date`) como plazo, comportamiento ya implementado
+            // el 21/10/2026.
+            'fechaLimitePagoReserva'     => $this->fecha_limite_pago_reserva?->toDateString(),
             // Purgar datos de Persona/Participante en inscripciones
             // canceladas (01/09/2026) — ver
             // PLAN-PURGAR-DATOS-PERSONA-CANCELADA-01092026.md. Decisión

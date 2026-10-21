@@ -77,6 +77,20 @@
     </span>
   </td></tr>
 
+  {{-- Reserva de cupo con seña (21/10/2026) — mismo aviso que
+       emails/confirmacion.blade.php: "Total general" arriba sigue siendo
+       grand_total (precio completo), así que el e-ticket tiene que dejar
+       claro que todavía falta cobrar un saldo — quien lo controla en el
+       evento (Caja/acreditación) lee este PDF/ticket, no el correo. --}}
+  @if ($registration->moneda_pago !== 'USD' && (float) $registration->saldo_pendiente > 0)
+  <tr><td style="padding:12px 24px;background:#fef3c7;text-align:center;">
+    <span style="color:#92400e;font-size:12px;">
+      <strong>⚠ Reservado con seña</strong> — saldo pendiente a pagar en el evento:
+      <strong>Bs{{ number_format((float) $registration->saldo_pendiente, 2) }}</strong>
+    </span>
+  </td></tr>
+  @endif
+
   @if (!empty($qrImage))
   <tr><td style="padding:16px 24px;text-align:center;">
     <img src="data:image/png;base64,{{ $qrImage }}" alt="QR de referencia" width="120" height="120">

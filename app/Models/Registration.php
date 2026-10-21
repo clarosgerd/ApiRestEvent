@@ -22,6 +22,12 @@ class Registration extends Model
         'evento_nombre',
         'tipo_pago',
         'pago_status',
+        // Reserva de cupo con seña (21/10/2026) — ver migraciones
+        // add_saldo_pendiente_to_registrations_table y
+        // add_reserva_tracking_to_registrations_table.
+        'saldo_pendiente',
+        'monto_reserva_cobrado',
+        'reserva_pagada_at',
         'pay_order_number',
         // Inscripción en BOB y USD (18/08/2026) — ver
         // brain/PLAN-INSCRIPCION-BOB-USD-IMPLEMENTACION.md. Snapshot de la
@@ -39,6 +45,9 @@ class Registration extends Model
         'moneda_pago' => 'string',
         'tipo_cambio_aplicado' => 'decimal:4',
         'total_pagado' => 'decimal:2',
+        'saldo_pendiente' => 'decimal:2',
+        'monto_reserva_cobrado' => 'decimal:2',
+        'reserva_pagada_at' => 'datetime',
     ];
 
     public function totals(): HasOne

@@ -72,7 +72,14 @@ class QrService
     {
         $totals = $registration->totals;
 
-        $monto = $totals ? number_format($totals->grand_total, 2, '.', '') : '0.00';
+        // Reserva de cupo con seña (21/10/2026) — saldo_pendiente es 0
+        // para cualquier inscripción normal (comportamiento intacto); si
+        // hay un saldo (alguien reservó en vez de pagar completo), el QR
+        // cobra solo la diferencia. Nunca se recalcula acá, ya viene
+        // persistido desde el alta — ver ValidarCategoriaAction::run().
+        $monto = $totals
+            ? number_format($totals->grand_total - (float) $registration->saldo_pendiente, 2, '.', '')
+            : '0.00';
 
         $payload = [
             'referencia'       => $registration->referencia,

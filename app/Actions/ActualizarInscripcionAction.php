@@ -108,8 +108,12 @@ class ActualizarInscripcionAction
             // abajo, sin $sesionIdsPreviasPorIndice) — incluye el chequeo
             // nuevo de `permite_inscripcion`. Ver
             // App\Support\Categoria\ValidarCategoriaAction.
+            // Reserva de cupo con seña (21/10/2026) — se recalcula entero
+            // en cada edición de una inscripción todavía pendiente, mismo
+            // criterio que el resto de esta Action (sin "grandfather").
+            $saldoPendiente = 0.0;
             foreach ($registrationDto->participants as $participant) {
-                ValidarCategoriaAction::run($registrationDto, $participant);
+                $saldoPendiente += ValidarCategoriaAction::run($registrationDto, $participant);
             }
 
             ValidarSeleccionesTallerAction::run($registrationDto);
@@ -163,6 +167,8 @@ class ActualizarInscripcionAction
             $registration->moneda_pago        = $monedaRef;
             $registration->tipo_cambio_aplicado = $resuelto['tipo_cambio_aplicado'];
             $registration->total_pagado       = $resuelto['total_pagado'];
+            // Reserva de cupo con seña (21/10/2026).
+            $registration->saldo_pendiente    = round($saldoPendiente, 2);
             $registration->save();
 
             RegistrationTotal::create([
