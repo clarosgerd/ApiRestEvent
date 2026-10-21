@@ -9,6 +9,7 @@ use App\Http\Controllers\ReporteTrazabilidadController;
 use App\Http\Controllers\RegistrationController;
 use App\Http\Controllers\PagoAdicionalController;
 use App\Http\Controllers\PagoSaldoController;
+use App\Http\Controllers\HistorialCobrosController;
 use App\Http\Controllers\EventoController;
 use App\Http\Controllers\PromoCodeController;
 use App\Http\Controllers\ParticipanteController;
@@ -282,6 +283,9 @@ Route::group(['prefix' => 'v1','namespace' => 'App\Http\Controllers'], function 
         // Reporte de códigos promocionales usados, por evento (11/09/2026)
         // — ver PromoCodeReporteData.
         Route::get('/event/{event}/promo-codes-reporte', [PromoCodeController::class, 'reporte']);
+        // Historial de cobros por inscripción (22/10/2026) — ver
+        // App\Support\HistorialCobrosReporteData.
+        Route::get('/event/{event}/historial-cobros-reporte', [HistorialCobrosController::class, 'reporte']);
 
         // Presupuesto de un evento (control financiero del organizador) —
         // ver PRD-presupuesto_de_un_evento.md y elascenso/event/brain/
