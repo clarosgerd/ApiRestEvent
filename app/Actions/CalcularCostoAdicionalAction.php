@@ -106,7 +106,20 @@ class CalcularCostoAdicionalAction
                     if (! $sesion->taller) {
                         continue;
                     }
-                    $deltaTalleres += ResolverPrecioTallerData::total($sesion->taller, $sesion, $evento);
+                    // Bug real (20/10/2026): acá nunca se mandaba la
+                    // categoría del participante, así que para un taller con
+                    // precio distinto por categoría (ver PrecioVigenteTallerData)
+                    // esta cotización resolvía el precio SIN categoría
+                    // (más barato) mientras que ActualizarInscripcionPagadaAction
+                    // (RegistrationService::createParticipantFromData(), al
+                    // confirmar el pago) sí la usa — el QR de SIP cobraba de
+                    // menos de lo que después se aplicaba realmente.
+                    $deltaTalleres += ResolverPrecioTallerData::total(
+                        $sesion->taller,
+                        $sesion,
+                        $evento,
+                        isset($participantData['categoria']) ? (string) $participantData['categoria'] : null,
+                    );
                 }
             }
 

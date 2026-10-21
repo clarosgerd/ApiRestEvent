@@ -322,6 +322,45 @@ class PagoAdicionalSipTest extends TestCase
         ]);
     }
 
+    /**
+     * Bug real (20/10/2026, 3 inscripciones reales encontradas en
+     * producción): la cotización del QR SIP nunca mandaba la categoría del
+     * participante a ResolverPrecioTallerData::total(), así que un taller
+     * con precio por categoría (ver PrecioVigenteTallerData) se cotizaba
+     * SIEMPRE con el precio general (acá 30) — al confirmar el pago,
+     * ActualizarInscripcionPagadaAction (vía
+     * RegistrationService::createParticipantFromData(), que sí pasa la
+     * categoría) aplicaba el precio real de la categoría (acá 700), mucho
+     * más caro. El QR cobraba de menos sin que nadie se diera cuenta.
+     */
+    public function test_cotizacion_sip_de_un_taller_respeta_el_precio_por_categoria(): void
+    {
+        \App\Models\TallerPricePeriod::create([
+            'taller_id' => $this->taller->id,
+            'category_id' => $this->categoriaCara->id,
+            'nombre' => 'Precio categoría cara',
+            'price' => 700,
+            'fecha_desde' => now()->subDay()->toDateString(),
+            'fecha_hasta' => now()->addMonth()->toDateString(),
+        ]);
+
+        $registration = $this->crearInscripcionPagadaSinTaller('40000024');
+        \App\Models\Participante::where('registration_id', $registration->id)
+            ->update(['categoria' => (string) $this->categoriaCara->id, 'precio_categoria' => 120]);
+
+        $monto = app(CalcularCostoAdicionalAction::class)->handle($registration->fresh(), [
+            $this->participanteData('40000024', [
+                'categoria' => (string) $this->categoriaCara->id,
+                'precioCategoria' => 120,
+                'talleres' => [['taller_id' => $this->taller->id, 'sesion_congreso_id' => $this->sesion->id]],
+            ]),
+        ]);
+
+        // costo_edicion (10) + precio del taller por categoría cara (700,
+        // NO los 30 del precio general) + cargo de servicio (700*5%=35) = 745.
+        $this->assertEquals(745.0, $monto);
+    }
+
     public function test_cotizacion_sip_incluye_souvenir_agregado(): void
     {
         $registration = $this->crearInscripcionPagadaSinTaller('40000022');

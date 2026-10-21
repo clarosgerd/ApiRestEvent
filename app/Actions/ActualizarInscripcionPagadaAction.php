@@ -236,11 +236,37 @@ class ActualizarInscripcionPagadaAction
                 // chequeo de abajo lo bloqueaba también a él, más estricto
                 // de lo necesario (no hay razón de negocio para impedir
                 // que alguien se arrepienta antes de pagar).
-                $idsAnteriores = $anterior->talleresSesiones
+                $idsAnterioresPagados = $anterior->talleresSesiones
                     ->where('pago_pendiente', false)
                     ->pluck('sesion_congreso_id')->map(fn ($id) => (int) $id)->all();
+
+                // Bug real (20/10/2026, reaparición del incidente CIACRUZ
+                // LA-CD34EA70 un mes después del fix de arriba): autoservicio
+                // (updatePaid() y ConfirmarPagoAdicionalAction, acá
+                // $permiteQuitarTalleres=false) NUNCA tiene forma de cobrar
+                // un taller que ya quedó `pago_pendiente` de una edición
+                // anterior — ni el QR de SIP ni el "pagar en el evento"
+                // cobran retroactivamente eso. Si para ese caso se sigue
+                // excluyendo al pendiente de "anteriores" (como hace Caja),
+                // cada reenvío de la MISMA edición (otra sesión del mismo
+                // participante, semanas después, etc. — no hace falta que
+                // sea un reintento rápido) lo vuelve a contar como "recién
+                // agregado" y duplica el costo_adicion/audit_logs sin que
+                // nadie cobre nada de más. Solo Caja ($permiteQuitarTalleres
+                // =true, el único caller — CajaController::editarPagada())
+                // puede legítimamente recontarlo como "nuevo a cobrar": lo
+                // resuelve ahí mismo, en efectivo, en la misma llamada, así
+                // que no hay riesgo de duplicado real.
+                // $idsAnterioresPagados (arriba) sigue siendo el set correcto
+                // para el guard de remoción de abajo en cualquier modo — un
+                // taller pendiente sigue pudiéndose quitar sin motivo, eso
+                // no cambia.
+                $idsAnteriores = $permiteQuitarTalleres
+                    ? $idsAnterioresPagados
+                    : $anterior->talleresSesiones->pluck('sesion_congreso_id')->map(fn ($id) => (int) $id)->all();
+
                 $idsNuevos = collect($participantData['talleres'] ?? [])->pluck('sesion_congreso_id')->map(fn ($id) => (int) $id)->all();
-                $idsRemovidos = array_diff($idsAnteriores, $idsNuevos);
+                $idsRemovidos = array_diff($idsAnterioresPagados, $idsNuevos);
 
                 // Quitar/cambiar un taller ya pagado (29/09/2026, Caja
                 // únicamente) — ver brain/PLAN-CAJA-QUITAR-TALLER-PAGADO-

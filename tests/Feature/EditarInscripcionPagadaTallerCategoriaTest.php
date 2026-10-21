@@ -253,8 +253,14 @@ class EditarInscripcionPagadaTallerCategoriaTest extends TestCase
             'totales' => $totales,
         ];
 
+        // modoCategoria: 'libre' + permiteQuitarTalleres: true (20/10/2026,
+        // corregido para reflejar EXACTAMENTE la llamada real de
+        // CajaController::editarPagada() — antes solo mandaba modoCategoria,
+        // lo que ocultaba que ActualizarInscripcionPagadaAction ahora
+        // también mira permiteQuitarTalleres para decidir si puede volver a
+        // cobrar un taller pendiente).
         return $segundaEsCaja
-            ? app(ActualizarInscripcionPagadaAction::class)->handle($registration->referencia, $datos + ['_usuario' => 'cajero@test.net'], modoCategoria: 'libre')
+            ? app(ActualizarInscripcionPagadaAction::class)->handle($registration->referencia, $datos + ['_usuario' => 'cajero@test.net'], modoCategoria: 'libre', permiteQuitarTalleres: true)
             : app(ActualizarInscripcionPagadaAction::class)->handle($registration->referencia, $datos + ['_usuario' => 'participante@test.net'], requierePagoEnSitio: true);
     }
 
@@ -289,6 +295,28 @@ class EditarInscripcionPagadaTallerCategoriaTest extends TestCase
             'pago_pendiente' => true,
         ]);
         $this->assertDatabaseCount('participante_taller_sesion', 1);
+    }
+
+    /**
+     * Bug real (20/10/2026, incidente LA-CD34EA70 — reaparición 1 mes
+     * después del fix de arriba): autoservicio NUNCA puede cobrar nada por
+     * un taller que ya había quedado pendiente de una edición anterior — ni
+     * "pagar en el evento" ni la confirmación de un pago SIP tienen forma de
+     * cobrar eso retroactivamente. Antes de este fix, cada reenvío de la
+     * misma edición (sin que el taller cambie) volvía a contar su precio
+     * como "recién agregado" — costo_adicion daba 41.5 de nuevo, igual que
+     * la primera vez, sin que nadie hubiera pagado nada. En producción esto
+     * generó un registro de auditoría inflado 3 veces sobre un cobro real
+     * de una sola vez.
+     */
+    public function test_autoservicio_que_reenvia_un_taller_pendiente_no_vuelve_a_cobrarlo(): void
+    {
+        $result = $this->agregarTallerPendienteYReeditar('20000030', segundaEsCaja: false);
+
+        // Solo el cargo fijo de edición (10) — nada del taller (30) ni su
+        // cargo de servicio (1.5), que ya habían quedado "a cobrar" en la
+        // primera edición y siguen sin cobrarse, no se duplican.
+        $this->assertEquals(10.0, $result['costo_adicion']);
     }
 
     /**
