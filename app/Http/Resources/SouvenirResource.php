@@ -54,6 +54,12 @@ class SouvenirResource extends JsonResource
             // un ítem con requiere_talla. Se expone acá para que
             // admin-eventos pueda mostrar/editar el checkbox.
             'es_polera' => (bool) $this->es_polera,
+            // Souvenir obligatorio (22/10/2026) — visible (a diferencia de
+            // visible_participante=false) pero no se puede destildar en
+            // elascenso/event/index.php. La enforcement real de "tiene que
+            // venir en la inscripción" vive en api/_registro_validacion.php,
+            // no acá — mismo criterio que el resto de souvenirs.
+            'obligatorio' => (bool) $this->obligatorio,
             // Array vacío = disponibilidad no controlada (sin filas de
             // stock cargadas) — no significa "agotado", ver
             // DisponibilidadItemData.

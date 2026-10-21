@@ -36,6 +36,13 @@ class Souvenir extends Model
         // (si un form_type tiene varios con talla) es la polera de
         // verdad. No afecta precio/disponibilidad/formulario público.
         'es_polera',
+        // Souvenir obligatorio (22/10/2026) — ver migración
+        // add_obligatorio_to_souvenirs_table. A diferencia de `incluido`
+        // (solo pre-marca), este bloquea que el participante lo destilde
+        // en elascenso/event/index.php. Independiente de
+        // `visible_participante` — sigue siendo visible, solo que no se
+        // puede sacar.
+        'obligatorio',
     ];
 
     protected $casts = [
@@ -45,6 +52,7 @@ class Souvenir extends Model
         'visible_participante'   => 'boolean',
         'aplica_cargo_servicio'  => 'boolean',
         'es_polera'              => 'boolean',
+        'obligatorio'            => 'boolean',
     ];
 
 

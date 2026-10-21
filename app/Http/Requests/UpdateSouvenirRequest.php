@@ -44,6 +44,9 @@ class UpdateSouvenirRequest extends FormRequest
             // Reporte de poleras (03/09/2026) — ver migración
             // add_es_polera_to_souvenirs_table.
             'es_polera' => 'sometimes|boolean',
+            // Souvenir obligatorio (22/10/2026) — ver migración
+            // add_obligatorio_to_souvenirs_table.
+            'obligatorio' => 'sometimes|boolean',
         ];
     }
 
@@ -70,6 +73,9 @@ class UpdateSouvenirRequest extends FormRequest
             $esPolera = $this->has('es_polera')
                 ? $this->boolean('es_polera')
                 : (bool) ($souvenir->es_polera ?? false);
+            $obligatorio = $this->has('obligatorio')
+                ? $this->boolean('obligatorio')
+                : (bool) ($souvenir->obligatorio ?? false);
 
             if (! $visible && ($requiereTalla || $requiereSexo)) {
                 $validator->errors()->add(
@@ -85,6 +91,15 @@ class UpdateSouvenirRequest extends FormRequest
                 $validator->errors()->add(
                     'es_polera',
                     'Un souvenir marcado como "es la polera" tiene que requerir talla — si no, el reporte no tendría de dónde sacarla.'
+                );
+            }
+
+            // Souvenir obligatorio (22/10/2026) — mismo motivo que en
+            // StoreSouvenirRequest.
+            if ($obligatorio && ! $visible) {
+                $validator->errors()->add(
+                    'obligatorio',
+                    'Un souvenir obligatorio tiene que ser visible para el participante — si es invisible ya se asigna solo, "obligatorio" no tiene sentido ahí.'
                 );
             }
         });

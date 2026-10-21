@@ -187,6 +187,96 @@ class SouvenirInvisibleTest extends TestCase
         ])->assertStatus(422)->assertJsonValidationErrors(['es_polera']);
     }
 
+    // ── Souvenir obligatorio (22/10/2026, pedido real del usuario revisando
+    // el evento 90021 "PARAPETÍ INDOMABLE") — visible, con talla, pero el
+    // participante no puede destildarlo en elascenso/event/index.php. A
+    // diferencia de `visible_participante=false`, acá SÍ se puede requerir
+    // talla/sexo — el participante los sigue eligiendo, solo que no puede
+    // sacar el ítem del carrito. ──
+
+    public function test_crea_souvenir_marcado_como_obligatorio(): void
+    {
+        $admin = $this->actingAsAdmin();
+        $admin->update(['rol' => 'super_admin']);
+
+        $this->postJson('/api/v1/souvenir', [
+            'form_types_id' => $this->formType->id,
+            'name' => 'Poleras',
+            'price' => 0,
+            'icon' => '👕',
+            'requiere_talla' => true,
+            'obligatorio' => true,
+        ])->assertCreated()
+            ->assertJsonPath('souvenir.obligatorio', true);
+
+        $this->assertDatabaseHas('souvenirs', ['name' => 'Poleras', 'obligatorio' => true]);
+    }
+
+    public function test_souvenir_nuevo_no_es_obligatorio_por_defecto(): void
+    {
+        $admin = $this->actingAsAdmin();
+        $admin->update(['rol' => 'super_admin']);
+
+        $this->postJson('/api/v1/souvenir', [
+            'form_types_id' => $this->formType->id,
+            'name' => 'Poncho',
+            'price' => 10,
+            'icon' => '🧢',
+        ])->assertCreated()
+            ->assertJsonPath('souvenir.obligatorio', false);
+    }
+
+    public function test_rechaza_crear_souvenir_obligatorio_e_invisible_a_la_vez(): void
+    {
+        $admin = $this->actingAsAdmin();
+        $admin->update(['rol' => 'super_admin']);
+
+        $this->postJson('/api/v1/souvenir', [
+            'form_types_id' => $this->formType->id,
+            'name' => 'Poleras',
+            'price' => 0,
+            'visible_participante' => false,
+            'obligatorio' => true,
+        ])->assertStatus(422)->assertJsonValidationErrors(['obligatorio']);
+    }
+
+    public function test_rechaza_marcar_obligatorio_un_souvenir_que_ya_es_invisible(): void
+    {
+        $admin = $this->actingAsAdmin();
+        $admin->update(['rol' => 'super_admin']);
+
+        $souvenir = Souvenir::factory()->create([
+            'form_types_id' => $this->formType->id,
+            'visible_participante' => false,
+        ]);
+
+        $this->putJson('/api/v1/souvenir/'.$souvenir->id, [
+            'obligatorio' => true,
+        ])->assertStatus(422)->assertJsonValidationErrors(['obligatorio']);
+    }
+
+    public function test_souvenir_obligatorio_admite_requerir_talla_y_sexo(): void
+    {
+        $admin = $this->actingAsAdmin();
+        $admin->update(['rol' => 'super_admin']);
+
+        // A diferencia de visible_participante=false, obligatorio=true SÍ
+        // puede combinarse con requiere_talla/requiere_sexo — el ítem sigue
+        // siendo visible, el participante elige igual.
+        $this->postJson('/api/v1/souvenir', [
+            'form_types_id' => $this->formType->id,
+            'name' => 'Poleras',
+            'price' => 0,
+            'icon' => '👕',
+            'requiere_talla' => true,
+            'requiere_sexo' => true,
+            'obligatorio' => true,
+        ])->assertCreated()
+            ->assertJsonPath('souvenir.obligatorio', true)
+            ->assertJsonPath('souvenir.requiere_talla', true)
+            ->assertJsonPath('souvenir.requiere_sexo', true);
+    }
+
     // ── Filtro público vs admin en EventoController ─────────
 
     public function test_publico_no_ve_souvenirs_invisibles(): void
