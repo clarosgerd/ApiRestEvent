@@ -38,6 +38,11 @@ class UpdateRegistrationRequest extends FormRequest
             'participantes.*.telefono'                   => ['nullable', 'string'],
             'participantes.*.categoria'                  => ['required'],
             'participantes.*.precioCategoria'            => ['required', 'numeric'],
+            // Reserva de cupo con seña (21/10/2026) — mismo bug real que
+            // StoreRegistrationRequest (encontrado 22/10/2026): sin esta
+            // regla, `validated()` descarta esReserva y
+            // ActualizarInscripcionAction siempre la ve como false.
+            'participantes.*.esReserva'                  => ['nullable', 'boolean'],
             'participantes.*.donacion'                   => ['nullable', 'numeric'],
             'participantes.*.promoDescuento'             => ['nullable', 'numeric'],
             'participantes.*.promoCodigo'                => ['nullable', 'string'],

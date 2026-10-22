@@ -115,6 +115,15 @@ class StoreRegistrationRequest extends FormRequest
             '*.participantes.*.equipoId' => ['nullable','integer'],
             '*.participantes.*.quiereDelivery' => ['nullable','boolean'],
             '*.participantes.*.precioCategoria' => ['required','numeric'],
+            // Reserva de cupo con seña (21/10/2026) — bug real encontrado
+            // 22/10/2026: faltaba esta regla, así que `validated()` lo
+            // descartaba siempre (Laravel solo devuelve campos con regla
+            // declarada) y ParticipantDTO::fromArray() recibía esReserva
+            // siempre false sin importar lo que mandara el cliente —
+            // ValidarCategoriaAction terminaba comparando contra el precio
+            // completo en vez del de reserva y rechazaba toda inscripción
+            // con seña.
+            '*.participantes.*.esReserva' => ['nullable','boolean'],
             '*.participantes.*.nacimiento' => ['required','array'],
             '*.participantes.*.nacimiento.dia' => ['required','numeric'],
             '*.participantes.*.nacimiento.mes' => ['required','numeric'],

@@ -148,6 +148,48 @@ class ReservaCupoTest extends TestCase
 
     // ── ValidarCategoriaAction / CrearInscripcionAction ─────────────────
 
+    /**
+     * Bug real 22/10/2026 (reportado por el usuario en vivo, UAT): toda
+     * inscripción con reserva rechazaba con "El precio de la categoría no
+     * coincide con el vigente" aunque el precio mandado fuera el correcto.
+     * Causa: `StoreRegistrationRequest::rules()` nunca declaró una regla
+     * para `esReserva` — `$request->validated()` descarta cualquier campo
+     * sin regla, así que `ParticipantDTO` siempre lo recibía `false` sin
+     * importar lo que mandara el cliente, y `ValidarCategoriaAction`
+     * terminaba comparando contra el precio completo. Los tests de arriba
+     * (`test_alta_con_reserva_persiste_el_saldo_pendiente` y otros) nunca
+     * lo detectaron porque llaman a `CrearInscripcionAction` directo,
+     * salteando la capa HTTP/FormRequest donde vivía el bug — este test sí
+     * pasa por `postJson()` contra el endpoint real para cubrir ese gap.
+     */
+    public function test_alta_con_reserva_via_http_real_no_rechaza_por_falta_de_regla_esreserva(): void
+    {
+        $persona = $this->actingAsPersona();
+
+        $response = $this->postJson('/api/v1/registrations', [[
+            'referencia' => 'LA-HTTPRESERVA-' . uniqid(),
+            'fecha' => now()->toDateTimeString(),
+            'evento_id' => $this->evento->id,
+            'evento_nombre' => $this->evento->nombre,
+            'form_types_id' => $this->formType->id,
+            'tipo_pago' => 'QR',
+            'pago_status' => 'pending',
+            'pay_order_number' => null,
+            'totales' => [
+                'inscripcion' => 850, 'donacion' => 0, 'souvenirs' => 0, 'fee' => 42.5,
+                'descuento' => 0, 'descuento_registrante' => 0, 'grand_total' => 892.5,
+            ],
+            'participantes' => [$this->participanteData('10000099', [
+                'polera' => 'No shirt', 'precioCategoria' => 300, 'esReserva' => true, 'subtotal' => 300,
+            ])],
+        ]]);
+
+        $response->assertCreated();
+
+        $registration = Registration::where('referencia', 'like', 'LA-HTTPRESERVA-%')->firstOrFail();
+        $this->assertEquals(550.0, (float) $registration->saldo_pendiente);
+    }
+
     public function test_alta_con_reserva_persiste_el_saldo_pendiente(): void
     {
         $registration = app(CrearInscripcionAction::class)->handle(RegistrationDTO::fromArray([
