@@ -21,6 +21,7 @@ class RecordatorioManillaOftalmologia extends Command
         {--lugar= : Lugar de entrega}
         {--hora-inicio= : Hora de inicio}
         {--hora-cierre= : Hora de cierre}
+        {--excluir= : Correos a excluir, separados por coma}
         {--send : Sin esto, solo lista destinatarios sin enviar nada (dry-run)}';
 
     protected $description = 'Manda el recordatorio de recojo de manilla a los participantes pagados de un evento (envío puntual, no automático).';
@@ -47,19 +48,26 @@ class RecordatorioManillaOftalmologia extends Command
             return self::SUCCESS;
         }
 
+        $excluidos = collect(explode(',', (string) $this->option('excluir')))
+            ->map(fn ($c) => strtolower(trim($c)))
+            ->filter();
+        $destinatarios = $info['destinatarios']->reject(
+            fn ($correo) => $excluidos->contains(strtolower(trim($correo)))
+        )->values();
+
         $this->info("Evento: {$info['evento_nombre']} (id {$eventoId})");
-        $this->info("Inscripciones pagadas: {$info['inscripciones']} — destinatarios únicos: {$info['destinatarios']->count()}");
+        $this->info("Inscripciones pagadas: {$info['inscripciones']} — destinatarios únicos: {$info['destinatarios']->count()} — excluidos: " . ($info['destinatarios']->count() - $destinatarios->count()));
         $this->info("Fecha: {$fecha} · Lugar: {$lugar} · Horario: {$horaInicio} a {$horaCierre}");
 
         if (!$this->option('send')) {
             $this->newLine();
             $this->warn('DRY-RUN — no se mandó nada. Revisá la lista y corré de nuevo con --send.');
-            $this->table(['Correo'], $info['destinatarios']->map(fn ($c) => [$c])->all());
+            $this->table(['Correo'], $destinatarios->map(fn ($c) => [$c])->all());
 
             return self::SUCCESS;
         }
 
-        $resultado = $action->enviar($info['evento_nombre'], $info['destinatarios'], $fecha, $lugar, $horaInicio, $horaCierre);
+        $resultado = $action->enviar($info['evento_nombre'], $destinatarios, $fecha, $lugar, $horaInicio, $horaCierre);
 
         foreach ($resultado['fallidos'] as $f) {
             $this->error("Falló {$f}");

@@ -125,57 +125,8 @@ Schedule::command('participantes-externos:sincronizar-fuentes')
     ->withoutOverlapping()
     ->appendOutputTo($schedulerLog);
 
-// ── Recordatorio de manilla, Congreso de Oftalmología (22/10/2026, envío
-// puntual único, sin acceso SSH a UAT) — fecha/lugar/horario/cuándo-enviar
-// viven en storage/app/recordatorio_manilla_config.json, editable directo
-// desde el File Manager de cPanel, sin tocar código ni depender de
-// config() cacheado (mismo criterio que tipo_cambio_cache.json en
-// elascenso/event: se relee en texto plano cada vez). Se apaga solo
-// (enviado=true en el archivo) después del primer envío exitoso — correr
-// el schedule de más nunca reenvía. Quitar este bloque una vez mandado.
-Schedule::call(function () {
-    $path = storage_path('app/recordatorio_manilla_config.json');
-    if (!file_exists($path)) {
-        return;
-    }
-
-    $config = json_decode(file_get_contents($path), true);
-    if (!is_array($config) || empty($config['enabled']) || !empty($config['enviado'])) {
-        return;
-    }
-
-    foreach (['fecha', 'lugar', 'hora_inicio', 'hora_cierre'] as $campo) {
-        if (empty($config[$campo]) || $config[$campo] === 'COMPLETAR') {
-            return;
-        }
-    }
-
-    try {
-        $enviarEn = \Carbon\Carbon::parse($config['enviar_en'] ?? '');
-    } catch (\Throwable $e) {
-        return;
-    }
-    if (now()->lt($enviarEn)) {
-        return;
-    }
-
-    $action = app(\App\Actions\EnviarRecordatorioManillaOftalmologiaAction::class);
-    $info   = $action->destinatarios((int) ($config['evento_id'] ?? 0));
-    if ($info['inscripciones'] === 0) {
-        return;
-    }
-
-    $resultado = $action->enviar(
-        $info['evento_nombre'],
-        $info['destinatarios'],
-        (string) $config['fecha'],
-        (string) $config['lugar'],
-        (string) $config['hora_inicio'],
-        (string) $config['hora_cierre'],
-    );
-
-    $config['enviado']    = true;
-    $config['enviado_at'] = now()->toDateTimeString();
-    $config['resultado']  = ['enviados' => $resultado['enviados'], 'fallidos' => count($resultado['fallidos'])];
-    file_put_contents($path, json_encode($config, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
-})->everyMinute()->name('recordatorio-manilla-oftalmologia')->withoutOverlapping()->appendOutputTo($schedulerLog);
+// Recordatorio de manilla, Congreso de Oftalmología (22-23/10/2026) — ya se
+// mandó (288 enviados, confirmado en UAT 23/10 13:54) y se sacó el
+// Schedule::call de acá. Quedan como referencia: app/Mail/RecordatorioManillaOftalmologiaMail.php,
+// app/Actions/EnviarRecordatorioManillaOftalmologiaAction.php,
+// app/Console/Commands/RecordatorioManillaOftalmologia.php (uso manual).

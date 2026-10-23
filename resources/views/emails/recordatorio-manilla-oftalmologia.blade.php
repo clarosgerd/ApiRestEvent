@@ -14,8 +14,10 @@
   <tr><td style="padding:28px 32px;">
     <p style="font-size:14px;color:#1a2a3a;margin:0 0 16px;">Estimado/a Participante:</p>
     <p style="font-size:14px;color:#1a2a3a;margin:0 0 16px;line-height:1.6;">
-      ¡Estamos a pocos días de la gran fiesta del {{ $eventoNombre }}! Queremos que no te pierdas nada, por eso
-      te invitamos a pasar este sábado <strong>{{ $fecha }}</strong> a recoger tu manilla de acceso.
+       Vamos por el 2do Día de nuestro congreso
+      ¡Y mañana es la gran fiesta del {{ $eventoNombre }}! Queremos que no te pierdas nada, por eso
+      te invitamos a pasar este sábado <strong>{{ $fecha }}</strong> a recoger tu manilla de acceso
+      (personal e intransferible).
     </p>
 
     <table width="100%" cellpadding="0" cellspacing="0" style="font-size:13px;color:#1a2a3a;margin:0 0 16px;">
