@@ -227,6 +227,7 @@ class GafetesPdfTest extends TestCase
             'mostrar_descripcion_staff_ponente' => true,
             'mostrar_referencia' => true,
             'mostrar_pais' => true,
+            'mostrar_qr' => true,
         ];
 
         $controller = app(EventoController::class);
@@ -521,6 +522,7 @@ class GafetesPdfTest extends TestCase
             'mostrar_descripcion_staff_ponente' => true,
             'mostrar_referencia' => true,
             'mostrar_pais' => true,
+            'mostrar_qr' => true,
         ]);
 
         $this->assertSame('Dr. ' . $participante->nombre . ' ' . $participante->apellido, $item['nombre']);
@@ -549,6 +551,7 @@ class GafetesPdfTest extends TestCase
             'mostrar_descripcion_staff_ponente' => true,
             'mostrar_referencia' => true,
             'mostrar_pais' => true,
+            'mostrar_qr' => true,
         ]);
 
         $this->assertNull($item['categoria_descripcion']);
@@ -568,6 +571,7 @@ class GafetesPdfTest extends TestCase
             'mostrar_descripcion_staff_ponente' => false,
             'mostrar_referencia' => true,
             'mostrar_pais' => true,
+            'mostrar_qr' => true,
         ]);
 
         $this->assertNull($item['categoria_descripcion']);
@@ -584,6 +588,7 @@ class GafetesPdfTest extends TestCase
             'mostrar_descripcion_staff_ponente' => true,
             'mostrar_referencia' => true,
             'mostrar_pais' => true,
+            'mostrar_qr' => true,
         ]);
         $itemSinReferencia = $this->construirItemGafete($participante, $registration, $categories, [
             'mostrar_titulo' => false,
@@ -591,6 +596,7 @@ class GafetesPdfTest extends TestCase
             'mostrar_descripcion_staff_ponente' => true,
             'mostrar_referencia' => false,
             'mostrar_pais' => true,
+            'mostrar_qr' => true,
         ]);
 
         $this->assertSame($registration->referencia, $itemConReferencia['referencia']);
@@ -611,9 +617,147 @@ class GafetesPdfTest extends TestCase
             'mostrar_descripcion_staff_ponente' => true,
             'mostrar_referencia' => true,
             'mostrar_pais' => false,
+            'mostrar_qr' => true,
         ]);
 
         $this->assertNull($item['pais']);
+    }
+
+    // ── Mostrar/ocultar QR (23/10/2026, pedido real del usuario) ───────────
+
+    public function test_mostrar_qr_false_pone_el_qr_en_null(): void
+    {
+        $evento = $this->crearEvento();
+        [$participante, $registration, $categories] = $this->crearParticipanteConCategoria($evento, null);
+
+        $item = $this->construirItemGafete($participante, $registration, $categories, [
+            'mostrar_titulo' => false,
+            'mostrar_descripcion_categoria' => true,
+            'mostrar_descripcion_staff_ponente' => true,
+            'mostrar_referencia' => true,
+            'mostrar_pais' => true,
+            'mostrar_qr' => false,
+        ]);
+
+        $this->assertNull($item['qr']);
+    }
+
+    public function test_mostrar_qr_true_genera_el_qr_normalmente(): void
+    {
+        $evento = $this->crearEvento();
+        [$participante, $registration, $categories] = $this->crearParticipanteConCategoria($evento, null);
+
+        $item = $this->construirItemGafete($participante, $registration, $categories, [
+            'mostrar_titulo' => false,
+            'mostrar_descripcion_categoria' => true,
+            'mostrar_descripcion_staff_ponente' => true,
+            'mostrar_referencia' => true,
+            'mostrar_pais' => true,
+            'mostrar_qr' => true,
+        ]);
+
+        $this->assertNotNull($item['qr']);
+    }
+
+    public function test_gafete_completo_con_qr_apagado_no_rompe(): void
+    {
+        $evento = $this->crearEvento(['gafete_config' => ['mostrar_qr' => false]]);
+        $this->crearParticipante($evento);
+
+        $response = $this->get("/api/v1/event/{$evento->id}/gafetes-pdf");
+
+        $response->assertOk();
+        $response->assertHeader('Content-Type', 'application/pdf');
+    }
+
+    /**
+     * Bug real encontrado al revisar el pedido de QR (23/10/2026):
+     * gafetes.blade.php (modo "completo") nunca imprimía país ni
+     * referencia — esos 2 campos solo se agregaron a gafete-label.blade.php
+     * (modo pegatina). Los toggles existían, el checkbox existía, pero no
+     * tenían ningún efecto visible en el modo que usa la mayoría de los
+     * eventos. Se verifica renderizando la vista Blade directo (no el PDF
+     * final: dompdf comprime los streams de texto con FlateDecode, así que
+     * buscar texto plano en los bytes del PDF no encuentra nada aunque el
+     * texto esté ahí, codificado).
+     */
+    public function test_mostrar_pais_y_referencia_se_imprimen_en_modo_completo(): void
+    {
+        $evento = $this->crearEvento();
+        [$participante, $registration, $categories] = $this->crearParticipanteConCategoria($evento, null);
+        $participante->update(['pais' => 'Bolivia']);
+
+        $item = $this->construirItemGafete($participante->fresh(), $registration, $categories, [
+            'mostrar_titulo' => false,
+            'mostrar_descripcion_categoria' => true,
+            'mostrar_descripcion_staff_ponente' => true,
+            'mostrar_referencia' => true,
+            'mostrar_pais' => true,
+            'mostrar_qr' => true,
+        ]);
+
+        $html = view('tickets.gafetes', ['evento' => $evento, 'filas' => [[$item]], 'dims' => $this->dimsCompleto()])->render();
+
+        $this->assertStringContainsString('Bolivia', $html);
+        $this->assertStringContainsString($registration->referencia, $html);
+    }
+
+    public function test_mostrar_pais_y_referencia_false_no_se_imprimen_en_modo_completo(): void
+    {
+        $evento = $this->crearEvento();
+        [$participante, $registration, $categories] = $this->crearParticipanteConCategoria($evento, null);
+        $participante->update(['pais' => 'Bolivia']);
+
+        $item = $this->construirItemGafete($participante->fresh(), $registration, $categories, [
+            'mostrar_titulo' => false,
+            'mostrar_descripcion_categoria' => true,
+            'mostrar_descripcion_staff_ponente' => true,
+            'mostrar_referencia' => false,
+            'mostrar_pais' => false,
+            'mostrar_qr' => true,
+        ]);
+
+        $html = view('tickets.gafetes', ['evento' => $evento, 'filas' => [[$item]], 'dims' => $this->dimsCompleto()])->render();
+
+        $this->assertStringNotContainsString('Bolivia', $html);
+        $this->assertStringNotContainsString($registration->referencia, $html);
+    }
+
+    /** Shape mínima que gafetes.blade.php necesita de $dims (width/height/per_row para el CSS). */
+    private function dimsCompleto(): array
+    {
+        return ['width_cm' => 7.0, 'height_cm' => 5.0, 'per_row' => 3];
+    }
+
+    public function test_gafete_label_con_qr_apagado_y_sin_laterales_ni_referencia_da_una_sola_pagina(): void
+    {
+        $evento = $this->crearEvento(['gafete_config' => [
+            'tipo' => 'label', 'width_cm' => 5, 'height_cm' => 3,
+            'mostrar_qr' => false, 'mostrar_referencia' => false,
+        ]]);
+        $this->crearParticipante($evento);
+
+        $response = $this->get("/api/v1/event/{$evento->id}/gafetes-pdf");
+
+        $response->assertOk();
+        $paginas = preg_match_all('/\/Type\s*\/Page[^s]/', $response->getContent());
+        $this->assertSame(1, $paginas, 'Pegatina sin QR, sin laterales y sin referencia (solo nombre) debe seguir dando 1 sola página.');
+    }
+
+    public function test_gafete_label_con_qr_apagado_y_descripcion_pais_usa_todo_el_ancho(): void
+    {
+        $evento = $this->crearEvento(['gafete_config' => [
+            'tipo' => 'label', 'width_cm' => 5, 'height_cm' => 3,
+            'mostrar_qr' => false, 'mostrar_referencia' => true, 'mostrar_pais' => true,
+        ]]);
+        [$participante, $registration, $categories] = $this->crearParticipanteConCategoria($evento, 'Carrera 5K');
+        $participante->update(['pais' => 'Bolivia']);
+
+        $response = $this->get("/api/v1/event/{$evento->id}/participantes/{$participante->id}/gafete-pdf");
+
+        $response->assertOk();
+        $paginas = preg_match_all('/\/Type\s*\/Page[^s]/', $response->getContent());
+        $this->assertSame(1, $paginas, 'Pegatina sin QR pero con descripción+país (laterales) debe seguir dando 1 sola página.');
     }
 
     /** Defaults de gafeteDims(null): título apagado, el resto de piezas existentes prendidas (regresión). */
@@ -629,6 +773,7 @@ class GafetesPdfTest extends TestCase
         $this->assertSame('Carrera 5K', $item['categoria_descripcion']);
         $this->assertSame('Bolivia', $item['pais']);
         $this->assertSame($registration->referencia, $item['referencia']);
+        $this->assertNotNull($item['qr']);
     }
 
     /**

@@ -102,6 +102,7 @@ class UpdateEventosRequest extends FormRequest
             'gafeteConfig.mostrar_descripcion_staff_ponente' => 'sometimes|boolean',
             'gafeteConfig.mostrar_referencia'                => 'sometimes|boolean',
             'gafeteConfig.mostrar_pais'                      => 'sometimes|boolean',
+            'gafeteConfig.mostrar_qr'                        => 'sometimes|boolean',
             // SmartStand (25/09/2026) — configuración de expositores del evento.
             'expositoresConfig'                  => 'sometimes|nullable|array',
             'expositoresConfig.app_url_ios'      => 'sometimes|nullable|url|max:500',

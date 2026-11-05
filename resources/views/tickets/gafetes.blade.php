@@ -22,12 +22,24 @@
   .badge .body { display: table; width: 100%; }
   .badge .qr-cell { display: table-cell; width: 45%; vertical-align: middle; text-align: left; }
   .badge .role-cell { display: table-cell; width: 55%; vertical-align: middle; text-align: center; }
+  /* Sin QR (23/10/2026) — role-cell pasa a ser la única celda de la tabla,
+     ocupa todo el ancho en vez de quedar comprimida al 55% con un hueco en
+     blanco donde iba el QR. */
+  .badge .role-cell.full-width { width: 100%; }
   .badge img.qr { width: 62px; height: 62px; }
   .badge .role {
     font-size: 13px; font-weight: bold; text-transform: uppercase;
     letter-spacing: 0.5px;
   }
   .badge .role + .role { margin-top: 10px; }
+  /* Referencia (23/10/2026, fix real: mostrar_referencia/mostrar_pais
+     existían como toggle pero este archivo nunca llegó a imprimir
+     ninguno de los dos — solo gafete-label.blade.php lo hacía). Texto
+     chico y gris, igual criterio que .fila-referencia en gafete-label. */
+  .badge .ref {
+    text-align: center; font-size: 9px; font-weight: bold; color: #666;
+    margin-top: 8px;
+  }
 </style>
 </head>
 <body>
@@ -47,21 +59,44 @@
           <div class="badge" style="border-color: {{ $itemColor }};">
             <div class="name" style="color: {{ $itemColor }};">{{ $item['nombre'] }}</div>
             <div class="body">
-              <div class="qr-cell">
-                <img class="qr" src="data:image/png;base64,{{ $item['qr'] }}">
-              </div>
-              <div class="role-cell">
-                @if (!empty($item['rol']))
-                  <div class="role" style="color: {{ $itemColor }};">{{ $item['rol'] }}</div>
-                @endif
-                @if (!empty($item['categoria']) && $item['categoria'] !== ($item['rol'] ?? null))
-                  <div class="role" style="color: {{ $itemColor }};">{{ $item['categoria'] }}</div>
-                @endif
-                @if (!empty($item['categoria_descripcion']))
-                  <div class="role" style="color: {{ $itemColor }};">{{ $item['categoria_descripcion'] }}</div>
-                @endif
-              </div>
+              @if (!empty($item['qr']))
+                <div class="qr-cell">
+                  <img class="qr" src="data:image/png;base64,{{ $item['qr'] }}">
+                </div>
+                <div class="role-cell">
+                  @if (!empty($item['rol']))
+                    <div class="role" style="color: {{ $itemColor }};">{{ $item['rol'] }}</div>
+                  @endif
+                  @if (!empty($item['categoria']) && $item['categoria'] !== ($item['rol'] ?? null))
+                    <div class="role" style="color: {{ $itemColor }};">{{ $item['categoria'] }}</div>
+                  @endif
+                  @if (!empty($item['categoria_descripcion']))
+                    <div class="role" style="color: {{ $itemColor }};">{{ $item['categoria_descripcion'] }}</div>
+                  @endif
+                  @if (!empty($item['pais']))
+                    <div class="role" style="color: {{ $itemColor }};">{{ $item['pais'] }}</div>
+                  @endif
+                </div>
+              @else
+                <div class="role-cell full-width">
+                  @if (!empty($item['rol']))
+                    <div class="role" style="color: {{ $itemColor }};">{{ $item['rol'] }}</div>
+                  @endif
+                  @if (!empty($item['categoria']) && $item['categoria'] !== ($item['rol'] ?? null))
+                    <div class="role" style="color: {{ $itemColor }};">{{ $item['categoria'] }}</div>
+                  @endif
+                  @if (!empty($item['categoria_descripcion']))
+                    <div class="role" style="color: {{ $itemColor }};">{{ $item['categoria_descripcion'] }}</div>
+                  @endif
+                  @if (!empty($item['pais']))
+                    <div class="role" style="color: {{ $itemColor }};">{{ $item['pais'] }}</div>
+                  @endif
+                </div>
+              @endif
             </div>
+            @if (!empty($item['referencia']))
+              <div class="ref">{{ $item['referencia'] }}</div>
+            @endif
           </div>
         </td>
       @endforeach

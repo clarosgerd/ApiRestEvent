@@ -113,6 +113,12 @@
       // categoría arriba, país abajo — cada una solo si no está vacía.
       $lineasLaterales = array_filter([$item['categoria_descripcion'] ?? null, $item['pais'] ?? null]);
       $tieneLaterales = count($lineasLaterales) > 0;
+      // Mostrar/ocultar QR (23/10/2026, pedido real del usuario) — se lee
+      // de $item['qr'] directo (null cuando el toggle está apagado, ver
+      // EventoController::construirItemGafete()), no de $dims, mismo
+      // criterio que el resto de este archivo (categoria_descripcion,
+      // pais, referencia también se leen de $item).
+      $tieneQr = !empty($item['qr']);
       // Fuente del nombre: 3 escalones por longitud (nombre + título si
       // está prendido) — cuanto más largo, más chico, para necesitar menos
       // seguido una 2da línea. No garantiza 1 sola línea (dompdf decide el
@@ -120,38 +126,64 @@
       // asume 2 líneas de todos modos.
       $len = mb_strlen($item['nombre']);
       $nombrePt = $len > 22 ? 13 : ($len > 14 ? 16 : 20);
-      // QR cuadrado: se limita por AMBAS dimensiones de la pegatina (antes
-      // solo se limitaba por el ancho, causando el desborde vertical en
-      // pegatinas horizontales — ver comentario arriba). El alto reservado
-      // para nombre+referencia se calcula siempre para el PEOR caso del
-      // nombre (2 líneas, al tamaño de fuente real elegido arriba) — un
-      // nombre que termina en 1 sola línea simplemente deja un poco de aire
-      // de más, pero nunca desborda la página (bug real del 19-20/10/2026).
-      // 1pt ≈ 0.0353cm de alto de línea.
       $alturaNombreCm = ($nombrePt * 0.0353 * 2) + 0.3;
       $alturaReferenciaCm = !empty($item['referencia']) ? 0.35 : 0;
-      $qrPorAlto = max(0.8, $dims['height_cm'] - $alturaNombreCm - $alturaReferenciaCm);
-      $qrPorAncho = $dims['width_cm'] * ($tieneLaterales ? 0.55 : 0.9);
-      // QR al 70% del tamaño calculado: deja margen de aire alrededor.
-      $qrCm = min($qrPorAlto, $qrPorAncho) * 0.7;
+      if ($tieneQr) {
+        // QR cuadrado: se limita por AMBAS dimensiones de la pegatina (antes
+        // solo se limitaba por el ancho, causando el desborde vertical en
+        // pegatinas horizontales — ver comentario arriba). El alto reservado
+        // para nombre+referencia se calcula siempre para el PEOR caso del
+        // nombre (2 líneas, al tamaño de fuente real elegido arriba) — un
+        // nombre que termina en 1 sola línea simplemente deja un poco de aire
+        // de más, pero nunca desborda la página (bug real del 19-20/10/2026).
+        // 1pt ≈ 0.0353cm de alto de línea.
+        $qrPorAlto = max(0.8, $dims['height_cm'] - $alturaNombreCm - $alturaReferenciaCm);
+        $qrPorAncho = $dims['width_cm'] * ($tieneLaterales ? 0.55 : 0.9);
+        // QR al 70% del tamaño calculado: deja margen de aire alrededor.
+        $qrCm = min($qrPorAlto, $qrPorAncho) * 0.7;
+      }
+      // Sin QR (23/10/2026): la fila de laterales (si hay) no reserva una
+      // altura calculada a mano — se deja crecer por contenido natural,
+      // igual que fila-nombre/fila-referencia ya hacen. Forzar un `height`
+      // explícito acá, combinado con `table{height:100%}`, desbordaba a una
+      // 2da página en pegatinas angostas (bug real encontrado probando este
+      // mismo cambio) — el contenido real (1-2 líneas cortas) nunca
+      // necesita más que el aire natural de .celda-lateral.
     @endphp
     <div class="pegatina">
       <table>
         <tr class="fila-nombre">
           <td @if ($tieneLaterales) colspan="2" @endif style="font-size: {{ $nombrePt }}pt;">{{ $item['nombre'] }}</td>
         </tr>
-        <tr>
-          <td class="celda-qr" style="width: {{ $qrCm }}cm;">
-            <img src="data:image/png;base64,{{ $item['qr'] }}" style="width: {{ $qrCm }}cm; height: {{ $qrCm }}cm;">
-          </td>
-          @if ($tieneLaterales)
-            <td class="celda-lateral">
+        @if ($tieneQr)
+          <tr>
+            <td class="celda-qr" style="width: {{ $qrCm }}cm;">
+              <img src="data:image/png;base64,{{ $item['qr'] }}" style="width: {{ $qrCm }}cm; height: {{ $qrCm }}cm;">
+            </td>
+            @if ($tieneLaterales)
+              <td class="celda-lateral">
+                @foreach ($lineasLaterales as $linea)
+                  <div>{{ $linea }}</div>
+                @endforeach
+              </td>
+            @endif
+          </tr>
+        @elseif ($tieneLaterales)
+          <tr>
+            {{-- colspan="2" acá también (23/10/2026) — aunque esta fila solo
+                 tiene una celda real, las filas hermanas (nombre,
+                 referencia) siguen usando colspan="2" porque $tieneLaterales
+                 asume una tabla de 2 columnas de punta a punta; sin esto
+                 dompdf veía un modelo de columnas inconsistente entre filas
+                 y desbordaba a una 2da página (bug real encontrado al
+                 probar este mismo cambio). --}}
+            <td class="celda-lateral" colspan="2">
               @foreach ($lineasLaterales as $linea)
                 <div>{{ $linea }}</div>
               @endforeach
             </td>
-          @endif
-        </tr>
+          </tr>
+        @endif
         @if (!empty($item['referencia']))
           <tr class="fila-referencia">
             <td @if ($tieneLaterales) colspan="2" @endif>{{ $item['referencia'] }}</td>

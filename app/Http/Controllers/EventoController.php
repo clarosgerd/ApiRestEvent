@@ -24,6 +24,7 @@ use App\Http\Resources\EventoResource;
 use App\Services\EventoService;
 use App\Services\AdminAuditLogger;
 use App\Support\BalanceEventoData;
+use App\Support\AcreditacionesReporteData;
 use App\Support\DashboardInscripcionesData;
 use App\Support\ReporteInscritosData;
 use App\Filters\EventoFilter;
@@ -289,6 +290,26 @@ class EventoController extends Controller
             'balance' => BalanceEventoData::paraEvento($event),
             'reporteInscritos' => ReporteInscritosData::paraEvento($event),
         ] + DashboardInscripcionesData::paraEvento($event));
+    }
+
+    /**
+     * Reporte/dashboard de acreditaciones (check-in) por evento (28/10/2026)
+     * — pedido del organizador: saber cuántas acreditaciones se hicieron,
+     * contra cuántos participantes pagados (los únicos acreditables), con
+     * desglose por categoría, ritmo por hora y últimos acreditados.
+     *
+     * Solo la acreditación GENERAL del evento (`participantes.checked_in_at`)
+     * — la asistencia por sesión de congreso queda fuera a propósito
+     * (decisión del usuario); esa ya tiene su propio reporte de
+     * concurrencia (AsistenciaSesionController::reporte).
+     */
+    public function acreditacionesReporte(Evento $event): JsonResponse
+    {
+        $this->assertCanWriteEvento($event->id);
+
+        return response()->json([
+            'success' => true,
+        ] + AcreditacionesReporteData::paraEvento($event));
     }
 
     /**
@@ -681,7 +702,11 @@ return response()->json([
             // debe romper el QR, que siempre codifica la referencia real
             // (ver 'qr' abajo).
             'referencia' => $dims['mostrar_referencia'] ? $registration->referencia : null,
-            'qr'         => ReferenceQrService::toBase64Png($registration->referencia),
+            // Apagar el QR (23/10/2026) también ahorra generar la imagen
+            // para cada item de un PDF masivo — a diferencia de
+            // mostrar_referencia, que solo ocultaba el TEXTO y el QR
+            // siempre se generaba igual.
+            'qr'         => $dims['mostrar_qr'] ? ReferenceQrService::toBase64Png($registration->referencia) : null,
             'color'      => $this->safeHex($registration->formType->color ?? null),
         ];
     }
@@ -764,6 +789,11 @@ return response()->json([
             'mostrar_descripcion_staff_ponente' => (bool) ($config['mostrar_descripcion_staff_ponente'] ?? true),
             'mostrar_referencia'                => (bool) ($config['mostrar_referencia'] ?? true),
             'mostrar_pais'                       => (bool) ($config['mostrar_pais'] ?? true),
+            // Mostrar/ocultar el QR (23/10/2026, pedido real del usuario) —
+            // default true por el mismo motivo que los 4 de arriba: el QR
+            // siempre se imprimió, así que ningún evento existente cambia
+            // de output hasta que el organizador lo apague a mano.
+            'mostrar_qr'                          => (bool) ($config['mostrar_qr'] ?? true),
         ];
     }
 
