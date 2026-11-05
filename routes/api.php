@@ -280,6 +280,13 @@ Route::group(['prefix' => 'v1','namespace' => 'App\Http\Controllers'], function 
         // `balance` (ver BalanceEventoData) desde la sesión 11/08/2026.
         Route::get('/event/{event}/dashboard-inscripciones', [EventoController::class, 'dashboardInscripciones']);
 
+        // Reporte de acreditaciones (check-in) por evento (28/10/2026) —
+        // ver App\Support\AcreditacionesReporteData. Solo la acreditación
+        // general del evento (participantes.checked_in_at); la asistencia
+        // por sesión ya tiene su propio reporte más abajo
+        // (sesiones-reporte).
+        Route::get('/event/{event}/acreditaciones-reporte', [EventoController::class, 'acreditacionesReporte']);
+
         // Reporte de códigos promocionales usados, por evento (11/09/2026)
         // — ver PromoCodeReporteData.
         Route::get('/event/{event}/promo-codes-reporte', [PromoCodeController::class, 'reporte']);
