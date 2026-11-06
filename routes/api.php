@@ -162,6 +162,8 @@ Route::group(['prefix' => 'v1','namespace' => 'App\Http\Controllers'], function 
         Route::apiResource('/event', EventoController::class)->only(['store', 'update', 'destroy']);
         Route::patch('/event/{event}/publicar', [EventoController::class, 'publicar']);
         Route::patch('/event/{event}/despublicar', [EventoController::class, 'despublicar']);
+        // Clonar evento (23/10/2026) — ver ClonarEventoAction.
+        Route::post('/event/{event}/clonar', [EventoController::class, 'clonar']);
         Route::apiResource('/coordinate', CoordinateController::class)->only(['store', 'update', 'destroy']);
         Route::apiResource('/route', RouteController::class)->only(['store', 'update', 'destroy']);
         Route::apiResource('/category', CategoryController::class)->only(['store', 'update', 'destroy']);

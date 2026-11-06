@@ -16,9 +16,11 @@ use App\Services\ReferenceQrService;
 use App\Actions\CrearEventoAction;
 use App\Actions\PublicarEventoAction;
 use App\Actions\DespublicarEventoAction;
+use App\Actions\ClonarEventoAction;
 use App\DTOs\EventoDTO;
 use App\Http\Requests\StoreEventosRequest;
 use App\Http\Requests\UpdateEventosRequest;
+use App\Http\Requests\ClonarEventoRequest;
 use App\Http\Resources\EventoCollection;
 use App\Http\Resources\EventoResource;
 use App\Services\EventoService;
@@ -271,6 +273,26 @@ class EventoController extends Controller
             'message' => 'Evento despublicado correctamente.',
             'eventos' => new EventoResource($event->fresh()->loadMissing(['coordinates', 'routes', 'promoCodes', 'categories.pricePeriods', 'formTypes.souvenirs' => $this->souvenirsVisiblesScope($event->id), 'formTypes.formularioCampos.options', 'organizador.formasPagoSeleccionadas', 'auspiciadores', 'agendaItems', 'equipos'])),
         ]);
+    }
+
+    /**
+     * Clonar evento (23/10/2026, pedido real del usuario) — duplica toda la
+     * configuración (categorías, tipos de formulario, souvenirs, talleres/
+     * sesiones/combos, agenda, auspiciadores, promo codes) en un evento
+     * nuevo, sin ningún dato transaccional (inscripciones, participantes,
+     * numeración ya asignada, stock consumido). Ver ClonarEventoAction.
+     */
+    public function clonar(Evento $event, ClonarEventoRequest $request): JsonResponse
+    {
+        $this->assertCanWriteEvento($event->id);
+
+        $nuevo = app(ClonarEventoAction::class)->handle($event, $request->validated()['nombre']);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Evento clonado correctamente.',
+            'eventos' => new EventoResource($nuevo),
+        ], 201);
     }
 
     /**
